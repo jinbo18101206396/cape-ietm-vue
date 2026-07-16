@@ -1,45 +1,37 @@
 <template>
   <a-card :bordered="false">
-    <!-- 查询区域 -->
+    <!-- 查询区域和操作按钮 -->
     <div class="table-page-search-wrapper">
-      <a-form layout="inline" @keyup.enter.native="searchQuery">
+      <a-form layout="inline">
         <a-row :gutter="24">
           <a-col :xl="6" :lg="7" :md="8" :sm="24">
             <a-form-item label="手册标准">
               <j-dict-select-tag v-model="queryParam.standard" dictCode="standard_type" />
             </a-form-item>
           </a-col>
-          <a-col :xl="6" :lg="7" :md="8" :sm="24">
-            <a-button type="primary" @click="searchQuery" icon="search">查询</a-button>
-            <a-button type="primary" @click="searchReset" icon="reload" style="margin-left: 8px">重置</a-button>
+          <a-col :xl="18" :lg="17" :md="16" :sm="24">
+            <a-button @click="handleAdd" type="primary" icon="plus">新增</a-button>
+            <a-button type="primary" icon="download" @click="handleExportXls('预制模板-信息码管理')" style="margin-left: 8px">导出</a-button>
+            <a-upload name="file" :showUploadList="false" :multiple="false" :headers="tokenHeader" :action="importExcelUrl" @change="handleImportExcel">
+              <a-button type="primary" icon="import" style="margin-left: 8px">导入</a-button>
+            </a-upload>
+            <j-super-query :fieldList="superFieldList" ref="superQueryModal" @handleSuperQuery="handleSuperQuery" style="margin-left: 8px"></j-super-query>
+            <a-dropdown v-if="selectedRowKeys.length > 0" style="margin-left: 8px">
+              <a-menu slot="overlay">
+                <a-menu-item key="1" @click="batchDel">
+                  <a-icon type="delete" />
+                  删除
+                </a-menu-item>
+              </a-menu>
+              <a-button> 批量操作
+                <a-icon type="down" />
+              </a-button>
+            </a-dropdown>
           </a-col>
         </a-row>
       </a-form>
     </div>
     <!-- 查询区域-END -->
-
-    <!-- 操作按钮区域 -->
-    <div class="table-operator">
-        <a-button @click="handleAdd" type="primary" icon="plus">新增</a-button>
-        <a-button type="primary" icon="download" @click="handleExportXls('预制模板-信息码管理')">导出</a-button>
-        <a-upload name="file" :showUploadList="false" :multiple="false" :headers="tokenHeader" :action="importExcelUrl" @change="handleImportExcel">
-            <a-button type="primary" icon="import">导入</a-button>
-        </a-upload>
-      <!-- 高级查询区域 -->
-      <j-super-query :fieldList="superFieldList" ref="superQueryModal"
-                     @handleSuperQuery="handleSuperQuery"></j-super-query>
-      <a-dropdown v-if="selectedRowKeys.length > 0">
-        <a-menu slot="overlay">
-          <a-menu-item key="1" @click="batchDel">
-            <a-icon type="delete" />
-            删除
-          </a-menu-item>
-        </a-menu>
-        <a-button style="margin-left: 8px"> 批量操作
-          <a-icon type="down" />
-        </a-button>
-      </a-dropdown>
-    </div>
 
     <!-- table区域-begin -->
     <div>
@@ -225,12 +217,7 @@ export default {
     getSuperFieldList() {
       let fieldList = []
       fieldList.push({ type: 'string', value: 'infoCode', text: '编码', dictCode: '' })
-      fieldList.push({
-        type: 'popup',
-        value: 'dmtypeName',
-        text: '数据模块名称',
-        popup: { code: 'ietm_standard_dmtype', field: 'id', orgFields: 'id', destFields: 'dmtype_id' }
-      })
+      fieldList.push({ type: 'string', value: 'dmtypeName', text: '数据模块名称', dictCode: '' })
       fieldList.push({ type: 'string', value: 'description', text: '描述', dictCode: '' })
       fieldList.push({ type: 'string', value: 'remark', text: '备注', dictCode: '' })
       fieldList.push({ type: 'int', value: 'security', text: '密级', dictCode: 'security' })
