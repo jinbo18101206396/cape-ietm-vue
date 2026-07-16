@@ -60,13 +60,20 @@
             :rowSelection="{selectedRowKeys: selectedRowKeys, onChange: onSelectChange}">
 
             <template slot="roleId" slot-scope="text, record">
-              <j-dict-select-tag
+              <a-select
                 v-if="record.editable"
                 v-model="record.roleId"
-                dictCode="sys_role,role_name,id"
                 placeholder="请选择角色"
                 style="width: 100%"
-              />
+                show-search
+                :filter-option="filterOption">
+                <a-select-option
+                  v-for="role in filteredRoles"
+                  :key="role.value"
+                  :value="role.value">
+                  {{ role.text }}
+                </a-select-option>
+              </a-select>
               <span v-else>{{ record.roleName }}</span>
             </template>
 
@@ -132,6 +139,7 @@ export default {
       selectedRowKeys: [],
       expandedKeys: [],
       currentLeafNodes: [], // 当前选中非叶节点下的所有叶子节点
+      roleList: [],
       replaceFields: {
         children: 'children',
         title: 'title',
@@ -142,14 +150,32 @@ export default {
         getCmTree: '/projectconfigurationmanagement/ietmProjectConfigurationManagement/getTreeList',
         listAuth: '/ietmroleauth/ietmRoleauth/listWithNames',
         batchSave: '/ietmroleauth/ietmRoleauth/batchSave',
-        deleteBatch: '/ietmroleauth/ietmRoleauth/deleteBatch'
+        deleteBatch: '/ietmroleauth/ietmRoleauth/deleteBatch',
+        getRoles: '/sys/dict/getDictItems/sys_role,role_name,id'
       }
+    }
+  },
+  computed: {
+    filteredRoles() {
+      // 过滤掉管理员角色
+      return this.roleList.filter(role => {
+        return role.text !== '管理员' && role.value !== 'admin'
+      })
     }
   },
   created() {
     this.loadProjectList()
+    this.loadRoles()
   },
   methods: {
+    // 加载角色列表
+    loadRoles() {
+      getAction(this.url.getRoles).then(res => {
+        if (res.success) {
+          this.roleList = res.result || []
+        }
+      })
+    },
     // 加载项目列表
     loadProjectList() {
       getAction(this.url.listProject).then(res => {
@@ -426,14 +452,8 @@ export default {
         title: '确认删除',
         content: '确定要删除选中的授权记录吗？',
         onOk: () => {
-          const ids = this.selectedRowKeys.filter(id => !id.toString().startsWith('new_')).join(',')
-          if (!ids) {
-            // 只删除了新增的未保存记录
-            this.authList = this.authList.filter(item => !this.selectedRowKeys.includes(item.id))
-            this.selectedRowKeys = []
-            this.$message.success('删除成功！')
-            return
-          }
+          // 不再过滤'new_'开头的ID，统一发送到后端删除
+          const ids = this.selectedRowKeys.join(',')
 
           deleteAction(this.url.deleteBatch, { ids }).then(res => {
             if (res.success) {

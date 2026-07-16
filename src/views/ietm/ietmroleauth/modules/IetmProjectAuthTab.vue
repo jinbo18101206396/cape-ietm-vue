@@ -46,13 +46,20 @@
             :rowSelection="{selectedRowKeys: selectedRowKeys, onChange: onSelectChange}">
 
             <template slot="roleId" slot-scope="text, record">
-              <j-dict-select-tag
+              <a-select
                 v-if="record.editable"
                 v-model="record.roleId"
-                dictCode="sys_role,role_name,id"
                 placeholder="请选择角色"
                 style="width: 100%"
-              />
+                show-search
+                :filter-option="filterOption">
+                <a-select-option
+                  v-for="role in filteredRoles"
+                  :key="role.value"
+                  :value="role.value">
+                  {{ role.text }}
+                </a-select-option>
+              </a-select>
               <span v-else>{{ record.roleName }}</span>
             </template>
 
@@ -120,6 +127,7 @@ export default {
       authLoading: false,
       selectedProjectId: '',
       selectedRowKeys: [],
+      roleList: [],
       projectPagination: {
         current: 1,
         pageSize: 10,
@@ -131,14 +139,36 @@ export default {
         listProject: '/ietmproject/ietmProject/listData',
         listAuth: '/ietmroleauth/ietmRoleauth/listWithNames',
         batchSave: '/ietmroleauth/ietmRoleauth/batchSave',
-        deleteBatch: '/ietmroleauth/ietmRoleauth/deleteBatch'
+        deleteBatch: '/ietmroleauth/ietmRoleauth/deleteBatch',
+        getRoles: '/sys/dict/getDictItems/sys_role,role_name,id'
       }
+    }
+  },
+  computed: {
+    filteredRoles() {
+      // 过滤掉管理员角色
+      return this.roleList.filter(role => {
+        return role.text !== '管理员' && role.value !== 'admin'
+      })
     }
   },
   created() {
     this.loadProjectList()
+    this.loadRoles()
   },
   methods: {
+    // 加载角色列表
+    loadRoles() {
+      getAction(this.url.getRoles).then(res => {
+        if (res.success) {
+          this.roleList = res.result || []
+        }
+      })
+    },
+    // 下拉选项过滤
+    filterOption(input, option) {
+      return option.componentOptions.children[0].text.toLowerCase().indexOf(input.toLowerCase()) >= 0
+    },
     // 加载项目列表
     loadProjectList() {
       this.projectLoading = true
@@ -163,6 +193,10 @@ export default {
             ...item,
             editable: false
           }))
+          console.log('加载的授权列表:', this.authList)
+          if (this.authList.length > 0) {
+            console.log('第一条记录ID:', this.authList[0].id, '类型:', typeof this.authList[0].id)
+          }
         } else {
           this.$message.error(res.message || '加载授权列表失败')
         }
@@ -268,20 +302,20 @@ export default {
         return
       }
 
+      console.log('=== 删除角色授权 ===')
+      console.log('选中的记录ID:', this.selectedRowKeys)
+
       this.$confirm({
         title: '确认删除',
         content: '确定要删除选中的授权记录吗？',
         onOk: () => {
-          const ids = this.selectedRowKeys.filter(id => !id.toString().startsWith('new_')).join(',')
-          if (!ids) {
-            // 只删除了新增的未保存记录
-            this.authList = this.authList.filter(item => !this.selectedRowKeys.includes(item.id))
-            this.selectedRowKeys = []
-            this.$message.success('删除成功！')
-            return
-          }
+          // 不再过滤'new_'开头的ID，统一发送到后端删除
+          const ids = this.selectedRowKeys.join(',')
+          console.log('删除的ID:', ids)
 
+          console.log('发送删除请求:', this.url.deleteBatch, { ids })
           deleteAction(this.url.deleteBatch, { ids }).then(res => {
+            console.log('删除响应:', res)
             if (res.success) {
               this.$message.success('删除成功！')
               this.loadAuthList(this.selectedProjectId)
@@ -290,6 +324,7 @@ export default {
               this.$message.error(res.message || '删除失败！')
             }
           }).catch(err => {
+            console.error('删除失败:', err)
             this.$message.error('删除失败：' + err.message)
           })
         }
