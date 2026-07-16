@@ -73,8 +73,33 @@ export default {
   padding: 0;
 }
 
+/deep/ .ant-table-thead > tr > th {
+  padding: 20px 5px !important;
+  border-right: 1px solid #e8e8e8 !important;
+  height: 60px !important;
+}
+
 /deep/ .ant-table-tbody .ant-table-row td {
-  padding: 10px 5px ;
+  padding: 10px 5px !important;
+  border-right: 1px solid #e8e8e8 !important;
+}
+
+/deep/ .ant-table-bordered .ant-table-thead > tr > th,
+/deep/ .ant-table-bordered .ant-table-tbody > tr > td {
+  border: 1px solid #e8e8e8 !important;
+}
+
+/deep/ .ant-table {
+  border: 1px solid #e8e8e8 !important;
+}
+
+/deep/ .ant-table-bordered {
+  border-collapse: collapse !important;
+}
+
+/deep/ .ant-table-header {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
 }
 
 </style>

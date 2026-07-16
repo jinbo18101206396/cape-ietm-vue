@@ -20,6 +20,20 @@
       <span v-if="device === 'desktop'"></span>
       <span v-else>Jeecg-Boot</span>
 
+      <!-- 当前项目信息 -->
+      <div v-if="currentProject" class="current-project-info">
+        <div class="project-container">
+          <a-icon type="folder-open" class="project-icon" />
+          <span class="project-label">当前手册项目：</span>
+          <span class="project-name">{{ currentProject.projectName }}</span>
+        </div>
+        <a-divider type="vertical" class="divider" />
+        <a class="close-project-btn" @click="handleCloseProject">
+          <a-icon type="close-circle" />
+          <span>关闭项目</span>
+        </a>
+      </div>
+
       <user-menu :theme="theme"/>
     </div>
     <!-- 顶部导航栏模式 -->
@@ -53,6 +67,7 @@
   import SMenu from '../menu/'
   import Logo from '../tools/Logo'
   import { mixin } from '@/utils/mixin.js'
+  import { mapState, mapActions } from 'vuex'
 
   export default {
     name: 'GlobalHeader',
@@ -99,6 +114,11 @@
         chatStatus: '',
       }
     },
+    computed: {
+      ...mapState({
+        currentProject: state => state.project.currentProject
+      })
+    },
     watch: {
       /** 监听设备变化 */
       device() {
@@ -121,8 +141,22 @@
         this.buildTopMenuStyle()
       }
       //update-end--author:sunjianlei---date:20190508------for: 顶部导航栏过长时显示更多按钮-----
+      // 加载当前项目
+      this.LoadCurrentProject()
+      // 监听项目变化事件
+      if (this.$bus) {
+        this.$bus.$on('project-changed', this.handleProjectChanged)
+        this.$bus.$on('project-closed', this.handleProjectClosed)
+      }
+    },
+    beforeDestroy() {
+      if (this.$bus) {
+        this.$bus.$off('project-changed', this.handleProjectChanged)
+        this.$bus.$off('project-closed', this.handleProjectClosed)
+      }
     },
     methods: {
+      ...mapActions(['LoadCurrentProject', 'CloseProject']),
       handleScroll() {
         if (this.autoHideHeader) {
           let scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop
@@ -163,6 +197,39 @@
         this.$emit('updateMenuTitle', value)
       },
       // update-end-author:sunjianlei date:20210508 for: 修复动态功能测试菜单、带参数菜单标题错误、展开错误的问题
+
+      // 处理项目变化事件
+      handleProjectChanged(project) {
+        this.LoadCurrentProject()
+      },
+
+      // 处理项目关闭事件
+      handleProjectClosed() {
+        this.LoadCurrentProject()
+      },
+
+      // 关闭当前项目
+      handleCloseProject() {
+        const that = this
+        this.$confirm({
+          title: '确认关闭项目',
+          content: '关闭当前项目将清除项目上下文，是否确认？',
+          okText: '确认',
+          cancelText: '取消',
+          onOk() {
+            that.CloseProject()
+              .then(() => {
+                that.$message.success('项目已关闭')
+                if (that.$bus) {
+                  that.$bus.$emit('project-closed')
+                }
+              })
+              .catch(error => {
+                that.$message.error(error || '关闭项目失败')
+              })
+          }
+        })
+      }
 
     }
   }
@@ -218,6 +285,72 @@
   .ant-layout-header {
     height: @height;
     line-height: @height;
+  }
+
+  .current-project-info {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 24px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 6px 16px;
+    border-radius: 6px;
+    backdrop-filter: blur(10px);
+    height: 36px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+
+    .project-container {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+
+      .project-icon {
+        color: #fff;
+        font-size: 16px;
+        font-weight: bold;
+      }
+
+      .project-label {
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 15px;
+        font-weight: bold;
+      }
+
+      .project-name {
+        color: #fff;
+        font-size: 15px;
+        font-weight: bold;
+      }
+    }
+
+    .divider {
+      background: rgba(255, 255, 255, 0.4);
+      height: 20px;
+      margin: 0 16px;
+    }
+
+    .close-project-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #fff;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+      padding: 4px 10px;
+      border-radius: 4px;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.3);
+        color: #fff;
+        transform: translateY(-1px);
+      }
+
+      .anticon {
+        font-size: 16px;
+      }
+    }
   }
 
   /* update_end author:scott date:20190220 for: 缩小首页布局顶部的高度*/

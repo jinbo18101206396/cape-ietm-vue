@@ -1,25 +1,11 @@
 <template>
   <div class="project-list-container">
-    <!-- 当前项目显示 -->
-    <div class="current-project-bar" v-if="currentProject">
-      <a-space>
-        <a-tag color="blue">
-          <a-icon type="folder-open" />
-          当前项目：{{ currentProject.projectName }}
-        </a-tag>
-        <a-button type="link" size="small" @click="handleCloseProject">
-          <a-icon type="close" /> 关闭项目
-        </a-button>
-      </a-space>
-    </div>
-
     <!-- 项目列表 -->
     <a-table
       :columns="columns"
       :data-source="dataSource"
       :loading="loading"
       :pagination="false"
-      :scroll="{ x: true, y: scrollY }"
       :row-key="record => record.id"
       bordered
     >
@@ -49,6 +35,7 @@
 import { getAction, postAction } from '@/api/manage'
 import { mixinDevice } from '@/utils/mixin'
 import { JeecgListMixin } from '@/mixins/JeecgListMixin'
+import { mapState, mapActions } from 'vuex'
 
 export default {
   name: 'ProjectList',
@@ -58,7 +45,6 @@ export default {
       description: '首页-手册项目列表',
       loading: false,
       dataSource: [],
-      currentProject: null,
       scrollY: 0,
       columns: [
         {
@@ -71,18 +57,20 @@ export default {
         {
           title: '项目名称',
           dataIndex: 'name',
-          width: 180,
-          ellipsis: true
+          width: 250,
+          align: 'center'
         },
         {
           title: '装备编码',
           dataIndex: 'equipmentCode',
-          width: 150
+          width: 150,
+          align: 'center'
         },
         {
           title: 'IETM标准',
           dataIndex: 'ietmStandard',
-          width: 120
+          width: 120,
+          align: 'center'
         },
         {
           title: '密级',
@@ -96,7 +84,6 @@ export default {
           dataIndex: 'action',
           width: 150,
           align: 'center',
-          fixed: 'right',
           scopedSlots: { customRender: 'action' }
         }
       ],
@@ -108,9 +95,14 @@ export default {
       }
     }
   },
+  computed: {
+    ...mapState({
+      currentProject: state => state.project.currentProject
+    })
+  },
   created() {
     this.loadData()
-    this.loadCurrentProject()
+    this.LoadCurrentProject()
   },
   mounted() {
     this.calcScrollHeight()
@@ -120,6 +112,7 @@ export default {
     window.removeEventListener('resize', this.calcScrollHeight)
   },
   methods: {
+    ...mapActions(['LoadCurrentProject', 'OpenProject']),
     calcScrollHeight() {
       this.scrollY = window.innerHeight * 0.5 - 170
     },
@@ -155,18 +148,6 @@ export default {
         })
     },
 
-    loadCurrentProject() {
-      getAction('/ietmproject/ietmProject/getCurrentProject')
-        .then(res => {
-          if (res.success && res.result) {
-            this.currentProject = res.result
-          }
-        })
-        .catch(error => {
-          console.error('加载当前项目失败:', error)
-        })
-    },
-
     handleOpenProject(record) {
       const that = this
       this.$confirm({
@@ -175,53 +156,15 @@ export default {
         okText: '确认',
         cancelText: '取消',
         onOk() {
-          postAction('/ietmproject/ietmProject/openProject', {
-            projectId: record.id
-          })
-            .then(res => {
-              if (res.success) {
-                that.$message.success('项目打开成功')
-                that.currentProject = res.result
-
-                if (that.$bus) {
-                  that.$bus.$emit('project-changed', res.result)
-                }
-              } else {
-                that.$message.error(res.message || '打开项目失败')
+          that.OpenProject(record)
+            .then(result => {
+              that.$message.success('项目打开成功')
+              if (that.$bus) {
+                that.$bus.$emit('project-changed', result)
               }
             })
             .catch(error => {
-              console.error('打开项目失败:', error)
-              that.$message.error('打开项目失败')
-            })
-        }
-      })
-    },
-
-    handleCloseProject() {
-      const that = this
-      this.$confirm({
-        title: '确认关闭项目',
-        content: '关闭当前项目将清除项目上下文，是否确认？',
-        okText: '确认',
-        cancelText: '取消',
-        onOk() {
-          postAction('/ietmproject/ietmProject/closeProject')
-            .then(res => {
-              if (res.success) {
-                that.$message.success('项目已关闭')
-                that.currentProject = null
-
-                if (that.$bus) {
-                  that.$bus.$emit('project-closed')
-                }
-              } else {
-                that.$message.error(res.message || '关闭项目失败')
-              }
-            })
-            .catch(error => {
-              console.error('关闭项目失败:', error)
-              that.$message.error('关闭项目失败')
+              that.$message.error(error || '打开项目失败')
             })
         }
       })
@@ -232,13 +175,6 @@ export default {
 
 <style scoped lang="less">
 .project-list-container {
-  padding: 16px;
-
-  .current-project-bar {
-    margin-bottom: 16px;
-    padding: 12px;
-    background: #f0f2f5;
-    border-radius: 4px;
-  }
+  // 样式已移除当前项目栏
 }
 </style>
