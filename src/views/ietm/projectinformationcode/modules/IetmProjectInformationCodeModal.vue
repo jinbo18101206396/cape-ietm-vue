@@ -20,6 +20,12 @@
     components: {
       IetmProjectInformationCodeForm
     },
+    props: {
+      dmtypeOptions: {
+        type: Array,
+        default: () => []
+      }
+    },
     data () {
       return {
         title:'',
@@ -33,12 +39,14 @@
         this.visible=true
         this.$nextTick(()=>{
           this.$refs.realForm.add();
+          this.$refs.realForm.setDmtypeOptions(this.dmtypeOptions);
         })
       },
       edit (record) {
         this.visible=true
         this.$nextTick(()=>{
           this.$refs.realForm.edit(record);
+          this.$refs.realForm.setDmtypeOptions(this.dmtypeOptions);
         })
       },
       close () {

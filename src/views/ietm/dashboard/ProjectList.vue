@@ -1,104 +1,244 @@
 <template>
-  <div>
+  <div class="project-list-container">
+    <!-- 当前项目显示 -->
+    <div class="current-project-bar" v-if="currentProject">
+      <a-space>
+        <a-tag color="blue">
+          <a-icon type="folder-open" />
+          当前项目：{{ currentProject.projectName }}
+        </a-tag>
+        <a-button type="link" size="small" @click="handleCloseProject">
+          <a-icon type="close" /> 关闭项目
+        </a-button>
+      </a-space>
+    </div>
+
+    <!-- 项目列表 -->
     <a-table
       :columns="columns"
-      :scroll="{x:true, y:scrollY}"
-      :dataSource="dataSource"
+      :data-source="dataSource"
+      :loading="loading"
       :pagination="false"
-      bordered>
+      :scroll="{ x: true, y: scrollY }"
+      :row-key="record => record.id"
+      bordered
+    >
+      <span slot="security" slot-scope="text">
+        <a-tag :color="getSecurityColor(text)">
+          {{ getSecurityText(text) }}
+        </a-tag>
+      </span>
+
       <span slot="action" slot-scope="text, record">
-        <a-popconfirm title="打开新的手册项目将关闭所有功能页签，是否确认打开该项目?" @confirm="() => handleOpenProject(record.id)">
-          <a>打开项目</a>
-        </a-popconfirm>
-        </span>
+        <a-button
+          v-if="!isCurrentProject(record.id)"
+          type="link"
+          @click="handleOpenProject(record)"
+        >
+          打开项目
+        </a-button>
+        <a-tag v-else color="red">
+          <a-icon type="check-circle" /> 当前项目
+        </a-tag>
+      </span>
     </a-table>
   </div>
 </template>
 
 <script>
-
-import '@/assets/less/TableExpand.less'
+import { getAction, postAction } from '@/api/manage'
 import { mixinDevice } from '@/utils/mixin'
 import { JeecgListMixin } from '@/mixins/JeecgListMixin'
 
 export default {
   name: 'ProjectList',
   mixins: [mixinDevice, JeecgListMixin],
-  components: {},
   data() {
     return {
       description: '首页-手册项目列表',
+      loading: false,
+      dataSource: [],
+      currentProject: null,
       scrollY: 0,
-      // 表头
       columns: [
         {
           title: '序号',
-          dataIndex: '',
-          key: 'rowIndex',
+          dataIndex: 'index',
           width: 60,
           align: 'center',
-          customRender: function(t, r, index) {
-            return parseInt(index) + 1
-          }
+          customRender: (text, record, index) => index + 1
         },
         {
           title: '项目名称',
-          align: 'left',
           dataIndex: 'name',
-          width: 180
+          width: 180,
+          ellipsis: true
         },
         {
           title: '装备编码',
-          align: 'left',
           dataIndex: 'equipmentCode',
-          width: 180
+          width: 150
         },
         {
           title: 'IETM标准',
-          align: 'left',
           dataIndex: 'ietmStandard',
-          width: 180
+          width: 120
         },
         {
           title: '密级',
-          align: 'center',
           dataIndex: 'security',
-          width: 147
+          width: 100,
+          align: 'center',
+          scopedSlots: { customRender: 'security' }
         },
         {
           title: '操作',
           dataIndex: 'action',
+          width: 150,
           align: 'center',
           fixed: 'right',
-          width: 147,
           scopedSlots: { customRender: 'action' }
         }
       ],
-      dataSource: [],
-      url: {
-        list: '/ietmproject/ietmProject/listData'
+      securityDict: {
+        1: { text: '公开', color: 'green' },
+        2: { text: '内部', color: 'blue' },
+        3: { text: '秘密', color: 'orange' },
+        4: { text: '机密', color: 'red' }
       }
     }
   },
   created() {
-
+    this.loadData()
+    this.loadCurrentProject()
   },
   mounted() {
     this.calcScrollHeight()
+    window.addEventListener('resize', this.calcScrollHeight)
   },
-  computed: {},
-
+  beforeDestroy() {
+    window.removeEventListener('resize', this.calcScrollHeight)
+  },
   methods: {
     calcScrollHeight() {
-      console.log(window.innerHeight)
       this.scrollY = window.innerHeight * 0.5 - 170
     },
-    handleOpenProject(){
 
+    getSecurityText(value) {
+      return this.securityDict[value] ? this.securityDict[value].text : '未知'
+    },
+
+    getSecurityColor(value) {
+      return this.securityDict[value] ? this.securityDict[value].color : 'default'
+    },
+
+    isCurrentProject(projectId) {
+      return this.currentProject && this.currentProject.projectId === projectId
+    },
+
+    loadData() {
+      this.loading = true
+      getAction('/ietmproject/ietmProject/listData', {})
+        .then(res => {
+          if (res.success) {
+            this.dataSource = res.result || []
+          } else {
+            this.$message.error(res.message || '加载项目列表失败')
+          }
+        })
+        .catch(error => {
+          console.error('加载项目列表失败:', error)
+          this.$message.error('加载项目列表失败')
+        })
+        .finally(() => {
+          this.loading = false
+        })
+    },
+
+    loadCurrentProject() {
+      getAction('/ietmproject/ietmProject/getCurrentProject')
+        .then(res => {
+          if (res.success && res.result) {
+            this.currentProject = res.result
+          }
+        })
+        .catch(error => {
+          console.error('加载当前项目失败:', error)
+        })
+    },
+
+    handleOpenProject(record) {
+      const that = this
+      this.$confirm({
+        title: '确认打开项目',
+        content: `打开新的手册项目将关闭所有功能页签，是否确认打开【${record.name}】？`,
+        okText: '确认',
+        cancelText: '取消',
+        onOk() {
+          postAction('/ietmproject/ietmProject/openProject', {
+            projectId: record.id
+          })
+            .then(res => {
+              if (res.success) {
+                that.$message.success('项目打开成功')
+                that.currentProject = res.result
+
+                if (that.$bus) {
+                  that.$bus.$emit('project-changed', res.result)
+                }
+              } else {
+                that.$message.error(res.message || '打开项目失败')
+              }
+            })
+            .catch(error => {
+              console.error('打开项目失败:', error)
+              that.$message.error('打开项目失败')
+            })
+        }
+      })
+    },
+
+    handleCloseProject() {
+      const that = this
+      this.$confirm({
+        title: '确认关闭项目',
+        content: '关闭当前项目将清除项目上下文，是否确认？',
+        okText: '确认',
+        cancelText: '取消',
+        onOk() {
+          postAction('/ietmproject/ietmProject/closeProject')
+            .then(res => {
+              if (res.success) {
+                that.$message.success('项目已关闭')
+                that.currentProject = null
+
+                if (that.$bus) {
+                  that.$bus.$emit('project-closed')
+                }
+              } else {
+                that.$message.error(res.message || '关闭项目失败')
+              }
+            })
+            .catch(error => {
+              console.error('关闭项目失败:', error)
+              that.$message.error('关闭项目失败')
+            })
+        }
+      })
     }
   }
 }
 </script>
-<style scoped>
-@import '~@assets/less/common.less';
+
+<style scoped lang="less">
+.project-list-container {
+  padding: 16px;
+
+  .current-project-bar {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f0f2f5;
+    border-radius: 4px;
+  }
+}
 </style>
