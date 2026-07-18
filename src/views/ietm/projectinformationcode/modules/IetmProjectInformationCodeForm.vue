@@ -88,6 +88,12 @@
            dmtypeId: [
               { required: true, message: '请选择数据模块类型!'},
            ],
+           description: [
+              { required: true, message: '请输入描述!'},
+           ],
+           security: [
+              { required: true, message: '请选择密级!'},
+           ],
         },
         url: {
           add: "/projectinformationcode/ietmProjectInformationCode/add",
@@ -106,8 +112,10 @@
       this.modelDefault = JSON.parse(JSON.stringify(this.model));
     },
     methods: {
-      add () {
-        this.edit(this.modelDefault);
+      add (defaults) {
+        // 合并默认值（如 projectId）后进入编辑模式
+        const base = Object.assign({}, this.modelDefault, defaults || {})
+        this.edit(base);
       },
       edit (record) {
         console.log('Form.edit 接收到的 record:', record)

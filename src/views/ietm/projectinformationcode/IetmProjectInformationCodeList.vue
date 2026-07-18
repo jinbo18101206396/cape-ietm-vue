@@ -221,7 +221,17 @@
       // 模板导入成功回调
       handleTemplateImportOk() {
         this.loadData();
-        this.$message.success('导入成功！');
+        // 后端已经返回详细消息（如"成功导入 5 条信息码！"），前端不重复提示
+      },
+      // 重写新增，传入当前项目ID
+      handleAdd() {
+        if (!this.currentProjectId) {
+          this.$message.warning('请先打开一个项目！')
+          return
+        }
+        this.$refs.modalForm.add({ projectId: this.currentProjectId })
+        this.$refs.modalForm.title = '新增'
+        this.$refs.modalForm.disableSubmit = false
       },
       // 初始化当前项目信息
       initCurrentProject() {

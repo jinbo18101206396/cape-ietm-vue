@@ -35,10 +35,10 @@
       }
     },
     methods: {
-      add () {
+      add (defaults) {
         this.visible=true
         this.$nextTick(()=>{
-          this.$refs.realForm.add();
+          this.$refs.realForm.add(defaults);
           this.$refs.realForm.setDmtypeOptions(this.dmtypeOptions);
         })
       },

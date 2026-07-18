@@ -137,7 +137,7 @@ export default {
       ],
       url: {
         list: '/standardinformationcode/ietmStandardInformationCode/list',
-        importFromTemplate: '/projectinformationcode/ietmProjectInformationCode/importFromTemplate'
+        importFromTemplate: '/projectinformationcode/ietmProjectInformationCode/importInfoCodeFromTemplate'
       }
     }
   },
