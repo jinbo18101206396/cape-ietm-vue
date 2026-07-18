@@ -290,65 +290,95 @@
   .current-project-info {
     display: inline-flex;
     align-items: center;
-    margin-left: 24px;
-    background: rgba(255, 255, 255, 0.2);
-    padding: 6px 16px;
-    border-radius: 6px;
-    backdrop-filter: blur(10px);
-    height: 36px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    margin-left: 16px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    background: rgba(0, 0, 0, 0.15);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 
     .project-container {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
 
       .project-icon {
         color: #fff;
-        font-size: 16px;
-        font-weight: bold;
+        font-size: 14px;
       }
 
       .project-label {
-        color: rgba(255, 255, 255, 0.95);
-        font-size: 15px;
-        font-weight: bold;
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 13px;
+        font-weight: normal;
       }
 
       .project-name {
         color: #fff;
-        font-size: 15px;
-        font-weight: bold;
+        font-size: 13px;
+        font-weight: 600;
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
     }
 
     .divider {
-      background: rgba(255, 255, 255, 0.4);
-      height: 20px;
-      margin: 0 16px;
+      background: rgba(255, 255, 255, 0.5);
+      height: 16px;
+      margin: 0 12px;
     }
 
     .close-project-btn {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       color: #fff;
-      font-size: 15px;
-      font-weight: bold;
+      font-size: 13px;
       cursor: pointer;
-      transition: all 0.3s;
-      padding: 4px 10px;
-      border-radius: 4px;
+      transition: color 0.2s;
 
       &:hover {
-        background: rgba(255, 255, 255, 0.3);
-        color: #fff;
-        transform: translateY(-1px);
+        color: #ff7875;
       }
 
       .anticon {
-        font-size: 16px;
+        font-size: 14px;
+      }
+    }
+  }
+
+  /* dark 主题 header 为白底，需切换为深色文字 */
+  .header.dark .current-project-info {
+    border-color: #d0d0d0;
+    background: #efefef;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    .project-container {
+      .project-icon {
+        color: @primary-color;
+      }
+      .project-label {
+        color: #595959;
+      }
+      .project-name {
+        color: #1a1a1a;
+      }
+    }
+
+    .divider {
+      background: #bfbfbf;
+    }
+
+    .close-project-btn {
+      color: #434343;
+
+      &:hover {
+        color: #ff4d4f;
       }
     }
   }

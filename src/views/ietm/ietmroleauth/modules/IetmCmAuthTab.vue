@@ -3,24 +3,21 @@
     <a-row :gutter="16">
       <!-- 左侧：项目选择和构型树 -->
       <a-col :span="10">
-        <a-card title="构型树" :bordered="false" class="cm-tree-card">
+        <a-card title="构型树" class="cm-tree-card">
           <!-- 项目选择 -->
-          <div style="margin-bottom: 16px">
-            <a-form layout="inline">
-              <a-form-item label="手册项目" style="margin-bottom: 0;">
-                <a-select
-                  v-model="selectedProjectId"
-                  placeholder="请选择项目"
-                  style="width: 280px"
-                  @change="handleProjectChange"
-                  show-search
-                  :filter-option="filterOption">
-                  <a-select-option v-for="item in projectList" :key="item.id" :value="item.id">
-                    {{ item.name }}
-                  </a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-form>
+          <div class="project-select-bar">
+            <span class="select-label">手册项目</span>
+            <a-select
+              v-model="selectedProjectId"
+              placeholder="请选择项目"
+              class="project-select"
+              @change="handleProjectChange"
+              show-search
+              :filter-option="filterOption">
+              <a-select-option v-for="item in projectList" :key="item.id" :value="item.id">
+                {{ item.name }}
+              </a-select-option>
+            </a-select>
           </div>
 
           <!-- 构型树 -->
@@ -41,12 +38,26 @@
 
       <!-- 右侧：授权列表 -->
       <a-col :span="14">
-        <a-card title="角色授权配置" :bordered="false">
+        <a-card title="角色授权配置">
           <!-- 操作按钮 -->
-          <div class="table-operator" style="margin-bottom: 16px">
-            <a-button @click="handleAdd" type="primary" icon="plus">添加</a-button>
-            <a-button @click="handleSave" type="primary" icon="save">保存</a-button>
-            <a-button @click="handleDelete" type="danger" icon="delete" :disabled="selectedRowKeys.length === 0">删除</a-button>
+          <div class="table-operator">
+            <a-space>
+              <a-button @click="handleAdd" type="primary" icon="plus">添加</a-button>
+              <a-button @click="handleSave" type="primary" icon="save">保存</a-button>
+              <a-button @click="handleDelete" type="danger" icon="delete" :disabled="selectedRowKeys.length === 0">删除</a-button>
+            </a-space>
+          </div>
+
+          <!-- 选中节点提示 -->
+          <div v-if="selectedNodeId" class="node-hint">
+            <a-icon type="apartment" />
+            <span>当前节点：{{ selectedNodeTitle }}</span>
+            <a-tag v-if="currentLeafNodes.length > 0" color="blue" class="batch-tag">
+              批量授权 {{ currentLeafNodes.length }} 个叶子节点
+            </a-tag>
+          </div>
+          <div v-else class="node-placeholder">
+            <a-icon type="arrow-left" /> 请在左侧选择构型节点
           </div>
 
           <!-- 授权表格 -->
@@ -66,7 +77,7 @@
                 v-if="record.editable"
                 v-model="record.roleId"
                 placeholder="请选择角色"
-                style="width: 100%"
+                class="cell-select"
                 show-search
                 :filter-option="filterOption">
                 <a-select-option
@@ -84,7 +95,7 @@
                 v-if="record.editable"
                 v-model="record.canRead"
                 placeholder="请选择"
-                style="width: 100%">
+                class="cell-select">
                 <a-select-option value="Y">是</a-select-option>
                 <a-select-option value="N">否</a-select-option>
               </a-select>
@@ -96,7 +107,7 @@
                 v-if="record.editable"
                 v-model="record.canEdit"
                 placeholder="请选择"
-                style="width: 100%">
+                class="cell-select">
                 <a-select-option value="Y">是</a-select-option>
                 <a-select-option value="N">否</a-select-option>
               </a-select>
@@ -137,6 +148,7 @@ export default {
       authLoading: false,
       selectedProjectId: undefined,
       selectedNodeId: '',
+      selectedNodeTitle: '',
       selectedKeys: [],
       selectedRowKeys: [],
       expandedKeys: [],
@@ -199,6 +211,7 @@ export default {
     handleProjectChange(projectId) {
       this.selectedKeys = []
       this.selectedNodeId = ''
+      this.selectedNodeTitle = ''
       this.authList = []
       this.selectedRowKeys = []
       if (projectId) {
@@ -256,6 +269,7 @@ export default {
       if (selectedKeys.length > 0) {
         this.selectedKeys = selectedKeys
         const selectedNode = e.node.dataRef
+        this.selectedNodeTitle = selectedNode.title || selectedKeys[0]
 
         // 判断是否是叶节点
         const isLeaf = !selectedNode.children || selectedNode.children.length === 0
@@ -476,31 +490,71 @@ export default {
 </script>
 
 <style scoped>
+/* 左侧项目选择栏 */
+.project-select-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.select-label {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.project-select {
+  flex: 1;
+}
+
+/* 操作按钮区 */
 .table-operator {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
-.cm-tree-card {
-  height: calc(100vh - 200px);
+/* 选中节点提示 */
+.node-hint {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #1890ff;
 }
 
+.batch-tag {
+  margin-left: 4px;
+}
+
+/* 未选中节点时的占位提示 */
+.node-placeholder {
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #faad14;
+}
+
+/* 构型树卡片内部布局 */
 .cm-tree-card /deep/ .ant-card-body {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
+/* 构型树滚动区域 */
 .tree-wrapper {
-  flex: 1;
+  max-height: 560px;
   overflow-y: auto;
   overflow-x: hidden;
-  min-height: 0;
 }
 
-/* 隐藏滚动条但保留滚动功能 */
 .tree-wrapper::-webkit-scrollbar {
   width: 6px;
 }
@@ -512,5 +566,10 @@ export default {
 
 .tree-wrapper::-webkit-scrollbar-thumb:hover {
   background: #999;
+}
+
+/* 表格内编辑态 select 填满单元格 */
+/deep/ .cell-select {
+  width: 100%;
 }
 </style>

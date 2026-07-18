@@ -3,8 +3,8 @@
     <a-row :gutter="16">
       <!-- 左侧：项目列表 -->
       <a-col :span="10">
-        <a-card title="手册项目列表" :bordered="false">
-          <a-alert message="选择手册项目在右侧查看和赋予权限" type="info" show-icon style="margin-bottom: 16px" />
+        <a-card title="手册项目列表">
+          <a-alert message="选择手册项目在右侧查看和赋予权限" type="info" show-icon class="panel-alert" />
           <a-table
             ref="projectTable"
             size="middle"
@@ -25,9 +25,9 @@
 
       <!-- 右侧：授权列表 -->
       <a-col :span="14">
-        <a-card title="角色授权配置" :bordered="false">
+        <a-card title="角色授权配置">
           <!-- 操作按钮 -->
-          <div class="table-operator" style="margin-bottom: 16px">
+          <div class="table-operator">
             <a-button @click="handleAdd" type="primary" icon="plus">添加</a-button>
             <a-button @click="handleSave" type="primary" icon="save">保存</a-button>
             <a-button @click="handleDelete" type="danger" icon="delete" :disabled="selectedRowKeys.length === 0">删除</a-button>
@@ -339,6 +339,11 @@ export default {
   background-color: #e6f7ff;
   cursor: pointer;
 }
+
+.panel-alert {
+  margin-bottom: 16px;
+}
+
 .table-operator {
   margin-bottom: 16px;
 }
