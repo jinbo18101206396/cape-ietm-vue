@@ -14,6 +14,12 @@
       <!-- ❌ 隐藏新增按钮 -->
       <!-- <a-button @click="handleAdd" type="primary" icon="plus">新增</a-button> -->
 
+      <!-- ✅ 从模板导入按钮 -->
+      <a-button type="primary" icon="download" @click="handleTemplateImport">从模板导入</a-button>
+
+      <!-- ✅ 从Excel导入按钮 -->
+      <a-button type="primary" icon="file-excel" @click="handleExcelImport">从Excel导入</a-button>
+
       <!-- ❌ 隐藏导出按钮 -->
       <!-- <a-button type="primary" icon="download" @click="handleExportXls('项目管理-项目构型管理')">导出</a-button> -->
 
@@ -85,9 +91,15 @@
           <a-dropdown>
             <a class="ant-dropdown-link">更多 <a-icon type="down" /></a>
             <a-menu slot="overlay">
+              <!-- ✅ 新增：添加平级按钮（根节点不显示） -->
+              <a-menu-item v-if="record.pid !== '0'">
+                <a @click="handleAddSibling(record)">添加平级</a>
+              </a-menu-item>
+
               <a-menu-item>
                 <a @click="handleAddChild(record)">添加下级</a>
               </a-menu-item>
+
               <!-- ✅ 根节点（pid='0'）不显示删除按钮 -->
               <a-menu-item v-if="record.pid !== '0'">
                 <a-popconfirm title="确定删除吗?" @confirm="() => handleDeleteNode(record.id)" placement="topLeft">
@@ -102,6 +114,8 @@
     </div>
 
     <ietmProjectConfigurationManagement-modal ref="modalForm" @ok="modalFormOk"></ietmProjectConfigurationManagement-modal>
+    <template-import-modal ref="templateImportModal" @ok="modalFormOk"></template-import-modal>
+    <excel-import-modal ref="excelImportModal" :projectId="currentProjectId" @ok="modalFormOk"></excel-import-modal>
   </a-card>
 </template>
 
@@ -110,6 +124,8 @@
   import { getAction, deleteAction, postAction } from '@/api/manage'
   import { JeecgListMixin } from '@/mixins/JeecgListMixin'
   import IetmProjectConfigurationManagementModal from './modules/IetmProjectConfigurationManagementModal'
+  import TemplateImportModal from './modules/TemplateImportModal'
+  import ExcelImportModal from './modules/ExcelImportModal'
   import {filterMultiDictText} from '@/components/dict/JDictSelectUtil'
   import { filterObj } from '@/utils/util';
   import { mapState } from 'vuex'
@@ -118,7 +134,9 @@
     name: "IetmProjectConfigurationManagementList",
     mixins:[JeecgListMixin],
     components: {
-      IetmProjectConfigurationManagementModal
+      IetmProjectConfigurationManagementModal,
+      TemplateImportModal,
+      ExcelImportModal
     },
     data () {
       return {
@@ -342,11 +360,11 @@
             let result = res.result
             if(Number(result.total)>0){
               this.ipagination.total = Number(result.total)
-              // 修正根节点数据
+              // 修正根节点数据显示
               let records = res.result.records
               records.forEach(record => {
                 if (record.pid === '0') {
-                  // 根节点固定为项目信息
+                  // 根节点：编码和标题使用项目信息
                   record.code = this.currentProjectInfo.equipmentCode || record.code
                   record.title = this.currentProjectInfo.projectName || record.title
                 }
@@ -538,6 +556,40 @@
         obj.projectId = this.currentProjectId
         obj.parentLevel = currentLevel // 传递父节点层级
         console.log('传递给模态框的数据:', obj)
+        this.$refs.modalForm.add(obj);
+      },
+      /**
+       * 添加平级节点
+       */
+      handleAddSibling(record){
+        // 检查是否为根节点
+        if(record.pid === '0') {
+          this.$message.warning('根节点不能添加平级节点！')
+          return
+        }
+
+        // 检查层级限制（与当前节点同级）
+        let currentLevel = this.getNodeLevel(record)
+        console.log('点击添加平级:', {
+          record: record,
+          path: record.path,
+          code: record.code,
+          calculatedLevel: currentLevel
+        })
+
+        if(currentLevel >= 7) {
+          this.$message.warning('已达到最大层级（7级），不能继续添加节点！')
+          return
+        }
+
+        this.loadParent = true
+        let obj = {}
+        // ✅ 关键：使用当前节点的父节点作为新节点的父节点
+        obj[this.pidField] = record.pid
+        obj.projectId = this.currentProjectId
+        // ✅ 传递当前节点的层级（平级节点层级相同）
+        obj.parentLevel = currentLevel - 1 // 父节点层级 = 当前层级 - 1
+        console.log('传递给模态框的数据（添加平级）:', obj)
         this.$refs.modalForm.add(obj);
       },
       // 根据节点的level字段或path计算层级（根节点=0级，A=1级，00=2级，以此类推）
@@ -804,8 +856,8 @@
         let rootNode = {
           pid: '0',
           projectId: this.currentProjectId,
-          code: this.currentProjectInfo.equipmentCode || '',
-          title: this.currentProjectInfo.projectName || '',
+          code: this.currentProjectInfo.equipmentCode || '',  // 使用完整的装备编码
+          title: this.currentProjectInfo.projectName || '',  // 使用项目名称
           seq: null,  // 序号为空
           hasChild: '0',
           security: 1  // 默认密级
@@ -863,6 +915,46 @@
             })
           }
         })
+      },
+
+      /**
+       * 从模板导入
+       */
+      handleTemplateImport() {
+        if (!this.currentProjectId) {
+          this.$message.warning('请先打开一个项目！')
+          return
+        }
+
+        // 检查项目是否为空（只有根节点）
+        if (this.dataSource && this.dataSource.length > 1) {
+          this.$confirm({
+            title: '警告',
+            content: '从模板导入会覆盖现有构型数据（除根节点外），是否继续？',
+            okText: '确定',
+            cancelText: '取消',
+            onOk: () => {
+              const ietmStandard = this.currentProjectInfo ? this.currentProjectInfo.ietmStandard : ''
+              this.$refs.templateImportModal.show(this.currentProjectId, ietmStandard)
+            }
+          })
+        } else {
+          const ietmStandard = this.currentProjectInfo ? this.currentProjectInfo.ietmStandard : ''
+          this.$refs.templateImportModal.show(this.currentProjectId, ietmStandard)
+        }
+      },
+
+      /**
+       * 从Excel导入
+       */
+      handleExcelImport() {
+        if (!this.currentProjectId) {
+          this.$message.warning('请先打开一个项目！')
+          return
+        }
+
+        // 打开Excel导入对话框
+        this.$refs.excelImportModal.show()
       }
     }
   }

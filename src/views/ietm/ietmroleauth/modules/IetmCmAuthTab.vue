@@ -3,7 +3,7 @@
     <a-row :gutter="16">
       <!-- 左侧：项目选择和构型树 -->
       <a-col :span="10">
-        <a-card title="构型树" :bordered="false">
+        <a-card title="构型树" :bordered="false" class="cm-tree-card">
           <!-- 项目选择 -->
           <div style="margin-bottom: 16px">
             <a-form layout="inline">
@@ -24,16 +24,18 @@
           </div>
 
           <!-- 构型树 -->
-          <a-tree
-            v-if="treeData.length > 0"
-            :tree-data="treeData"
-            :replace-fields="replaceFields"
-            @select="onTreeSelect"
-            :selectedKeys="selectedKeys"
-            :expanded-keys="expandedKeys"
-            @expand="onTreeExpand"
-          />
-          <a-empty v-else description="请先选择项目" />
+          <div class="tree-wrapper">
+            <a-tree
+              v-if="treeData.length > 0"
+              :tree-data="treeData"
+              :replace-fields="replaceFields"
+              @select="onTreeSelect"
+              :selectedKeys="selectedKeys"
+              :expanded-keys="expandedKeys"
+              @expand="onTreeExpand"
+            />
+            <a-empty v-else description="请先选择项目" />
+          </div>
         </a-card>
       </a-col>
 
@@ -476,5 +478,39 @@ export default {
 <style scoped>
 .table-operator {
   margin-bottom: 16px;
+}
+
+.cm-tree-card {
+  height: calc(100vh - 200px);
+  display: flex;
+  flex-direction: column;
+}
+
+.cm-tree-card /deep/ .ant-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tree-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+/* 隐藏滚动条但保留滚动功能 */
+.tree-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tree-wrapper::-webkit-scrollbar-thumb {
+  background: #bfbfbf;
+  border-radius: 3px;
+}
+
+.tree-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #999;
 }
 </style>

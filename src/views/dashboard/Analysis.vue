@@ -1,26 +1,26 @@
 <template>
   <div style="display: flex;height: calc(100vh - 130px);flex-direction: column;">
     <div style="height: 50%">
-      <a-row>
-        <a-col :span="12" >
-          <a-card title="手册项目">
-            <project-list></project-list>
+      <a-row style="height: 100%">
+        <a-col :span="12" style="height: 100%">
+          <a-card title="手册项目" style="height: 100%; display: flex; flex-direction: column;">
+            <project-list style="flex: 1; min-height: 0;"></project-list>
           </a-card>
         </a-col>
-        <a-col :span="12">
-          <a-card title="我的待办">
+        <a-col :span="12" style="height: 100%">
+          <a-card title="我的待办" style="height: 100%">
           </a-card>
         </a-col>
       </a-row>
     </div>
     <div style="height: 50%">
-      <a-row>
-        <a-col :span="12" >
-          <a-card title="数据模块列表">
+      <a-row style="height: 100%">
+        <a-col :span="12" style="height: 100%">
+          <a-card title="数据模块列表" style="height: 100%">
           </a-card>
         </a-col>
-        <a-col :span="12">
-          <a-card title="数据实体ICN列表">
+        <a-col :span="12" style="height: 100%">
+          <a-card title="数据实体ICN列表" style="height: 100%">
           </a-card>
         </a-col>
       </a-row>
@@ -71,6 +71,8 @@ export default {
 
 /deep/ .ant-card-body {
   padding: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 /deep/ .ant-table-thead > tr > th {

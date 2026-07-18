@@ -7,6 +7,8 @@
       :loading="loading"
       :pagination="false"
       :row-key="record => record.id"
+      :scroll="{ y: scrollY }"
+      size="small"
       bordered
     >
       <span slot="security" slot-scope="text">
@@ -27,7 +29,7 @@
           <a-icon type="check-circle" /> 当前项目
         </a-tag>
       </span>
-    </a-table>
+      </a-table>
   </div>
 </template>
 
@@ -50,39 +52,39 @@ export default {
         {
           title: '序号',
           dataIndex: 'index',
-          width: 60,
+          width: '8%',
           align: 'center',
           customRender: (text, record, index) => index + 1
         },
         {
           title: '项目名称',
           dataIndex: 'name',
-          width: 250,
+          width: '30%',
           align: 'center'
         },
         {
           title: '装备编码',
           dataIndex: 'equipmentCode',
-          width: 150,
+          width: '20%',
           align: 'center'
         },
         {
           title: 'IETM标准',
           dataIndex: 'ietmStandard',
-          width: 120,
+          width: '15%',
           align: 'center'
         },
         {
           title: '密级',
           dataIndex: 'security',
-          width: 100,
+          width: '12%',
           align: 'center',
           scopedSlots: { customRender: 'security' }
         },
         {
           title: '操作',
           dataIndex: 'action',
-          width: 150,
+          width: '15%',
           align: 'center',
           scopedSlots: { customRender: 'action' }
         }
@@ -114,7 +116,15 @@ export default {
   methods: {
     ...mapActions(['LoadCurrentProject', 'OpenProject']),
     calcScrollHeight() {
-      this.scrollY = window.innerHeight * 0.5 - 170
+      this.$nextTick(() => {
+        const container = this.$el
+        if (container) {
+          // 计算可用高度：容器高度减去表头高度和上下padding
+          const containerHeight = container.clientHeight
+          // 减去上下padding(24px)和表头高度(约41px)
+          this.scrollY = containerHeight - 24 - 41
+        }
+      })
     },
 
     getSecurityText(value) {
@@ -175,6 +185,53 @@ export default {
 
 <style scoped lang="less">
 .project-list-container {
-  // 样式已移除当前项目栏
+  height: 100%;
+  padding: 12px;
+  overflow: hidden;
+
+  /deep/ .ant-table {
+    margin-bottom: 0;
+    table-layout: fixed;
+  }
+
+  /deep/ .ant-table-thead > tr > th {
+    padding: 8px !important;
+    background: #fafafa;
+    height: auto !important;
+    word-break: break-word;
+  }
+
+  /deep/ .ant-table-tbody > tr > td {
+    padding: 8px !important;
+    word-break: break-word;
+  }
+
+  // 表头容器
+  /deep/ .ant-table-header {
+    overflow: hidden !important;
+    margin-bottom: 0 !important;
+  }
+
+  // 表体容器：隐藏滚动条但保持滚动功能
+  /deep/ .ant-table-body {
+    overflow-y: scroll !important;
+    overflow-x: hidden !important;
+
+    // 隐藏滚动条（兼容多种浏览器）
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+
+    &::-webkit-scrollbar {
+      display: none; /* Chrome, Safari, Opera */
+    }
+  }
+
+  // 确保表头和表体宽度一致
+  /deep/ .ant-table-scroll {
+    .ant-table-header table,
+    .ant-table-body table {
+      width: 100% !important;
+    }
+  }
 }
 </style>

@@ -23,6 +23,7 @@
     "dayjs": "^1.8.0",
     "dom-align": "1.12.0",
     "enquire.js": "^2.1.6",
+    "jquery": "^3.4.1",
     "js-cookie": "^2.2.0",
     "lodash.get": "^4.4.2",
     "lodash.pick": "^4.4.0",
@@ -34,7 +35,6 @@
     "viser-vue": "^2.4.8",
     "vue": "^2.6.10",
     "vue-area-linkage": "^5.1.0",
-    "jquery": "^3.4.1",
     "vue-cropper": "^0.5.4",
     "vue-i18n": "^8.7.0",
     "vue-loader": "^15.7.0",
@@ -49,6 +49,7 @@
     "vxe-table": "2.9.13",
     "vxe-table-plugin-antd": "1.8.10",
     "xe-utils": "2.4.8",
+    "xlsx": "^0.18.5",
     "xss": "^1.0.13"
   },
   "devDependencies": {
@@ -58,13 +59,13 @@
     "@vue/cli-service": "^3.3.0",
     "@vue/eslint-config-standard": "^4.0.0",
     "babel-eslint": "7.2.3",
+    "compression-webpack-plugin": "^3.1.0",
     "eslint": "^5.16.0",
     "eslint-plugin-vue": "^5.1.0",
+    "html-webpack-plugin": "^4.2.0",
     "less": "^3.9.0",
     "less-loader": "^4.1.0",
-    "vue-template-compiler": "^2.6.10",
-    "html-webpack-plugin": "^4.2.0",
-    "compression-webpack-plugin": "^3.1.0"
+    "vue-template-compiler": "^2.6.10"
   },
   "eslintConfig": {
     "root": true,

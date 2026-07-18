@@ -280,6 +280,7 @@
         const params = {
           code: code,
           pid: this.model.pid || '0',
+          projectId: this.model.projectId  // ✅ 添加 projectId 参数
         };
 
         if (this.model.id) {
