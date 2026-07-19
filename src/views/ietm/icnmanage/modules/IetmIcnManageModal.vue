@@ -1,60 +1,71 @@
 <template>
-  <j-modal
+  <a-modal
     :title="title"
-    :width="width"
+    :width="900"
     :visible="visible"
-    switchFullscreen
+    :confirmLoading="confirmLoading"
     @ok="handleOk"
-    :okButtonProps="{ class:{'jee-hidden': disableSubmit} }"
     @cancel="handleCancel"
-    cancelText="关闭">
-    <ietm-icn-manage-form ref="realForm" @ok="submitCallback" :disabled="disableSubmit"></ietm-icn-manage-form>
-  </j-modal>
+  >
+    <a-spin :spinning="confirmLoading">
+      <icn-manage-form ref="realForm" />
+    </a-spin>
+  </a-modal>
 </template>
 
 <script>
+import IcnManageForm from './IetmIcnManageForm'
 
-  import IetmIcnManageForm from './IetmIcnManageForm'
-  export default {
-    name: 'IetmIcnManageModal',
-    components: {
-      IetmIcnManageForm
+export default {
+  name: 'IetmIcnManageModal',
+  components: {
+    IcnManageForm
+  },
+  data() {
+    return {
+      title: '操作',
+      visible: false,
+      confirmLoading: false,
+      disableSubmit: false
+    }
+  },
+  methods: {
+    add(cmnodeId) {
+      this.visible = true
+      this.$nextTick(() => {
+        this.$refs.realForm.add(cmnodeId)
+      })
     },
-    data () {
-      return {
-        title:'',
-        width:800,
-        visible: false,
-        disableSubmit: false
-      }
+    edit(record) {
+      this.visible = true
+      this.$nextTick(() => {
+        this.$refs.realForm.edit(record)
+      })
     },
-    methods: {
-      add (cmnodeId) {
-        this.visible=true
-        this.$nextTick(()=>{
-          this.$refs.realForm.add(cmnodeId);
-        })
-      },
-      edit (record) {
-        this.visible=true
-        this.$nextTick(()=>{
-          this.$refs.realForm.edit(record);
-        })
-      },
-      close () {
-        this.$emit('close');
-        this.visible = false;
-      },
-      handleOk () {
-        this.$refs.realForm.submitForm();
-      },
-      submitCallback(){
-        this.$emit('ok');
-        this.visible = false;
-      },
-      handleCancel () {
-        this.close()
-      }
+    close() {
+      this.$emit('close')
+      this.visible = false
+      this.$refs.realForm.reset()
+    },
+    handleOk() {
+      this.$refs.realForm.handleSubmit((formData, fileList) => {
+        this.confirmLoading = true
+        this.$refs.realForm.submitForm(formData, fileList)
+          .then(() => {
+            this.$message.success('操作成功')
+            this.confirmLoading = false
+            this.visible = false
+            this.$emit('ok')
+          })
+          .catch((err) => {
+            this.$message.error(err.message || '操作失败')
+            this.confirmLoading = false
+          })
+      })
+    },
+    handleCancel() {
+      this.close()
     }
   }
+}
 </script>

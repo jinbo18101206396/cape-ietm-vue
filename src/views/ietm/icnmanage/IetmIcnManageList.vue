@@ -1,506 +1,988 @@
 <template>
-  <div class="container">
-    <div class="left-content">
-        <div>
-          <span>
-            【编码规则：A-00-0-0-00-00-A】
-          </span>
-          <div>
-            <a-checkbox>显示子节点的DM</a-checkbox>
-          </div>
-          <!-- 操作按钮区域 -->
-          <div class="table-operator">
-            <a-tooltip title="计算所有DM的引用信息" >
-              <a-button icon="calculator" @click="">计算</a-button>
-            </a-tooltip>
-            <a-tooltip title="删除预览时形成的文件缓存" >
-              <a-button icon="delete" @click="">清除</a-button>
-            </a-tooltip>
-          </div>
-        </div>
-        <a-divider />
-        <a-tree
-          :autoExpandParent="autoExpandParent"
-          :checkStrictly="true"
-          :dropdownStyle="{maxHeight:'200px',overflow:'auto'}"
-          :expandedKeys="iExpandedKeys"
-          :selectedKeys="selectedKeys"
-          :treeData="treeData"
-          @expand="onExpand"
-          @select="onSelect"
-        />
-    </div>
-    <div class="right-content">
-      <a-card>
-    <!-- 查询区域 -->
-    <div class="table-page-search-wrapper">
-      <a-form layout="inline" @keyup.enter.native="searchQuery">
-        <a-row :gutter="24">
-        </a-row>
-      </a-form>
-    </div>
-    <!-- 查询区域-END -->
+  <div class="icn-manage-container">
+    <a-card :bordered="false" :body-style="{ padding: '16px' }">
+      <!-- 工具栏 -->
+      <div class="toolbar-wrapper">
+        <a-space size="middle">
+          <!-- 基础操作 -->
+          <a-button-group>
+            <a-button type="primary" icon="plus" @click="handleAdd">新增</a-button>
+            <a-button icon="plus-square" @click="handleBatchAdd">批量新增</a-button>
+          </a-button-group>
 
-    <!-- 操作按钮区域 -->
-    <div class="table-operator">
-      <a-button @click="handleAdd" type="primary" icon="plus">新增</a-button>
-      <a-button @click="" type="primary" icon="plus">批量新增</a-button>
-      <a-button @click="relatedFilesAdd" type="primary" icon="upload">相关文件上传</a-button>
-      <a-button @click="diffFilesAdd" type="primary" icon="upload">差异上传</a-button>
-      <a-button @click="newFilesAdd" type="primary" icon="upload">新版上传</a-button>
-      <a-button @click="deleteIcn" type="primary" icon="delete">删除</a-button>
-      <a-button @click="viewFile" type="primary" icon="eye">浏览</a-button>
-      <a-button @click="" type="primary" icon="paper-clip">引用</a-button>
-      <a-button @click="" type="primary" icon="cloud-download">下载</a-button>
-      <a-upload name="file" :showUploadList="false" :multiple="false" :headers="tokenHeader"  :action="importExcelUrl" @change="handleImportExcel">
-        <a-button type="primary" icon="import">导入</a-button>
-      </a-upload>
-      <!-- 高级查询区域 -->
-      <j-super-query :fieldList="superFieldList" ref="superQueryModal" @handleSuperQuery="handleSuperQuery"></j-super-query>
-<!--      <a-dropdown v-if="selectedRowKeys.length > 0">-->
-<!--        <a-menu slot="overlay">-->
-<!--          <a-menu-item key="1" @click="batchDel"><a-icon type="delete"/>删除</a-menu-item>-->
-<!--        </a-menu>-->
-<!--        <a-button style="margin-left: 8px"> 批量操作 <a-icon type="down" /></a-button>-->
-<!--      </a-dropdown>-->
-    </div>
+          <!-- 文件操作 -->
+          <a-button-group>
+            <a-button icon="file-add" @click="handleUploadRelated" :disabled="selectedRowKeys.length !== 1">相关文件</a-button>
+            <a-button icon="diff" @click="handleUploadDiff" :disabled="selectedRowKeys.length !== 1">差异上传</a-button>
+            <a-button icon="cloud-upload" @click="handleUploadNew" :disabled="selectedRowKeys.length !== 1">新版上传</a-button>
+          </a-button-group>
 
-    <!-- table区域-begin -->
-    <div>
-      <div class="ant-alert ant-alert-info" style="margin-bottom: 16px;">
-        <i class="anticon anticon-info-circle ant-alert-icon"></i> 已选择 <a style="font-weight: 600">{{ selectedRowKeys.length }}</a>项
-        <a style="margin-left: 24px" @click="onClearSelected">清空</a>
+          <!-- 其他操作 -->
+          <a-button-group>
+            <a-button icon="eye" @click="handleView" :disabled="selectedRowKeys.length !== 1">浏览</a-button>
+            <a-button icon="link" @click="handleReference" :disabled="selectedRowKeys.length !== 1">引用</a-button>
+            <a-button icon="download" @click="handleDownload" :disabled="selectedRowKeys.length !== 1">下载</a-button>
+          </a-button-group>
+
+          <!-- 数据操作 -->
+          <a-button-group>
+            <a-button icon="import" @click="handleImportExcel">导入</a-button>
+          </a-button-group>
+        </a-space>
       </div>
 
-      <a-table
-        ref="table"
-        size="middle"
-        :scroll="{x:true}"
-        bordered
-        rowKey="id"
-        :columns="columns"
-        :dataSource="dataSource"
-        :pagination="ipagination"
-        :loading="loading"
-        :rowSelection="{selectedRowKeys: selectedRowKeys, onChange: onSelectChange ,type:'radio'}"
-        class="j-table-force-nowrap"
-        @change="handleTableChange">
+      <!-- 左右分栏布局 -->
+      <a-row :gutter="16" class="content-row">
+        <!-- 左侧：构型树 -->
+        <a-col :span="6">
+          <a-card size="small" class="tree-card">
+            <div slot="title" class="card-title">
+              <a-icon type="apartment" style="margin-right: 8px;" />
+              构型树
+            </div>
+            <div slot="extra" class="code-rule-tip">
+              编码规则：A-00-0-0-00-00-A
+            </div>
 
-        <template slot="htmlSlot" slot-scope="text">
-          <div v-html="text"></div>
-        </template>
-        <template slot="imgSlot" slot-scope="text,record">
-          <span v-if="!text" style="font-size: 12px;font-style: italic;">无图片</span>
-          <img v-else :src="getImgView(text)" :preview="record.id" height="25px" alt="" style="max-width:80px;font-size: 12px;font-style: italic;"/>
-        </template>
-        <template slot="fileSlot" slot-scope="text">
-          <span v-if="!text" style="font-size: 12px;font-style: italic;">无文件</span>
-          <a-button
-            v-else
-            :ghost="true"
-            type="primary"
-            icon="download"
-            size="small"
-            @click="downloadFile(text)">
-            下载
-          </a-button>
-        </template>
+            <!-- 操作区域 -->
+            <div class="tree-actions">
+              <a-checkbox v-model="showChildIcn" @change="handleShowChildIcnChange">
+                显示子节点的ICN
+              </a-checkbox>
+              <div class="tree-buttons">
+                <a-button size="small" icon="calculator" @click="handleCalculate">计算</a-button>
+                <a-button size="small" icon="clear" @click="handleClearCache">清除</a-button>
+              </div>
+            </div>
 
-        <span slot="action" slot-scope="text, record">
-          <a @click="handleIcnInfo(record)">
-            {{ record.icn}}</a>
-        </span>
+            <!-- 构型树 -->
+            <div class="tree-scroll-wrap">
+              <a-tree
+                :tree-data="treeData"
+                :load-data="onLoadTreeData"
+                :expanded-keys="expandedKeys"
+                :selected-keys="selectedTreeKeys"
+                @select="onTreeSelect"
+                @expand="onTreeExpand"
+                :show-icon="false"
+              >
+                <template #title="{ title }">
+                  <span>{{ title }}</span>
+                </template>
+              </a-tree>
+            </div>
+          </a-card>
+        </a-col>
 
-      </a-table>
+        <!-- 右侧：ICN列表 -->
+        <a-col :span="18">
+          <a-card size="small" class="list-card">
+            <div slot="title" class="card-title">
+              <a-icon type="database" style="margin-right: 8px;" />
+              ICN实体列表
+            </div>
+            <a-table
+              ref="table"
+              rowKey="id"
+              :columns="columns"
+              :data-source="dataSource"
+              :pagination="ipagination"
+              :loading="loading"
+              :row-selection="{
+                type: 'radio',
+                selectedRowKeys: selectedRowKeys,
+                onChange: onSelectChange
+              }"
+              @change="handleTableChange"
+              size="middle"
+              bordered
+            >
+              <!-- ICN编码 -->
+              <span slot="icn" slot-scope="text">
+                <a @click="handleViewDetail(text)">{{ text }}</a>
+              </span>
 
-    </div>
-      </a-card>
-    </div>
-    <icn-info-modal ref="infoForm" @ok="modalFormOk"></icn-info-modal>
-    <ietm-icn-manage-modal ref="modalForm" @ok="modalFormOk"></ietm-icn-manage-modal>
-    <icn-upload-modal ref="uploadForm" @ok="modalFormOk"></icn-upload-modal>
-    <play-video ref="videoRef" :model=this.selectionRows[0]></play-video>
-    <play-audio ref="audioRef" :model=this.selectionRows[0]></play-audio>
-    <play-img  ref="imgRef" :model=this.selectionRows[0]></play-img>
+              <!-- 密级 -->
+              <span slot="security" slot-scope="text">
+                <a-tag :color="getSecurityColor(text)">
+                  {{ getSecurityText(text) }}
+                </a-tag>
+              </span>
+
+              <!-- 操作 -->
+              <span slot="action" slot-scope="text, record">
+                <a @click="handleEdit(record)">编辑</a>
+                <a-divider type="vertical" />
+                <a-dropdown>
+                  <a class="ant-dropdown-link" @click="e => e.preventDefault()">
+                    更多 <a-icon type="down" />
+                  </a>
+                  <a-menu slot="overlay">
+                    <a-menu-item>
+                      <a @click="handleViewDetail(record)">详情</a>
+                    </a-menu-item>
+                    <a-menu-item>
+                      <a-popconfirm title="确定删除吗?" @confirm="() => handleDeleteOne(record.id)">
+                        <a style="color: red;">删除</a>
+                      </a-popconfirm>
+                    </a-menu-item>
+                  </a-menu>
+                </a-dropdown>
+              </span>
+            </a-table>
+          </a-card>
+        </a-col>
+      </a-row>
+    </a-card>
+
+    <!-- 新增/编辑弹窗 -->
+    <icn-manage-modal ref="modalForm" @ok="modalFormOk" />
+
+    <!-- 批量新增弹窗 -->
+    <icn-batch-add-modal ref="batchAddModal" @ok="modalFormOk" />
+
+    <!-- 上传弹窗 -->
+    <icn-upload-modal ref="uploadModal" @ok="modalFormOk" />
+
+    <!-- 导入弹窗 -->
+    <icn-import-modal ref="importModal" @ok="modalFormOk" />
+
+    <!-- 详情弹窗 -->
+    <icn-info-modal ref="infoModal" />
+
+    <!-- 引用关系弹窗 -->
+    <icn-reference-modal ref="referenceModal" @view-detail="handleViewDetail" />
+
+    <!-- 播放器组件 -->
+    <play-video ref="playVideo" />
+    <play-audio ref="playAudio" />
+    <play-img ref="playImg" />
   </div>
 </template>
+
 <script>
-  import '@/assets/less/TableExpand.less'
-  import { mixinDevice } from '@/utils/mixin'
-  import { JeecgListMixin } from '@/mixins/JeecgListMixin'
-  import IetmIcnManageModal from './modules/IetmIcnManageModal'
-  import { getAction, httpAction } from '@api/manage'
-  import { filterObj } from '@/utils/util'
+import { JeecgListMixin } from '@/mixins/JeecgListMixin'
+import IcnManageModal from './modules/IetmIcnManageModal'
+import IcnUploadModal from './modules/IcnUploadModal'
+import IcnInfoModal from './modules/IcnInfoModal'
+import IcnBatchAddModal from './modules/IcnBatchAddModal'
+import IcnImportModal from './modules/IcnImportModal'
+import IcnReferenceModal from './modules/IcnReferenceModal'
+import PlayVideo from '@/views/ietm/playertool/playVideo'
+import PlayAudio from '@/views/ietm/playertool/playAudio'
+import PlayImg from '@/views/ietm/playertool/playImg'
+import { getAction, deleteAction, postAction } from '@/api/manage'
 
-  import PlayVideo from '@views/ietm/playertool/playVideo.vue'
-  import PlayAudio from '@views/ietm/playertool/playAudio.vue'
-  import PlayImg from '@views/ietm/playertool/playImg.vue'
-  import IcnUploadModal from '@views/ietm/icnmanage/modules/IcnUploadModal.vue'
-  import IcnInfoModal from '@views/ietm/icnmanage/modules/IcnInfoModal.vue'
-  export default {
-    name: 'IetmIcnManageList',
-    mixins:[JeecgListMixin, mixinDevice],
-    components: {
-      IcnUploadModal,
-      PlayImg,
-      PlayAudio,
-      PlayVideo,
-      IetmIcnManageModal,
-      IcnInfoModal
-    },
-    data () {
-      return {
-        description: '项目管理-项目实体管理管理页面',
-        projectId: '',
-        autoExpandParent: true,
-        iExpandedKeys: [],
-        selectedKeys: [],
-        treeSelectKey:"",
-        treeData: [],
-        allTreeKeys: [],
-        width: 1200,
-        dataSource: [],
-        // 表头
-        columns: [
-          {
-            title: '序号',
-            dataIndex: '',
-            key:'rowIndex',
-            width:60,
-            align:"center",
-            customRender:function (t,r,index) {
-              return parseInt(index)+1;
-            }
-          },
-          {
-            title:'ICN',
-            align:"center",
-            dataIndex: 'icn',
-            scopedSlots: { customRender: 'action' }
-          },
-          {
-            title:'文件名称',
-            align:"center",
-            dataIndex: 'ietmAttachment.fileName',
-          },
-          {
-            title:'版本号',
-            align:"center",
-            dataIndex: 'issueNo'
-          },
-          {
-            title:'密级',
-            align:"center",
-            dataIndex: 'security_dictText'
-          },
-          {
-            title:'文件大小',
-            align:"center",
-            dataIndex: 'ietmAttachment.fileSize',
-            customRender:function (t,r,index) {
-              if (t)
-              return t+"KB";
-            }
-          },
-          {
-            title: '创建日期',
-            align: "center",
-            dataIndex: 'createTime'
-          },
-          {
-            title: '创建人',
-            align: "center",
-            dataIndex: 'createBy'
-          },
-          // {
-          //   title: '操作',
-          //   dataIndex: 'action',
-          //   align:"center",
-          //   fixed:"right",
-          //   width:147,
-          //   scopedSlots: { customRender: 'action' }
-          // }
-        ],
-        url: {
-          list: "/icnmanage/ietmIcnManage/list",
-          delete: "/icnmanage/ietmIcnManage/delete",
-          deleteBatch: "/icnmanage/ietmIcnManage/deleteBatch",
-          exportXlsUrl: "/icnmanage/ietmIcnManage/exportXls",
-          importExcelUrl: "icnmanage/ietmIcnManage/importExcel",
-
+export default {
+  name: 'IetmIcnManageList',
+  mixins: [JeecgListMixin],
+  components: {
+    IcnManageModal,
+    IcnUploadModal,
+    IcnInfoModal,
+    IcnBatchAddModal,
+    IcnImportModal,
+    IcnReferenceModal,
+    PlayVideo,
+    PlayAudio,
+    PlayImg
+  },
+  data() {
+    return {
+      // 列表相关
+      url: {
+        list: '/icnmanage/ietmIcnManage/listWithAttachments',
+        delete: '/icnmanage/ietmIcnManage/delete',
+        deleteBatch: '/icnmanage/ietmIcnManage/deleteBatch',
+        exportXlsUrl: '/icnmanage/ietmIcnManage/exportXls',
+        importExcelUrl: '/icnmanage/ietmIcnManage/importExcel',
+        getProjectInfo: '/icnmanage/ietmIcnManage/getProjectInfo',
+        // 构型树接口（与项目构型管理页面保持一致）
+        getCurrentProject: '/ietmproject/ietmProject/getCurrentProject',
+        treeRootList: '/projectconfigurationmanagement/ietmProjectConfigurationManagement/rootList',
+        treeChildList: '/projectconfigurationmanagement/ietmProjectConfigurationManagement/childList'
+      },
+      columns: [
+        {
+          title: '序号',
+          dataIndex: '',
+          key: 'rowIndex',
+          width: 60,
+          align: 'center',
+          customRender: (text, record, index) => {
+            return index + 1
+          }
         },
-        dictOptions:{},
-        superFieldList:[],
-      }
-    },
-    created() {
-    this.getSuperFieldList();
-    },
-    mounted() {
-      this.loadTree()
-    },
-    computed: {
-      importExcelUrl: function(){
-        return `${window._CONFIG['domianURL']}/${this.url.importExcelUrl}`;
-      },
-    },
-    methods: {
-      deleteIcn(){
-        if (this.selectionRows.length!=1){
-          this.$message.warning("请选择一条ICN数据!")
-          return
+        {
+          title: 'ICN',
+          dataIndex: 'icn',
+          width: 300,
+          align: 'center',
+          scopedSlots: { customRender: 'icn' }
+        },
+        {
+          title: '文件名称',
+          dataIndex: 'fileName',
+          width: 200,
+          align: 'center',
+          customRender: (text, record) => {
+            // 后端返回的是单个附件对象，不是数组
+            return (record.ietmAttachment && record.ietmAttachment.fileName) || '-'
+          }
+        },
+        {
+          title: '版本号',
+          dataIndex: 'issueNo',
+          width: 100,
+          align: 'center'
+        },
+        {
+          title: '密级',
+          dataIndex: 'security',
+          width: 100,
+          align: 'center',
+          scopedSlots: { customRender: 'security' }
+        },
+        {
+          title: '文件大小',
+          dataIndex: 'fileSize',
+          width: 120,
+          align: 'center',
+          customRender: (text, record) => {
+            // 后端返回的是单个附件对象，不是数组
+            const bytes = record.ietmAttachment && record.ietmAttachment.fileSize
+            return bytes ? this.formatFileSize(bytes) : '-'
+          }
+        },
+        {
+          title: '创建日期',
+          dataIndex: 'createTime',
+          width: 120,
+          align: 'center',
+          customRender: (text) => {
+            return text ? text.substring(0, 10) : '-'
+          }
+        },
+        {
+          title: '创建人',
+          dataIndex: 'createBy',
+          width: 120,
+          align: 'center'
+        },
+        {
+          title: '操作',
+          dataIndex: 'action',
+          width: 150,
+          align: 'center',
+          scopedSlots: { customRender: 'action' }
         }
-        this.$confirm({
-          content: '是否确认删除？',
-          onOk: () => {
-            var icnModel = this.selectionRows[0];
-            this.handleDelete(icnModel.id)
-          },
-        })
-      },
-      relatedFilesAdd(){
-        if (this.selectionRows.length!=1){
-          this.$message.warning("请选择一条ICN数据!")
-          return
-        }
-        var icnModel = this.selectionRows[0];
-        this.$refs.uploadForm.add(icnModel,"related");
-        this.$refs.uploadForm.title = "相关文件上传";
-        this.$refs.uploadForm.tips = "【相关文件】：对应实体文件的相关文件，例如wrl的interactivity文件";
-        this.$refs.uploadForm.disableSubmit = false;
-      },
+      ],
+      dataSource: [],
+      selectedRowKeys: [],
+      selectedRows: [],
 
-      diffFilesAdd(){
-        if (this.selectionRows.length!=1){
-          this.$message.warning("请选择一条ICN数据!")
-          return
+      // 构型树相关
+      treeData: [],
+      expandedKeys: [],
+      selectedTreeKeys: [],
+      currentCmnodeId: '',
+      // 当前项目信息
+      currentProjectId: '',
+      currentProjectInfo: null,
+      // 构型树操作
+      showChildIcn: false
+    }
+  },
+  created() {
+    this.loadTreeData()
+  },
+  methods: {
+    // 加载构型树（先获取当前项目，再加载根节点）
+    loadTreeData() {
+      getAction(this.url.getCurrentProject).then(res => {
+        if (res.success && res.result) {
+          this.currentProjectId = res.result.projectId
+          this.currentProjectInfo = res.result
+          this.loadTreeRootNodes()
+        } else {
+          this.$message.warning('未打开任何项目，请先在首页打开项目')
+          this.treeData = []
         }
-        this.$confirm({
-          content: '差异上传时将保留原ICN文件，并将原ICN文件的差异码升级并重新上传文件，是否确认？',
-          onOk: () => {
-            var icnModel = this.selectionRows[0];
-            this.$refs.uploadForm.add(icnModel,"diff");
-            this.$refs.uploadForm.title = "差异上传";
-            this.$refs.uploadForm.tips = "【差异上传】：保留原ICN文件，并将原ICN文件的差异码升级并重新上传文件";
-            this.$refs.uploadForm.disableSubmit = false;
-          },
-        })
-      },
-      newFilesAdd(){
-        if (this.selectionRows.length!=1){
-          this.$message.warning("请选择一条ICN数据!")
-          return
-        }
-        this.$confirm({
-          content: '新版上传时将删除原ICN文件并重新上传文件，是否确认？',
-          onOk: () => {
-            var icnModel = this.selectionRows[0];
-            this.$refs.uploadForm.add(icnModel,"new");
-            this.$refs.uploadForm.title = "差异上传";
-            this.$refs.uploadForm.tips = "【新版上传】：删除原ICN文件并重新上传文件";
-            this.$refs.uploadForm.disableSubmit = false;
-          },
-        })
-      },
+      }).catch(() => {
+        this.$message.error('获取当前项目失败')
+      })
+    },
 
-      handleIcnInfo(record){
-        this.$refs.infoForm.edit(record);
-        this.$refs.infoForm.title = "详情";
-        this.$refs.infoForm.disableSubmit = true;
-      },
+    // 加载构型树根节点
+    loadTreeRootNodes() {
+      getAction(this.url.treeRootList, { projectId: this.currentProjectId }).then(res => {
+        if (res.success) {
+          const records = res.result.records || []
+          this.treeData = records.map(item => {
+            // 根节点（pid=0）展示装备代码+项目名
+            const titleText = item.pid === '0'
+              ? (this.currentProjectInfo.equipmentCode || item.code) + '-' + (this.currentProjectInfo.projectName || item.title)
+              : item.code + '-' + item.title
+            return {
+              title: titleText,
+              key: item.id,
+              isLeaf: item.hasChild !== '1',
+              dataRef: item
+            }
+          })
+          // 默认展开根节点，并加载一级子节点
+          if (this.treeData.length > 0) {
+            const rootNode = this.treeData[0]
+            this.expandedKeys = [rootNode.key]
 
-      viewFile(){
-       if (this.selectionRows.length!=1){
-         this.$message.warning("请选择一条需要浏览的数据!")
-         return
-       }
-       var model = this.selectionRows[0].ietmAttachment;
-       if(model.fileName.includes(".mp4")){
-         this.$refs.videoRef.show()
-       }
-       else if(model.fileName.includes(".mp3")){
-          this.$refs.audioRef.show()
-        }
-        else {
-          this.$refs.imgRef.show()
-        }
-      },
-      loadData(arg) {
-        if (!this.url.list) {
-          this.$message.error("请设置url.list属性!")
-          return
-        }
-        if(!this.treeSelectKey){
-          return
-        }
-        //加载数据 若传入参数1则加载第一页的内容
-        if (arg === 1) {
-          this.ipagination.current = 1;
-        }
-        var params = this.getQueryParams();//查询条件
-        this.loading = true;
-        getAction(this.url.list, params).then((res) => {
-          if (res.success) {
-            this.dataSource = res.result.records || res.result;
-            if (res.result.total) {
-              this.ipagination.total = res.result.total;
+            // 加载根节点的子节点（一级节点）
+            if (rootNode.dataRef.hasChild === '1') {
+              this.loadFirstLevelNodes(rootNode)
             } else {
-              this.ipagination.total = 0;
+              // 根节点没有子节点，直接选中根节点
+              this.selectedTreeKeys = [rootNode.key]
+              this.currentCmnodeId = rootNode.key
+              this.loadData()
             }
-          } else {
-            this.$message.warning(res.message)
           }
-        }).finally(() => {
-          this.loading = false
-        })
-      },
-      handleAdd(){
-        if(!this.treeSelectKey || this.treeSelectKey=="0"){
-          this.$message.warning('请选择除根节点之外的节点。');
+        }
+      })
+    },
+
+    // 加载一级子节点并自动选中第一个
+    loadFirstLevelNodes(rootNode) {
+      getAction(this.url.treeChildList, {
+        parentId: rootNode.key,
+        projectId: this.currentProjectId
+      }).then(res => {
+        if (res.success && res.result.records && res.result.records.length > 0) {
+          // 只保留直接子节点
+          const directChildren = res.result.records.filter(item => item.pid === rootNode.key)
+
+          const children = directChildren.map(item => ({
+            title: item.code + '-' + item.title,
+            key: item.id,
+            isLeaf: item.hasChild !== '1',
+            dataRef: item
+          }))
+
+          // 关键：将 children 挂载到 treeData 的节点对象上（不是 dataRef）
+          rootNode.children = children
+          rootNode.dataRef.children = children
+
+          // 触发树重新渲染
+          this.treeData = [...this.treeData]
+
+          // 只展开根节点
+          this.expandedKeys = [rootNode.key]
+
+          // 使用 $nextTick 确保 DOM 更新后再选中节点
+          this.$nextTick(() => {
+            // 自动选中第一个一级节点
+            if (children.length > 0) {
+              const firstChild = children[0]
+              this.selectedTreeKeys = [firstChild.key]
+              this.currentCmnodeId = firstChild.key
+              this.loadData()
+            }
+          })
+        } else {
+          // 没有子节点，选中根节点
+          this.selectedTreeKeys = [rootNode.key]
+          this.currentCmnodeId = rootNode.key
+          this.loadData()
+        }
+      }).catch(() => {
+        // 加载失败，选中根节点
+        this.selectedTreeKeys = [rootNode.key]
+        this.currentCmnodeId = rootNode.key
+        this.loadData()
+      })
+    },
+
+    // 树节点选择
+    onTreeSelect(selectedKeys, e) {
+      if (selectedKeys.length > 0) {
+        this.selectedTreeKeys = selectedKeys
+        this.currentCmnodeId = selectedKeys[0]
+        this.loadData()
+      }
+    },
+
+    // 树节点展开
+    onTreeExpand(expandedKeys) {
+      this.expandedKeys = expandedKeys
+    },
+
+    // 按需加载子节点（与项目构型管理页面保持一致）
+    onLoadTreeData(treeNode) {
+      return new Promise(resolve => {
+        // 已加载过子节点，无需再次加载
+        if (treeNode.dataRef.children && treeNode.dataRef.children.length > 0) {
+          resolve()
           return
         }
-        this.$refs.modalForm.add(this.treeSelectKey);
-        this.$refs.modalForm.title = "新增";
-        this.$refs.modalForm.disableSubmit = false;
-      },
-      show(model) {
-        this.visible = true
-        this.onClearSelected()
-        this.model = model
-        if (this.model.id && this.model.id != '') {
-          let split = this.model.id.split(',')
-          this.selectedRowKeys = split
-        }
-      },
-      loadTree() {
-        var that = this
-        that.treeData = []
-        getAction('/projectconfigurationmanagement/ietmProjectConfigurationManagement/queryTreeList').then((res) => {
-          if (res.success) {
-            this.allTreeKeys = []
-            for (let i = 0; i < res.result.length; i++) {
-              let temp = res.result[i]
-              that.treeData.push(temp)
-              that.setThisExpandedKeys(temp)
-              that.getAllKeys(temp)
+        const nodeId = treeNode.eventKey
+        getAction(this.url.treeChildList, {
+          parentId: nodeId,
+          projectId: this.currentProjectId
+        }).then(res => {
+          if (res.success && res.result.records && res.result.records.length > 0) {
+            // 只保留 pid === nodeId 的直接子节点
+            // 同时过滤掉根节点自身（childList 接口会把父节点也返回）
+            const directChildren = res.result.records.filter(item => item.pid === nodeId)
+            const children = directChildren.map(item => ({
+              title: item.code + '-' + item.title,
+              key: item.id,
+              isLeaf: item.hasChild !== '1',
+              dataRef: item
+            }))
+
+            // 关键：同时更新 treeNode 和 dataRef 的 children
+            treeNode.dataRef.children = children
+
+            // 找到 treeData 中对应的节点并更新其 children
+            const updateNodeChildren = (nodes) => {
+              for (let node of nodes) {
+                if (node.key === nodeId) {
+                  node.children = children
+                  return true
+                }
+                if (node.children && node.children.length > 0) {
+                  if (updateNodeChildren(node.children)) {
+                    return true
+                  }
+                }
+              }
+              return false
             }
-            this.loading = false
+            updateNodeChildren(this.treeData)
+
+            // 触发树重新渲染
+            this.treeData = [...this.treeData]
           }
+          resolve()
+        }).catch(() => {
+          resolve()
         })
-      },
-      // 展开左侧菜单树形结构并渲染右侧对应的表格
-      onSelect(selectedKeys, e) {
-          this.selectedKeys = selectedKeys;
-          this.treeSelectKey=selectedKeys[0]
+      })
+    },
+
+    // 加载ICN列表
+    loadData(arg) {
+      if (!this.currentCmnodeId) {
+        // 未选择构型节点时，安静返回（不弹提示）
+        this.loading = false
+        this.dataSource = []
+        return
+      }
+
+      this.loading = true
+      const params = {
+        cmnodeId: this.currentCmnodeId,
+        includeChildren: this.showChildIcn ? '1' : '0',
+        ...this.queryParam
+      }
+
+      getAction(this.url.list, params).then(res => {
+        if (res.success) {
+          this.dataSource = res.result
+        } else {
+          this.$message.error(res.message)
+        }
+        this.loading = false
+      }).catch(() => {
+        this.loading = false
+      })
+    },
+
+    // 显示子节点ICN勾选变化
+    handleShowChildIcnChange(e) {
+      this.showChildIcn = e.target.checked
+      this.loadData()
+    },
+
+    // 表格选择变化
+    onSelectChange(selectedRowKeys, selectedRows) {
+      this.selectedRowKeys = selectedRowKeys
+      this.selectedRows = selectedRows
+    },
+
+    // 新增
+    handleAdd() {
+      if (!this.currentCmnodeId) {
+        this.$message.warning('请先选择构型节点')
+        return
+      }
+      // 检查是否选择了根节点（根节点的 pid 为 '0'）
+      const currentNode = this.findNodeById(this.treeData, this.currentCmnodeId)
+      if (currentNode && currentNode.dataRef && currentNode.dataRef.pid === '0') {
+        this.$message.warning('不能在根节点下新增ICN，请选择子节点')
+        return
+      }
+      this.$refs.modalForm.add(this.currentCmnodeId, this.currentProjectInfo)
+      this.$refs.modalForm.title = '新增ICN'
+    },
+
+    // 递归查找树节点
+    findNodeById(nodes, id) {
+      for (let node of nodes) {
+        if (node.key === id) return node
+        if (node.children && node.children.length > 0) {
+          const found = this.findNodeById(node.children, id)
+          if (found) return found
+        }
+      }
+      return null
+    },
+
+    // 批量新增
+    handleBatchAdd() {
+      if (!this.currentCmnodeId) {
+        this.$message.warning('请先选择构型节点')
+        return
+      }
+
+      // 检查是否为根节点
+      const currentNode = this.findNodeById(this.treeData, this.currentCmnodeId)
+      if (currentNode && currentNode.dataRef && currentNode.dataRef.pid === '0') {
+        this.$message.warning('不能在根节点下批量新增ICN，请选择子节点')
+        return
+      }
+
+      // 获取当前节点名称
+      const nodeName = currentNode ? currentNode.title : ''
+      this.$refs.batchAddModal.show(this.currentCmnodeId, nodeName)
+    },
+
+    // 编辑
+    handleEdit(record) {
+      this.$refs.modalForm.edit(record)
+      this.$refs.modalForm.title = '编辑ICN'
+    },
+
+    // 相关文件上传
+    handleUploadRelated() {
+      if (this.selectedRowKeys.length === 0) {
+        this.$message.warning('请选择至少一条记录')
+        return
+      }
+      this.$refs.uploadModal.showRelated(this.selectedRows[0])
+    },
+
+    // 差异上传
+    handleUploadDiff() {
+      if (this.selectedRowKeys.length !== 1) {
+        this.$message.warning('请选择一条记录')
+        return
+      }
+      this.$refs.uploadModal.showDiff(this.selectedRows[0])
+    },
+
+    // 新版上传
+    handleUploadNew() {
+      if (this.selectedRowKeys.length !== 1) {
+        this.$message.warning('请选择一条记录')
+        return
+      }
+      this.$refs.uploadModal.showNew(this.selectedRows[0])
+    },
+
+    // 删除单条
+    handleDeleteOne(id) {
+      deleteAction(this.url.delete, { id }).then(res => {
+        if (res.success) {
+          this.$message.success(res.message)
           this.loadData()
-      },
-      getQueryParams() {
-        //获取查询条件
-        let sqp = {}
-        if (this.superQueryParams) {
-          sqp['superQueryParams'] = encodeURI(this.superQueryParams)
-          sqp['superQueryMatchType'] = this.superQueryMatchType
+        } else {
+          this.$message.error(res.message)
         }
-        var param = Object.assign(sqp, this.queryParam, this.isorter, this.filters)
-        param.field = this.getQueryField()
-        param.pageNo = this.ipagination.current
-        param.pageSize = this.ipagination.pageSize
-        param.cmnodeId = this.treeSelectKey
-        return filterObj(param)
-      },
-      onExpand(expandedKeys) {
-        this.iExpandedKeys = expandedKeys
-        this.autoExpandParent = false
-      },
+      })
+    },
 
-      setThisExpandedKeys(node) {
-        if (node.children && node.children.length > 0) {
-          this.iExpandedKeys.push(node.key)
-          for (let a = 0; a < node.children.length; a++) {
-            this.setThisExpandedKeys(node.children[a])
-          }
-        }
-      },
-      getAllKeys(node) {
-        // console.log('node',node);
-        this.allTreeKeys.push(node.key)
-        if (node.children && node.children.length > 0) {
-          for (let a = 0; a < node.children.length; a++) {
-            this.getAllKeys(node.children[a])
-          }
-        }
-      },
-      close() {
-        this.visible = false
-      },
-      handleOk() {
-        let id = ''
-        for (var a = 0; a < this.selectedRowKeys.length; a++) {
-          if (a == this.selectedRowKeys.length - 1) {
-            id += this.selectedRowKeys[a]
-          } else {
-            id += this.selectedRowKeys[a] + ','
-          }
-        }
-        this.model.linkProduct = id
-        let that = this
-        httpAction(this.url.edit, this.model, 'put').then((res) => {
-          if (res.success) {
-            that.$message.success(res.message)
-          } else {
-            that.$message.warning(res.message)
-          }
-        }).finally(() => {
-          this.$emit('ok', this.selectionRows)
-          this.close()
-        })
-      },
-      handleCancel() {
-        this.close()
-      },
+    // 批量删除
+    handleDelete() {
+      if (this.selectedRowKeys.length === 0) {
+        this.$message.warning('请选择要删除的记录')
+        return
+      }
 
-      initDictConfig(){
-      },
-      getSuperFieldList(){
-        let fieldList=[];
-        fieldList.push({type:'string',value:'icn',text:'ICN',dictCode:''})
-        fieldList.push({type:'string',value:'fileName',text:'文件名称',dictCode:''})
-        fieldList.push({type:'string',value:'versionNo',text:'版本号',dictCode:''})
-        fieldList.push({type:'int',value:'security',text:'密级',dictCode:'security'})
-        fieldList.push({type:'string',value:'fileSize',text:'文件大小',dictCode:''})
-        this.superFieldList = fieldList
+      this.$confirm({
+        title: '确认删除',
+        content: `确定删除选中的 ${this.selectedRowKeys.length} 条记录吗？`,
+        onOk: () => {
+          deleteAction(this.url.deleteBatch, { ids: this.selectedRowKeys.join(',') }).then(res => {
+            if (res.success) {
+              this.$message.success(res.message)
+              this.loadData()
+              this.selectedRowKeys = []
+              this.selectedRows = []
+            } else {
+              this.$message.error(res.message)
+            }
+          })
+        }
+      })
+    },
+
+    // 查看详情
+    handleViewDetail(record) {
+      this.$refs.infoModal.show(record)
+    },
+
+    // 浏览文件
+    handleView() {
+      if (this.selectedRowKeys.length !== 1) {
+        this.$message.warning('请选择一条记录')
+        return
+      }
+
+      const record = this.selectedRows[0]
+
+      // 检查是否有实体文件
+      if (!record.ietmAttachment || !record.ietmAttachment.fileName) {
+        this.$message.warning('该ICN没有关联的实体文件')
+        return
+      }
+
+      const fileName = record.ietmAttachment.fileName
+      const fileKey = record.ietmAttachment.fileKey
+
+      // 根据文件扩展名判断文件类型
+      const ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase()
+
+      // 构造文件访问URL（根据实际后端配置调整）
+      const fileUrl = `${window._CONFIG['domianURL']}/sys/common/static/${fileKey}`
+
+      if (ext === '.mp4' || ext === '.avi' || ext === '.mov') {
+        // 视频文件
+        this.$refs.playVideo.show(fileUrl, fileName)
+      } else if (ext === '.mp3' || ext === '.wav' || ext === '.m4a') {
+        // 音频文件
+        this.$refs.playAudio.show(fileUrl, fileName)
+      } else if (ext === '.jpg' || ext === '.jpeg' || ext === '.png' || ext === '.gif' || ext === '.bmp') {
+        // 图片文件
+        this.$refs.playImg.show(fileUrl, fileName)
+      } else {
+        // 其他文件类型，提示不支持预览
+        this.$message.warning(`不支持预览 ${ext} 格式的文件，请使用下载功能`)
+      }
+    },
+
+    // 引用关系
+    handleReference() {
+      if (this.selectedRowKeys.length !== 1) {
+        this.$message.warning('请选择一条记录')
+        return
+      }
+      this.$refs.referenceModal.show(this.selectedRows[0])
+    },
+
+    // 下载文件
+    handleDownload() {
+      if (this.selectedRowKeys.length !== 1) {
+        this.$message.warning('请选择一条记录')
+        return
+      }
+
+      const record = this.selectedRows[0]
+
+      // 检查是否有实体文件
+      if (!record.ietmAttachment || !record.ietmAttachment.fileKey) {
+        this.$message.warning('该ICN没有关联的实体文件')
+        return
+      }
+
+      const fileName = record.ietmAttachment.fileName
+      const fileKey = record.ietmAttachment.fileKey
+
+      // 构造下载URL
+      const downloadUrl = `${window._CONFIG['domianURL']}/sys/common/download/${fileKey}`
+
+      // 创建隐藏的a标签触发下载
+      const link = document.createElement('a')
+      link.style.display = 'none'
+      link.href = downloadUrl
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      this.$message.success('开始下载文件')
+    },
+
+    // 导入Excel
+    handleImportExcel() {
+      this.$refs.importModal.show()
+    },
+
+    // 弹窗确认回调
+    modalFormOk() {
+      this.loadData()
+    },
+
+    // 获取密级颜色
+    getSecurityColor(security) {
+      const colorMap = { 1: 'green', 2: 'blue', 3: 'orange', 4: 'red' }
+      return colorMap[security] || 'default'
+    },
+
+    // 获取密级文本
+    getSecurityText(security) {
+      const textMap = { 1: '公开', 2: '内部', 3: '秘密', 4: '机密' }
+      return textMap[security] || '未知'
+    },
+
+    // 格式化文件大小
+    formatFileSize(bytes) {
+      if (!bytes || bytes === 0) return '0 B'
+      const k = 1024
+      const sizes = ['B', 'KB', 'MB', 'GB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
+    },
+
+    // 计算所有DM的引用信息
+    handleCalculate() {
+      this.$message.info('计算功能开发中...')
+    },
+
+    // 清除预览时形成的文件缓存
+    handleClearCache() {
+      this.$message.info('清除缓存功能开发中...')
+    }
+  }
+}
+</script>
+
+<style lang="less" scoped>
+.icn-manage-container {
+  padding: 0;
+
+  // 工具栏样式
+  .toolbar-wrapper {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e8e8e8;
+
+    /deep/ .ant-btn-group {
+      .ant-btn {
+        padding: 0 12px;
       }
     }
   }
-</script>
-<style scoped lang="less">
-  @import '~@assets/less/common.less';
-  .container{
-    display: flex;
-    flex-direction: row;
-    height: calc(100vh - 150px);
-    width: 100%;
-    .left-content{
-      min-width: 450px;
-      width: 20%;
-      background-color: white;
-    }
-    .right-content{
-      flex: auto;
+
+  // 内容行
+  .content-row {
+    margin-top: 0;
+  }
+
+  // 卡片标题统一样式
+  .card-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #262626;
+
+    .anticon {
+      color: #1890ff;
     }
   }
 
-  /deep/ .ant-tree{
-    max-height: calc(100% - 90px);
-    overflow-y: scroll;
-    overflow-x: scroll;
-  }
-  .table-operator{
-    display: flex;
-    flex-direction: row;
+  // 编码规则提示
+  .code-rule-tip {
+    font-size: 12px;
+    color: #8c8c8c;
+    background: #f5f5f5;
+    padding: 2px 8px;
+    border-radius: 2px;
   }
 
-  .ant-divider-horizontal {
-    margin: 0;
+  // 构型树卡片
+  .tree-card {
+    height: calc(100vh - 230px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+    /deep/ .ant-card-head {
+      border-bottom: 1px solid #e8e8e8;
+      background: #fafafa;
+      padding: 0 16px;
+      min-height: 42px;
+    }
+
+    /deep/ .ant-card-body {
+      flex: 1;
+      overflow: hidden;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+    }
   }
+
+  // 树操作区域
+  .tree-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: #f5f7fa;
+    border-radius: 4px;
+
+    .ant-checkbox-wrapper {
+      font-size: 13px;
+    }
+
+    .tree-buttons {
+      display: flex;
+      gap: 8px;
+    }
+  }
+
+  // 树滚动区域
+  .tree-scroll-wrap {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    padding: 8px;
+    background: #fff;
+
+    // 树节点样式优化
+    /deep/ .ant-tree {
+      .ant-tree-node-content-wrapper {
+        line-height: 28px;
+        border-radius: 2px;
+        transition: all 0.2s;
+
+        &:hover {
+          background-color: #e6f7ff;
+        }
+      }
+
+      .ant-tree-node-selected {
+        .ant-tree-node-content-wrapper {
+          background-color: #bae7ff;
+        }
+      }
+
+      .ant-tree-title {
+        font-size: 13px;
+      }
+    }
+
+    // 滚动条样式
+    &::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #d9d9d9;
+      border-radius: 3px;
+
+      &:hover {
+        background: #bfbfbf;
+      }
+    }
+  }
+
+  // 列表卡片
+  .list-card {
+    height: calc(100vh - 230px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+    /deep/ .ant-card-head {
+      border-bottom: 1px solid #e8e8e8;
+      background: #fafafa;
+      padding: 0 16px;
+      min-height: 42px;
+    }
+
+    /deep/ .ant-card-body {
+      flex: 1;
+      overflow: hidden;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /deep/ .ant-table-wrapper {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+
+      .ant-spin-nested-loading {
+        flex: 1;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+
+        .ant-spin-container {
+          flex: 1;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+
+          .ant-table {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+
+            .ant-table-content {
+              flex: 1;
+              overflow: auto;
+            }
+          }
+        }
+      }
+    }
+
+    // 表格样式优化
+    /deep/ .ant-table {
+      .ant-table-thead > tr > th {
+        background: #fafafa;
+        font-weight: 500;
+        color: #262626;
+        padding: 12px 8px;
+      }
+
+      .ant-table-tbody > tr > td {
+        padding: 10px 8px;
+      }
+
+      .ant-table-tbody > tr:hover {
+        background: #e6f7ff;
+      }
+
+      // ICN链接样式
+      a {
+        color: #1890ff;
+        transition: color 0.2s;
+
+        &:hover {
+          color: #40a9ff;
+        }
+      }
+
+      // 操作栏样式
+      .ant-dropdown-link {
+        color: #1890ff;
+        cursor: pointer;
+
+        &:hover {
+          color: #40a9ff;
+        }
+      }
+    }
+  }
+}
 </style>
+
+
