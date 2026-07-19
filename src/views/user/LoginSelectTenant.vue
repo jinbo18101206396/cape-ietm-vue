@@ -49,159 +49,148 @@
 </template>
 
 <script>
-
 import Vue from 'vue'
 import { putAction } from '@/api/manage'
 import { USER_INFO } from '@/store/mutation-types'
 
 export default {
-    name: 'LoginSelectTenant',
-    data(){
-      return {
-        visible: false,
-        isMultiDepart:false,
-        departList:[],
-
-        isMultiTenant:false,
-        tenantList:[],
-
-        username:'',
-        orgCode:'',
-        tenant_id:'',
-
-        validate_status1: "",
-        validate_status2: "",
-      }
-    },
-    computed:{
-      title(){
-        if(this.isMultiDepart && this.isMultiTenant){
-          return '请选择租户和部门'
-        }else if(this.isMultiDepart && !this.isMultiTenant){
-          return '请选择部门'
-        }else if(!this.isMultiDepart && this.isMultiTenant){
-          return '请选择租户'
-        }
-      }
-    },
-    methods:{
-      clear(){
-        this.departList = []
-        this.tenantList = []
-        this.visible=false
-        this.validate_status1=''
-        this.validate_status2=''
-      },
-      bizDepart(loginResult){
-        let multi_depart = loginResult.multi_depart
-        //0:无部门 1:一个部门 2:多个部门
-        if(multi_depart==0){
-          this.$notification.warn({
-            message: '提示',
-            description: `您尚未归属部门,请确认账号信息`,
-            duration:3
-          });
-          this.isMultiDepart = false
-        }else if(multi_depart==2){
-          this.visible=true
-          this.isMultiDepart = true
-          this.departList = loginResult.departs
-        }else {
-          this.isMultiDepart = false
-        }
-      },
-      bizTenantList(loginResult) {
-        let tenantList = loginResult.tenantList
-        if (Array.isArray(tenantList)) {
-          if (tenantList.length === 0) {
-            this.isMultiTenant = false
-          } else if (tenantList.length === 1) {
-            this.tenant_id = tenantList[0].id
-            this.isMultiTenant = false
-          } else {
-            this.visible = true
-            this.isMultiTenant = true
-            this.tenantList = tenantList
-          }
-        }
-      },
-      show(loginResult){
-        this.clear();
-        this.bizDepart(loginResult);
-
-        let user = Vue.ls.get(USER_INFO)
-        this.username = user.username
-        this.bizTenantList(loginResult);
-
-        if(this.visible===false){
-          this.$store.dispatch('saveTenant', this.tenant_id);
-          this.$emit('success')
-        }
-
-      },
-      requestFailed (err) {
-        this.$notification[ 'error' ]({
-          message: '登录失败',
-          description: ((err.response || {}).data || {}).message || err.message || "请求出现错误，请稍后再试",
-          duration: 4,
-        });
-        this.loginBtn = false;
-      },
-      departResolve(){
-        return new Promise((resolve, reject)=>{
-          if(this.isMultiDepart===false){
-            resolve();
-          }else{
-            let obj = {
-              orgCode:this.orgCode,
-              username:this.username
-            }
-            putAction("/sys/selectDepart",obj).then(res=>{
-              if(res.success){
-                const userInfo = res.result.userInfo;
-                Vue.ls.set(USER_INFO, userInfo, 7 * 24 * 60 * 60 * 1000);
-                this.$store.commit('SET_INFO', userInfo);
-                //console.log("---切换组织机构---userInfo-------",store.getters.userInfo.orgCode);
-                resolve();
-              }else{
-                this.requestFailed(res)
-                this.$store.dispatch('Logout');
-                reject();
-              }
-            })
-          }
-        })
-      },
-      selectOk(){
-        if(this.isMultiTenant && !this.tenant_id){
-          this.validate_status1='error'
-          return false
-        }
-        if(this.isMultiDepart && !this.orgCode){
-          this.validate_status2='error'
-          return false
-        }
-        this.departResolve().then(()=>{
-          this.$store.dispatch('saveTenant', this.tenant_id);
-          if(this.isMultiTenant){
-            this.$emit('success')
-          }else{
-            this.$emit('success')
-          }
-        }).catch(()=>{
-          console.log('登录选择出问题')
-        })
-      },
-      handleTenantChange(e){
-        this.validate_status1 = ''
-        this.tenant_id = e
-      },
-      handleDepartChange(e){
-        this.validate_status2 = ''
-        this.orgCode = e
+  name: 'LoginSelectTenant',
+  data() {
+    return {
+      visible: false,
+      isMultiDepart: false,
+      departList: [],
+      isMultiTenant: false,
+      tenantList: [],
+      username: '',
+      orgCode: '',
+      tenant_id: '',
+      validate_status1: "",
+      validate_status2: ""
+    }
+  },
+  computed: {
+    title() {
+      if (this.isMultiDepart && this.isMultiTenant) {
+        return '请选择租户和部门'
+      } else if (this.isMultiDepart && !this.isMultiTenant) {
+        return '请选择部门'
+      } else if (!this.isMultiDepart && this.isMultiTenant) {
+        return '请选择租户'
       }
     }
+  },
+  methods: {
+    clear() {
+      this.departList = []
+      this.tenantList = []
+      this.visible = false
+      this.validate_status1 = ''
+      this.validate_status2 = ''
+    },
+    bizDepart(loginResult) {
+      let multi_depart = loginResult.multi_depart
+      if (multi_depart == 0) {
+        this.$notification.warn({
+          message: '提示',
+          description: `您尚未归属部门,请确认账号信息`,
+          duration: 3
+        })
+        this.isMultiDepart = false
+      } else if (multi_depart == 2) {
+        this.visible = true
+        this.isMultiDepart = true
+        this.departList = loginResult.departs
+      } else {
+        this.isMultiDepart = false
+      }
+    },
+    bizTenantList(loginResult) {
+      let tenantList = loginResult.tenantList
+      if (Array.isArray(tenantList)) {
+        if (tenantList.length === 0) {
+          this.isMultiTenant = false
+        } else if (tenantList.length === 1) {
+          this.tenant_id = tenantList[0].id
+          this.isMultiTenant = false
+        } else {
+          this.visible = true
+          this.isMultiTenant = true
+          this.tenantList = tenantList
+        }
+      }
+    },
+    show(loginResult) {
+      this.clear()
+      this.bizDepart(loginResult)
+
+      let user = Vue.ls.get(USER_INFO)
+      this.username = user.username
+      this.bizTenantList(loginResult)
+
+      if (this.visible === false) {
+        this.$store.dispatch('saveTenant', this.tenant_id)
+        this.$emit('success')
+      }
+    },
+    requestFailed(err) {
+      this.$notification['error']({
+        message: '登录失败',
+        description: ((err.response || {}).data || {}).message || err.message || "请求出现错误，请稍后再试",
+        duration: 4
+      })
+      this.loginBtn = false
+    },
+    departResolve() {
+      return new Promise((resolve, reject) => {
+        if (this.isMultiDepart === false) {
+          resolve()
+        } else {
+          let obj = {
+            orgCode: this.orgCode,
+            username: this.username
+          }
+          putAction("/sys/selectDepart", obj).then(res => {
+            if (res.success) {
+              const userInfo = res.result.userInfo
+              Vue.ls.set(USER_INFO, userInfo, 7 * 24 * 60 * 60 * 1000)
+              this.$store.commit('SET_INFO', userInfo)
+              resolve()
+            } else {
+              this.requestFailed(res)
+              this.$store.dispatch('Logout')
+              reject()
+            }
+          })
+        }
+      })
+    },
+    selectOk() {
+      if (this.isMultiTenant && !this.tenant_id) {
+        this.validate_status1 = 'error'
+        return false
+      }
+      if (this.isMultiDepart && !this.orgCode) {
+        this.validate_status2 = 'error'
+        return false
+      }
+      this.departResolve().then(() => {
+        this.$store.dispatch('saveTenant', this.tenant_id)
+        this.$emit('success')
+      }).catch(() => {
+        console.log('登录选择出问题')
+      })
+    },
+    handleTenantChange(e) {
+      this.validate_status1 = ''
+      this.tenant_id = e
+    },
+    handleDepartChange(e) {
+      this.validate_status2 = ''
+      this.orgCode = e
+    }
   }
+}
 </script>
 
 <style scoped>
