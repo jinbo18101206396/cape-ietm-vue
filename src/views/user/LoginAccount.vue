@@ -1,15 +1,31 @@
 <template>
     <div>
       <a-form-model ref="form" :model="model" :rules="validatorRules">
-        <a-form-model-item required prop="username">
-          <a-input v-model="model.username" size="large" placeholder="请输入帐户名 / admin">
-            <a-icon slot="prefix" type="user" :style="{ color: 'rgba(0,0,0,.25)' }"/>
-          </a-input>
+        <a-form-model-item required prop="username" class="form-item">
+          <label class="form-label">账户名</label>
+          <div class="input-wrap">
+            <input
+              v-model="model.username"
+              type="text"
+              class="form-input"
+              placeholder="请输入账户名 / admin"
+            />
+            <span class="input-icon">👤</span>
+          </div>
         </a-form-model-item>
-        <a-form-model-item required prop="password">
-          <a-input v-model="model.password" size="large" type="password" autocomplete="false" placeholder="请输入密码 / 123456">
-            <a-icon slot="prefix" type="lock" :style="{ color: 'rgba(0,0,0,.25)' }"/>
-          </a-input>
+
+        <a-form-model-item required prop="password" class="form-item">
+          <label class="form-label">密码</label>
+          <div class="input-wrap">
+            <input
+              v-model="model.password"
+              type="password"
+              class="form-input"
+              placeholder="请输入密码 / 123456"
+              autocomplete="off"
+            />
+            <span class="input-icon">🔒</span>
+          </div>
         </a-form-model-item>
 
       </a-form-model>
@@ -118,5 +134,70 @@
 </script>
 
 <style scoped>
+.form-item {
+  margin-bottom: 26px;
+}
 
+.form-item /deep/ .ant-form-item-control {
+  line-height: normal;
+  max-width: 100%;
+}
+
+.form-label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(0,0,0,0.88);
+  margin-bottom: 11px;
+  letter-spacing: 0.5px;
+}
+
+.input-wrap {
+  position: relative;
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+.input-icon {
+  position: absolute;
+  left: 17px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: rgba(0,0,0,0.28);
+  pointer-events: none;
+  transition: color 0.3s;
+}
+
+.form-input {
+  width: 100%;
+  height: 50px;
+  padding: 0 18px 0 50px;
+  background: #fff;
+  border: 1.5px solid #e1e4e8;
+  border-radius: 8px;
+  font-size: 15px;
+  color: rgba(0,0,0,0.88);
+  outline: none;
+  transition: all 0.3s;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.form-input::placeholder {
+  color: rgba(0,0,0,0.28);
+  font-size: 14px;
+}
+
+.form-input:hover {
+  border-color: #a8b3c0;
+}
+
+.form-input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 3px rgba(24,144,255,0.12);
+}
+
+.form-input:focus + .input-icon {
+  color: #1890ff;
+}
 </style>
