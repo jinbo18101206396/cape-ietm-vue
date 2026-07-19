@@ -115,7 +115,7 @@
 
     <ietmProjectConfigurationManagement-modal ref="modalForm" @ok="modalFormOk"></ietmProjectConfigurationManagement-modal>
     <template-import-modal ref="templateImportModal" @ok="modalFormOk"></template-import-modal>
-    <excel-import-modal ref="excelImportModal" :projectId="currentProjectId" @ok="modalFormOk"></excel-import-modal>
+    <excel-import-modal ref="excelImportModal" :projectId="currentProjectId" :projectSecurity="currentProjectInfo ? currentProjectInfo.security : null" @ok="modalFormOk"></excel-import-modal>
   </a-card>
 </template>
 
