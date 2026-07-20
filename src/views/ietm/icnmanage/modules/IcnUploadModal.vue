@@ -35,25 +35,34 @@ export default {
     showRelated(record) {
       this.title = '相关文件上传'
       this.uploadType = 'related'
-      this.currentRecord = record
       this.visible = true
+      this.$nextTick(() => {
+        this.$refs.uploadForm.reset()
+        this.currentRecord = { ...record } // 先reset再设置record，确保数据正确初始化
+      })
     },
     // 差异上传
     showDiff(record) {
       this.title = '差异上传'
       this.uploadType = 'diff'
-      this.currentRecord = record
       this.visible = true
       this.$nextTick(() => {
-        this.$refs.uploadForm.initDiffForm(record)
+        this.$refs.uploadForm.reset()
+        this.currentRecord = { ...record } // 先reset再设置record
+        this.$nextTick(() => {
+          this.$refs.uploadForm.initDiffForm(record) // 确保在record设置后再初始化差异字段
+        })
       })
     },
     // 新版上传
     showNew(record) {
       this.title = '新版上传'
       this.uploadType = 'new'
-      this.currentRecord = record
       this.visible = true
+      this.$nextTick(() => {
+        this.$refs.uploadForm.reset()
+        this.currentRecord = { ...record } // 先reset再设置record
+      })
     },
     handleOk() {
       this.$refs.uploadForm.handleSubmit((fileList, extraParams) => {
@@ -63,7 +72,8 @@ export default {
             this.$message.success('上传成功')
             this.confirmLoading = false
             this.visible = false
-            this.$emit('ok')
+            // 传递上传类型给父组件，用于特殊处理（如新版上传的nocached标志）
+            this.$emit('ok', { uploadType: this.uploadType })
           })
           .catch((err) => {
             this.$message.error(err.message || '上传失败')

@@ -1,16 +1,67 @@
 <template>
   <a-form-model ref="form" :model="model" :label-col="labelCol" :wrapper-col="wrapperCol">
-    <!-- 基本信息显示 -->
     <a-row :gutter="16">
+      <!-- 上传类型提示 -->
       <a-col :span="24">
         <a-alert :message="uploadTypeText" type="info" show-icon style="margin-bottom: 16px;" />
       </a-col>
 
-      <!-- 原ICN信息 -->
+      <!-- 实体基本信息 -->
+      <a-col :span="24">
+        <a-divider orientation="left">实体信息</a-divider>
+      </a-col>
+
       <a-col :span="12">
-        <a-form-model-item label="原ICN编码">
-          <a-input v-model="model.originalIcn" disabled />
+        <a-form-model-item label="密级">
+          <a-input v-model="model.securityText" disabled />
         </a-form-model-item>
+      </a-col>
+
+      <a-col :span="12">
+        <a-form-model-item label="安全等级">
+          <a-input v-model="model.securityClassification" disabled />
+        </a-form-model-item>
+      </a-col>
+
+      <a-col :span="12">
+        <a-form-model-item label="SNS">
+          <a-input v-model="model.sns" disabled />
+        </a-form-model-item>
+      </a-col>
+
+      <a-col :span="12">
+        <a-form-model-item label="唯一识别码">
+          <a-input v-model="model.uniqueId" disabled />
+        </a-form-model-item>
+      </a-col>
+
+      <a-col :span="12">
+        <a-form-model-item label="变量码">
+          <a-input v-model="model.variantCode" disabled />
+        </a-form-model-item>
+      </a-col>
+
+      <a-col :span="12">
+        <a-form-model-item label="版本号">
+          <a-input v-model="model.issueNo" disabled />
+        </a-form-model-item>
+      </a-col>
+
+      <a-col :span="12">
+        <a-form-model-item label="分类">
+          <a-input v-model="model.icnType" disabled />
+        </a-form-model-item>
+      </a-col>
+
+      <a-col :span="12">
+        <a-form-model-item label="文件名称">
+          <a-input v-model="model.fileName" disabled />
+        </a-form-model-item>
+      </a-col>
+
+      <!-- 差异上传特有字段 -->
+      <a-col :span="24" v-if="uploadType === 'diff'">
+        <a-divider orientation="left">差异信息</a-divider>
       </a-col>
 
       <a-col :span="12" v-if="uploadType === 'diff'">
@@ -19,7 +70,11 @@
         </a-form-model-item>
       </a-col>
 
-      <!-- 文件上传 -->
+      <!-- 文件上传区域 -->
+      <a-col :span="24">
+        <a-divider orientation="left">文件上传</a-divider>
+      </a-col>
+
       <a-col :span="24">
         <a-form-model-item label="选择文件" required>
           <a-upload
@@ -62,13 +117,21 @@ export default {
       model: {
         originalIcn: '',
         originalId: '',
-        newVariantCode: ''
+        newVariantCode: '',
+        securityText: '',
+        sns: '',
+        uniqueId: '',
+        variantCode: '',
+        issueNo: '',
+        securityClassification: '',
+        icnType: '',
+        fileName: ''
       },
       fileList: [],
       url: {
-        relatedUpload: '/icnmanage/ietmIcnManage/relatedFilesAdd',
-        diffUpload: '/icnmanage/ietmIcnManage/diffFilesAdd',
-        newUpload: '/icnmanage/ietmIcnManage/newFilesAdd'
+        relatedUpload: '/icnmanage/ietmIcnManage/uploadRelatedFiles',
+        diffUpload: '/icnmanage/ietmIcnManage/uploadDiffFiles',
+        newUpload: '/icnmanage/ietmIcnManage/uploadNewVersion'
       }
     }
   },
@@ -97,11 +160,29 @@ export default {
         if (val && val.id) {
           this.model.originalIcn = val.icn || this.generateIcn(val)
           this.model.originalId = val.id
+          this.model.securityText = this.getSecurityText(val.security)
+          this.model.sns = val.sns || ''
+          this.model.uniqueId = val.uniqueId || ''
+          this.model.variantCode = val.variantCode || ''
+          this.model.issueNo = val.issueNo || ''
+          this.model.securityClassification = val.securityClassification || ''
+          this.model.icnType = val.icnType || ''
+          this.model.fileName = (val.ietmAttachment && val.ietmAttachment.fileName) || ''
         }
       }
     }
   },
   methods: {
+    // 获取密级文字
+    getSecurityText(security) {
+      const securityMap = {
+        1: '公开',
+        2: '内部',
+        3: '秘密',
+        4: '机密'
+      }
+      return securityMap[security] || ''
+    },
     // 初始化差异上传表单
     initDiffForm(record) {
       this.model.originalIcn = record.icn || this.generateIcn(record)
@@ -150,7 +231,15 @@ export default {
       this.model = {
         originalIcn: '',
         originalId: '',
-        newVariantCode: ''
+        newVariantCode: '',
+        securityText: '',
+        sns: '',
+        uniqueId: '',
+        variantCode: '',
+        issueNo: '',
+        securityClassification: '',
+        icnType: '',
+        fileName: ''
       }
       this.fileList = []
     },
@@ -175,18 +264,22 @@ export default {
           form.append('files', file)
         })
 
-        // 添加额外参数
-        form.append('id', extraParams.id)
-        if (this.uploadType === 'diff') {
-          form.append('newVariantCode', extraParams.newVariantCode)
-        }
-
-        // 根据上传类型选择URL
+        // 根据上传类型选择URL和添加对应参数
         let url = this.url.relatedUpload
-        if (this.uploadType === 'diff') {
+        if (this.uploadType === 'related') {
+          // 相关文件上传：需要 icnId
+          form.append('icnId', extraParams.id)
+        } else if (this.uploadType === 'diff') {
+          // 差异上传：需要 originalIcnId, newVariantCode, newUniqueId
           url = this.url.diffUpload
+          form.append('originalIcnId', extraParams.id)
+          form.append('newVariantCode', extraParams.newVariantCode)
+          // newUniqueId 需要从 record 获取或生成新的
+          form.append('newUniqueId', this.model.uniqueId)
         } else if (this.uploadType === 'new') {
+          // 新版上传：需要 icnId
           url = this.url.newUpload
+          form.append('icnId', extraParams.id)
         }
 
         httpAction(url, form, 'post').then(res => {

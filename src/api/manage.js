@@ -180,13 +180,13 @@ export function downloadFile(url, fileName, parameter) {
  * @param parameter
  * @returns {*}
  */
-export function uploadAction(url,parameter){
+export function uploadAction(url, parameter) {
   return axios({
     url: url,
     data: parameter,
-    method:'post' ,
+    method: 'post',
     headers: {
-      'Content-Type': 'multipart/form-data',  // 文件上传
+      'Content-Type': undefined  // 明确设置为undefined，让浏览器自动设置
     },
   })
 }

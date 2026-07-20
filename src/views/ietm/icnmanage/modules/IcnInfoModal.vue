@@ -37,51 +37,24 @@
         {{ record.icnType }}
       </a-descriptions-item>
 
-      <a-descriptions-item label="创作单位编码">
-        {{ record.originator }}
-      </a-descriptions-item>
-
-      <a-descriptions-item label="创作单位名称">
-        {{ record.originatorName }}
-      </a-descriptions-item>
-
-      <a-descriptions-item label="责任单位编码">
-        {{ record.rpc }}
-      </a-descriptions-item>
-
-      <a-descriptions-item label="责任单位名称">
-        {{ record.rpcName }}
-      </a-descriptions-item>
-
-      <a-descriptions-item label="构型节点ID">
-        {{ record.cmnodeId }}
-      </a-descriptions-item>
-
-      <a-descriptions-item label="创建人">
-        {{ record.createBy }}
-      </a-descriptions-item>
-
-      <a-descriptions-item label="创建时间">
-        {{ record.createTime }}
-      </a-descriptions-item>
-
-      <a-descriptions-item label="更新时间">
-        {{ record.updateTime }}
-      </a-descriptions-item>
-
-      <a-descriptions-item label="附件列表" :span="2">
-        <a-list
-          v-if="record.ietmAttachment && record.ietmAttachment.length > 0"
-          :data-source="record.ietmAttachment"
-          size="small"
-        >
-          <a-list-item slot="renderItem" slot-scope="item">
+      <a-descriptions-item label="实体文件名称" :span="2">
+        <div v-if="entityFiles.length > 0">
+          <a-tag v-for="file in entityFiles" :key="file.id" color="blue" style="margin-bottom: 4px;">
             <a-icon type="file" />
-            <span style="margin-left: 8px;">{{ item.fileName }}</span>
-            <span style="margin-left: 16px; color: #999;">{{ formatFileSize(item.fileSize) }}</span>
-          </a-list-item>
-        </a-list>
-        <span v-else style="color: #999;">暂无附件</span>
+            {{ file.fileName }}
+          </a-tag>
+        </div>
+        <span v-else style="color: #999;">暂无实体文件</span>
+      </a-descriptions-item>
+
+      <a-descriptions-item label="相关文件名称" :span="2">
+        <div v-if="relatedFiles.length > 0">
+          <a-tag v-for="file in relatedFiles" :key="file.id" color="green" style="margin-bottom: 4px;">
+            <a-icon type="file" />
+            {{ file.fileName }}
+          </a-tag>
+        </div>
+        <span v-else style="color: #999;">暂无相关文件</span>
       </a-descriptions-item>
     </a-descriptions>
   </a-modal>
@@ -101,10 +74,28 @@ export default {
       const r = this.record
       if (!r.sns) return ''
       return `ICN-${r.sns}-${r.rpc}-${r.originator}-${r.uniqueId}-${r.variantCode}-${r.issueNo}-0${r.security}`
+    },
+    // 实体文件列表
+    entityFiles() {
+      // ietmAttachment是单个对象，不是数组
+      if (this.record.ietmAttachment && this.record.ietmAttachment.fileName) {
+        return [this.record.ietmAttachment]
+      }
+      return []
+    },
+    // 相关文件列表
+    relatedFiles() {
+      // relatedIetmAttachment是单个对象，不是数组
+      if (this.record.relatedIetmAttachment && this.record.relatedIetmAttachment.fileName) {
+        return [this.record.relatedIetmAttachment]
+      }
+      return []
     }
   },
   methods: {
     show(record) {
+      console.log('🔵 [DEBUG] IcnInfoModal接收到的record:', record)
+      console.log('🔵 [DEBUG] record.ietmAttachment:', record.ietmAttachment)
       this.record = record
       this.visible = true
     },

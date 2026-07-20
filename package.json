@@ -7,7 +7,10 @@
     "serve": "set NODE_OPTIONS=--openssl-legacy-provider && vue-cli-service serve",
     "build:test": "set NODE_OPTIONS=--openssl-legacy-provider && vue-cli-service build --mode test",
     "build": "set NODE_OPTIONS=--openssl-legacy-provider && vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report test-results/html"
   },
   "dependencies": {
     "@antv/data-set": "^0.11.4",
@@ -54,6 +57,7 @@
   },
   "devDependencies": {
     "@babel/polyfill": "^7.2.5",
+    "@playwright/test": "^1.61.1",
     "@vue/cli-plugin-babel": "^3.3.0",
     "@vue/cli-plugin-eslint": "^3.3.0",
     "@vue/cli-service": "^3.3.0",

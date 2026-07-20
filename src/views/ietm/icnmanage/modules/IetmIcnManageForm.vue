@@ -48,8 +48,8 @@
         </a-form-model-item>
       </a-col>
 
-      <!-- 创作单位 -->
-      <a-col :span="24">
+      <!-- 创作单位和责任单位（同一行） -->
+      <a-col :span="12">
         <a-form-model-item label="创作单位" prop="originatorName">
           <a-select
             v-model="model.originator"
@@ -58,15 +58,14 @@
             option-filter-prop="children"
             @change="handleOriginatorChange"
           >
-            <a-select-option v-for="item in originatorList" :key="item.companyCode" :value="item.companyCode">
+            <a-select-option v-for="item in originatorList" :key="`originator-${item.companyCode}`" :value="item.companyCode">
               {{ item.companyName }}
             </a-select-option>
           </a-select>
         </a-form-model-item>
       </a-col>
 
-      <!-- 责任单位 -->
-      <a-col :span="24">
+      <a-col :span="12">
         <a-form-model-item label="责任单位" prop="rpcName">
           <a-select
             v-model="model.rpc"
@@ -75,7 +74,7 @@
             option-filter-prop="children"
             @change="handleRpcChange"
           >
-            <a-select-option v-for="item in rpcList" :key="item.companyCode" :value="item.companyCode">
+            <a-select-option v-for="item in rpcList" :key="`rpc-${item.companyCode}`" :value="item.companyCode">
               {{ item.companyName }}
             </a-select-option>
           </a-select>
@@ -104,7 +103,7 @@
 </template>
 
 <script>
-import { getAction, postAction, httpAction } from '@/api/manage'
+import { getAction, postAction, httpAction, uploadAction } from '@/api/manage'
 
 export default {
   name: 'IetmIcnManageForm',
@@ -192,26 +191,23 @@ export default {
     },
     // 加载单位列表
     loadCompanyList(projectInfo) {
-      getAction(this.url.companyList, { pageNo: 1, pageSize: 1000 }).then(res => {
+      // 获取当前项目ID
+      const projectId = projectInfo && projectInfo.projectId
+      const params = { pageNo: 1, pageSize: 1000 }
+      if (projectId) {
+        params.pid = projectId // 根据项目ID过滤单位
+      }
+
+      getAction(this.url.companyList, params).then(res => {
         if (res.success && res.result && res.result.records) {
           const allCompanies = res.result.records
           // 创作单位：type=1
           this.originatorList = allCompanies.filter(item => item.type === 1)
           // 责任单位：type=2
           this.rpcList = allCompanies.filter(item => item.type === 2)
-        }
-      })
-    },
-    // 加载项目信息
-    loadProjectInfo(cmnodeId, projectInfo) {
-      getAction(this.url.getProjectInfo, { cmnodeId }).then(res => {
-        if (res.success) {
-          this.model.sns = res.result.sns
-          this.model.uniqueId = res.result.uniqueId
-          this.model.security = res.result.security
 
-          // 设置默认创作单位和责任单位（如果projectInfo传递了）
-          if (projectInfo) {
+          // 新增模式：自动选中项目的创作单位和责任单位
+          if (projectInfo && !this.model.id) {
             if (projectInfo.originator) {
               this.model.originator = projectInfo.originator
               this.model.originatorName = projectInfo.originatorName
@@ -222,6 +218,20 @@ export default {
             }
           }
         }
+      }).catch(err => {
+        console.error('加载单位列表失败', err)
+      })
+    },
+    // 加载项目信息
+    loadProjectInfo(cmnodeId, projectInfo) {
+      getAction(this.url.getProjectInfo, { cmnodeId }).then(res => {
+        if (res.success) {
+          this.model.sns = res.result.sns
+          this.model.uniqueId = res.result.uniqueId
+          this.model.security = res.result.security
+        }
+      }).catch(err => {
+        console.error('加载项目信息失败', err)
       })
     },
     // 创作单位选择变化
@@ -270,6 +280,11 @@ export default {
     handleSubmit(callback) {
       this.$refs.form.validate(valid => {
         if (valid) {
+          // 新增时必须上传文件
+          if (!this.model.id && this.fileList.length === 0) {
+            this.$message.error('请至少上传一个实体文件！')
+            return
+          }
           callback(this.model, this.fileList)
         }
       })
@@ -300,12 +315,22 @@ export default {
             }
           })
 
-          // 添加文件
+          // 添加文件（确保获取原始File对象）
           fileList.forEach(file => {
-            form.append('files', file)
+            // file可能是File对象，也可能是包装对象
+            const rawFile = file.originFileObj || file
+            form.append('files', rawFile)
           })
 
-          httpAction(this.url.add, form, 'post').then(res => {
+          // 使用uploadAction而不是httpAction
+          console.log('🔵 [DEBUG] 即将调用uploadAction')
+          console.log('🔵 [DEBUG] URL:', this.url.add)
+          console.log('🔵 [DEBUG] FormData:', form)
+          console.log('🔵 [DEBUG] FormData 内容：')
+          for (let pair of form.entries()) {
+            console.log('  ', pair[0], ':', pair[1])
+          }
+          uploadAction(this.url.add, form).then(res => {
             if (res.success) {
               resolve()
             } else {
