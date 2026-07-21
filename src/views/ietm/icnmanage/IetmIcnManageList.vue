@@ -150,6 +150,9 @@
     <!-- 引用关系弹窗 -->
     <icn-reference-modal ref="referenceModal" @view-detail="handleViewDetail" />
 
+    <!-- 浏览预览弹窗 -->
+    <icn-viewer-modal ref="viewerModal" />
+
     <!-- 播放器组件 -->
     <play-video ref="playVideo" />
     <play-audio ref="playAudio" />
@@ -164,10 +167,11 @@ import IcnUploadModal from './modules/IcnUploadModal'
 import IcnInfoModal from './modules/IcnInfoModal'
 import IcnBatchAddModal from './modules/IcnBatchAddModal'
 import IcnReferenceModal from './modules/IcnReferenceModal'
+import IcnViewerModal from './modules/IcnViewerModal'
 import PlayVideo from '@/views/ietm/playertool/playVideo'
 import PlayAudio from '@/views/ietm/playertool/playAudio'
 import PlayImg from '@/views/ietm/playertool/playImg'
-import { getAction, deleteAction, postAction } from '@/api/manage'
+import { getAction, deleteAction, postAction, downloadFile } from '@/api/manage'
 
 export default {
   name: 'IetmIcnManageList',
@@ -178,6 +182,7 @@ export default {
     IcnInfoModal,
     IcnBatchAddModal,
     IcnReferenceModal,
+    IcnViewerModal,
     PlayVideo,
     PlayAudio,
     PlayImg
@@ -742,57 +747,8 @@ export default {
         return
       }
 
-      // 检查是否有实体文件
-      if (!record.ietmAttachment || !record.ietmAttachment.fileName) {
-        this.$message.warning('该ICN没有关联的实体文件')
-        return
-      }
-
-      const fileName = record.ietmAttachment.fileName
-      const fileKey = record.ietmAttachment.fileKey
-
-      // 根据文件扩展名判断文件类型
-      const ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase()
-
-      // 构造文件访问URL（根据实际后端配置调整）
-      // 检查是否有 nocached 标志，如果有则添加时间戳参数避免缓存
-      const nocached = window.localStorage.getItem('icn_nocached')
-      let fileUrl = `${window._CONFIG['domianURL']}/sys/common/static/${fileKey}`
-      if (nocached === '1') {
-        fileUrl += `?t=${new Date().getTime()}`
-        // 使用后清除标志
-        window.localStorage.removeItem('icn_nocached')
-      }
-
-      if (ext === '.mp4' || ext === '.avi' || ext === '.mov' || ext === '.webm' || ext === '.ogg' ||
-          ext === '.wmv' || ext === '.rm' || ext === '.mpg') {
-        // 视频文件
-        this.$refs.playVideo.show(fileUrl, fileName)
-      } else if (ext === '.mp3' || ext === '.wav' || ext === '.m4a') {
-        // 音频文件
-        this.$refs.playAudio.show(fileUrl, fileName)
-      } else if (ext === '.jpg' || ext === '.jpeg' || ext === '.png' || ext === '.gif' || ext === '.bmp' || ext === '.svg' || ext === '.tif' || ext === '.tiff') {
-        // 图片文件（扩展支持svg、tif、tiff）
-        this.$refs.playImg.show(fileUrl, fileName)
-      } else if (ext === '.cgm') {
-        // CGM图形文件
-        this.$message.info('CGM格式需要专用查看器，正在准备打开...')
-        window.open(fileUrl, '_blank')
-      } else if (ext === '.wrl') {
-        // VRML 3D模型
-        this.$message.info('VRML 3D模型需要专用查看器，正在准备打开...')
-        window.open(fileUrl, '_blank')
-      } else if (ext === '.swf') {
-        // Flash动画（注意：现代浏览器已不支持Flash）
-        this.$message.warning('Flash格式(.swf)已不被现代浏览器支持，建议转换为其他格式')
-      } else if (ext === '.smg') {
-        // SMG格式
-        this.$message.info('SMG格式需要专用查看器，正在准备打开...')
-        window.open(fileUrl, '_blank')
-      } else {
-        // 其他文件类型，提示不支持预览
-        this.$message.warning(`不支持预览 ${ext} 格式的文件，请使用下载功能`)
-      }
+      // 使用新的预览模态框
+      this.$refs.viewerModal.show(record.id)
     },
 
     // 引用关系
@@ -807,6 +763,7 @@ export default {
         this.$message.warning('请选择一个ICN！')
         return
       }
+      // 使用新的引用关系模态框，传递完整的record对象
       this.$refs.referenceModal.show(record)
     },
 
@@ -831,22 +788,9 @@ export default {
         return
       }
 
-      const fileName = record.ietmAttachment.fileName
-      const fileKey = record.ietmAttachment.fileKey
-
-      // 构造下载URL
-      const downloadUrl = `${window._CONFIG['domianURL']}/sys/common/download/${fileKey}`
-
-      // 创建隐藏的a标签触发下载
-      const link = document.createElement('a')
-      link.style.display = 'none'
-      link.href = downloadUrl
-      link.download = fileName
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      this.$message.success('开始下载文件')
+      // 使用新的下载API
+      const url = `/icnmanage/ietmIcnManage/download/single/${record.id}`
+      downloadFile(url, record.ietmAttachment.fileName)
     },
 
     // 弹窗确认回调

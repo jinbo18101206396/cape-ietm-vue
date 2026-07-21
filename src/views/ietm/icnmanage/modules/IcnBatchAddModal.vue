@@ -240,21 +240,21 @@ export default {
           dataIndex: 'size',
           width: 120,
           align: 'center',
-          slots: { customRender: 'fileSize' }
+          scopedSlots: { customRender: 'fileSize' }
         },
         {
           title: '唯一识别码',
           dataIndex: 'uniqueId',
           width: 150,
           align: 'center',
-          slots: { customRender: 'uniqueId' }
+          scopedSlots: { customRender: 'uniqueId' }
         },
         {
           title: '操作',
           width: 80,
           align: 'center',
           fixed: 'right',
-          slots: { customRender: 'action' }
+          scopedSlots: { customRender: 'action' }
         }
       ]
     }

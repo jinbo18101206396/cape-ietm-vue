@@ -165,7 +165,8 @@ export default {
           this.model.uniqueId = val.uniqueId || ''
           this.model.variantCode = val.variantCode || ''
           this.model.issueNo = val.issueNo || ''
-          this.model.securityClassification = val.securityClassification || ''
+          // 如果securityClassification为空，根据security字段计算
+          this.model.securityClassification = val.securityClassification || this.getSecurityClassification(val.security)
           this.model.icnType = val.icnType || ''
           this.model.fileName = (val.ietmAttachment && val.ietmAttachment.fileName) || ''
         }
@@ -176,12 +177,24 @@ export default {
     // 获取密级文字
     getSecurityText(security) {
       const securityMap = {
-        1: '公开',
-        2: '内部',
-        3: '秘密',
-        4: '机密'
+        1: '非密',
+        2: '秘密',
+        3: '机密',
+        4: '绝密'
       }
       return securityMap[security] || ''
+    },
+    // 获取安全等级（两位数字格式）
+    getSecurityClassification(security) {
+      // 根据密级返回对应的两位数字安全等级代码
+      // 根据需求文档：01=非密, 02=秘密, 03=机密, 04=绝密
+      const classificationMap = {
+        1: '01',  // 非密
+        2: '02',  // 秘密
+        3: '03',  // 机密
+        4: '04'   // 绝密
+      }
+      return classificationMap[security] || ''
     },
     // 初始化差异上传表单
     initDiffForm(record) {
@@ -270,12 +283,12 @@ export default {
           // 相关文件上传：需要 icnId
           form.append('icnId', extraParams.id)
         } else if (this.uploadType === 'diff') {
-          // 差异上传：需要 originalIcnId, newVariantCode, newUniqueId
+          // 差异上传：需要 originalIcnId, newVariantCode
+          // newUniqueId由后端自动生成（当前节点最大值+1）
           url = this.url.diffUpload
           form.append('originalIcnId', extraParams.id)
           form.append('newVariantCode', extraParams.newVariantCode)
-          // newUniqueId 需要从 record 获取或生成新的
-          form.append('newUniqueId', this.model.uniqueId)
+          form.append('newUniqueId', '')  // 传空字符串，后端自动生成新的uniqueId
         } else if (this.uploadType === 'new') {
           // 新版上传：需要 icnId
           url = this.url.newUpload
