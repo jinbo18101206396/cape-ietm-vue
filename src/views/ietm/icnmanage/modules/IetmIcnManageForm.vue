@@ -113,7 +113,7 @@ export default {
       labelCol: { span: 6 },
       wrapperCol: { span: 18 },
       model: {
-        cmnodeId: '',
+        cmNodeId: '',
         sns: '',
         uniqueId: '',
         variantCode: 'A',
@@ -156,11 +156,11 @@ export default {
     }
   },
   methods: {
-    add(cmnodeId, projectInfo) {
+    add(cmNodeId, projectInfo) {
       this.reset()
-      this.model.cmnodeId = cmnodeId
+      this.model.cmNodeId = cmNodeId
       this.loadCompanyList(projectInfo)
-      this.loadProjectInfo(cmnodeId, projectInfo)
+      this.loadProjectInfo(cmNodeId, projectInfo)
     },
     edit(record) {
       this.reset()
@@ -170,7 +170,7 @@ export default {
     },
     reset() {
       this.model = {
-        cmnodeId: '',
+        cmNodeId: '',
         sns: '',
         uniqueId: '',
         variantCode: 'A',
@@ -223,15 +223,24 @@ export default {
       })
     },
     // 加载项目信息
-    loadProjectInfo(cmnodeId, projectInfo) {
-      getAction(this.url.getProjectInfo, { cmnodeId }).then(res => {
+    loadProjectInfo(cmNodeId, projectInfo) {
+      getAction(this.url.getProjectInfo, { cmNodeId }).then(res => {
         if (res.success) {
           this.model.sns = res.result.sns
           this.model.uniqueId = res.result.uniqueId
           this.model.security = res.result.security
+        } else {
+          this.$message.error(res.message || '加载项目信息失败')
+          // 加载失败，清空相关字段避免误导
+          this.model.sns = ''
+          this.model.uniqueId = ''
         }
       }).catch(err => {
         console.error('加载项目信息失败', err)
+        this.$message.error('加载项目信息失败')
+        // 异常时清空相关字段
+        this.model.sns = ''
+        this.model.uniqueId = ''
       })
     },
     // 创作单位选择变化

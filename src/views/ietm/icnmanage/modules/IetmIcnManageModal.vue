@@ -30,10 +30,10 @@ export default {
     }
   },
   methods: {
-    add(cmnodeId, projectInfo) {
+    add(cmNodeId, projectInfo) {
       this.visible = true
       this.$nextTick(() => {
-        this.$refs.realForm.add(cmnodeId, projectInfo)
+        this.$refs.realForm.add(cmNodeId, projectInfo)
       })
     },
     edit(record) {

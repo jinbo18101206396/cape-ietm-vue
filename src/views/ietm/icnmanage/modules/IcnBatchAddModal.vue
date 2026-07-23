@@ -197,8 +197,8 @@ export default {
     return {
       visible: false,
       confirmLoading: false,
-      cmnodeId: '',
-      cmnodeName: '',
+      cmNodeId: '',
+      cmNodeName: '',
       currentUniqueId: '00001',
       currentUniqueIdNum: 1,
       showProgress: false,
@@ -280,10 +280,10 @@ export default {
     }
   },
   methods: {
-    show(cmnodeId, cmnodeName, projectInfo) {
+    show(cmNodeId, cmNodeName, projectInfo) {
       this.visible = true
-      this.cmnodeId = cmnodeId
-      this.cmnodeName = cmnodeName
+      this.cmNodeId = cmNodeId
+      this.cmNodeName = cmNodeName
       this.resetForm()
 
       // 设置默认唯一识别码初值
@@ -303,7 +303,7 @@ export default {
       // 异步加载数据（不阻塞弹窗打开）
       this.loadCurrentUniqueId()
       this.loadCompanyList(projectInfo)
-      this.loadProjectInfo(cmnodeId, projectInfo)
+      this.loadProjectInfo(cmNodeId, projectInfo)
     },
 
     resetForm() {
@@ -358,8 +358,8 @@ export default {
     },
 
     // 加载项目信息（自动生成SNS）
-    loadProjectInfo(cmnodeId, projectInfo) {
-      getAction('/icnmanage/ietmIcnManage/getProjectInfo', { cmnodeId }).then(res => {
+    loadProjectInfo(cmNodeId, projectInfo) {
+      getAction('/icnmanage/ietmIcnManage/getProjectInfo', { cmNodeId }).then(res => {
         if (res.success) {
           this.model.sns = res.result.sns || ''
           if (!this.model.security && res.result.security) {
@@ -393,7 +393,7 @@ export default {
     loadCurrentUniqueId() {
       // 通过查询当前节点的ICN列表，获取最大的唯一识别码
       getAction('/icnmanage/ietmIcnManage/list', {
-        cmnodeId: this.cmnodeId,
+        cmNodeId: this.cmNodeId,
         pageNo: 1,
         pageSize: 1,
         column: 'uniqueId',
@@ -586,7 +586,7 @@ export default {
             const formData = new FormData()
 
             // 添加表单字段
-            formData.append('cmnodeId', this.cmnodeId)
+            formData.append('cmNodeId', this.cmNodeId)
             formData.append('sns', this.model.sns || '')
             formData.append('uniqueId', this.formatUniqueId(fileItem.uniqueId))
             formData.append('variantCode', 'A')

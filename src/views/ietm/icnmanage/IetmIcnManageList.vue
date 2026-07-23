@@ -284,7 +284,7 @@ export default {
       treeData: [],
       expandedKeys: [],
       selectedTreeKeys: [],
-      currentCmnodeId: '',
+      currentCmNodeId: '',
       // 当前项目信息
       currentProjectId: '',
       currentProjectInfo: null,
@@ -340,7 +340,7 @@ export default {
             } else {
               // 根节点没有子节点，直接选中根节点
               this.selectedTreeKeys = [rootNode.key]
-              this.currentCmnodeId = rootNode.key
+              this.currentCmNodeId = rootNode.key
               this.loadData()
             }
           }
@@ -383,7 +383,7 @@ export default {
               this.$nextTick(() => {
                 // 自动选中第一个一级节点
                 this.selectedTreeKeys = [firstChild.key]
-                this.currentCmnodeId = firstChild.key
+                this.currentCmNodeId = firstChild.key
                 this.loadData()
               })
             })
@@ -391,13 +391,13 @@ export default {
         } else {
           // 没有子节点，选中根节点
           this.selectedTreeKeys = [rootNode.key]
-          this.currentCmnodeId = rootNode.key
+          this.currentCmNodeId = rootNode.key
           this.loadData()
         }
       }).catch(() => {
         // 加载失败，选中根节点
         this.selectedTreeKeys = [rootNode.key]
-        this.currentCmnodeId = rootNode.key
+        this.currentCmNodeId = rootNode.key
         this.loadData()
       })
     },
@@ -446,7 +446,7 @@ export default {
     onTreeSelect(selectedKeys, e) {
       if (selectedKeys.length > 0) {
         this.selectedTreeKeys = selectedKeys
-        this.currentCmnodeId = selectedKeys[0]
+        this.currentCmNodeId = selectedKeys[0]
         this.loadData()
       }
     },
@@ -512,7 +512,7 @@ export default {
 
     // 加载ICN列表
     loadData(arg) {
-      if (!this.currentCmnodeId) {
+      if (!this.currentCmNodeId) {
         // 未选择构型节点时，安静返回（不弹提示）
         this.loading = false
         this.dataSource = []
@@ -523,7 +523,7 @@ export default {
 
       this.loading = true
       const params = {
-        cmnodeId: this.currentCmnodeId,
+        cmNodeId: this.currentCmNodeId,
         includeChildren: this.showChildIcn ? '1' : '0',
         ...this.queryParam
       }
@@ -594,17 +594,17 @@ export default {
 
     // 新增
     handleAdd() {
-      if (!this.currentCmnodeId) {
+      if (!this.currentCmNodeId) {
         this.$message.warning('请先选择构型节点')
         return
       }
       // 检查是否选择了根节点（根节点的 pid 为 '0'）
-      const currentNode = this.findNodeById(this.treeData, this.currentCmnodeId)
+      const currentNode = this.findNodeById(this.treeData, this.currentCmNodeId)
       if (currentNode && currentNode.dataRef && currentNode.dataRef.pid === '0') {
         this.$message.warning('不能在根节点下新增ICN，请选择子节点')
         return
       }
-      this.$refs.modalForm.add(this.currentCmnodeId, this.currentProjectInfo)
+      this.$refs.modalForm.add(this.currentCmNodeId, this.currentProjectInfo)
       this.$refs.modalForm.title = '新增ICN'
     },
 
@@ -622,13 +622,13 @@ export default {
 
     // 批量新增
     handleBatchAdd() {
-      if (!this.currentCmnodeId) {
+      if (!this.currentCmNodeId) {
         this.$message.warning('请先选择构型节点')
         return
       }
 
       // 检查是否为根节点
-      const currentNode = this.findNodeById(this.treeData, this.currentCmnodeId)
+      const currentNode = this.findNodeById(this.treeData, this.currentCmNodeId)
       if (currentNode && currentNode.dataRef && currentNode.dataRef.pid === '0') {
         this.$message.warning('不能在根节点下批量新增ICN，请选择子节点')
         return
@@ -636,7 +636,7 @@ export default {
 
       // 获取当前节点名称
       const nodeName = currentNode ? currentNode.title : ''
-      this.$refs.batchAddModal.show(this.currentCmnodeId, nodeName, this.currentProjectInfo)
+      this.$refs.batchAddModal.show(this.currentCmNodeId, nodeName, this.currentProjectInfo)
     },
 
     // 编辑
