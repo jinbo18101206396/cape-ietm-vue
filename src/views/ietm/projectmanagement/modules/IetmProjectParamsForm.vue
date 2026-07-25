@@ -11,8 +11,41 @@
       >
         <!-- 自定义参数列值 -->
         <template slot="valueRender" slot-scope="text, record">
-          <a-input v-model="record.paramValue" :disabled="formDisabled" :placeholder="record.placeholder"
-                   @change="paramValueChange(record.required, record.paramName, record.paramValue)"></a-input>
+          <!-- 国家字段：使用字典下拉 -->
+          <j-dict-select-tag
+            v-if="record.key === 'countryCode'"
+            v-model="record.paramValue"
+            dictCode="country"
+            :placeholder="record.placeholder"
+            :disabled="formDisabled"
+            @change="paramValueChange(record.required, record.paramName, record.paramValue)"
+          />
+          <!-- 语言字段：使用字典下拉 -->
+          <j-dict-select-tag
+            v-else-if="record.key === 'lanuageCode'"
+            v-model="record.paramValue"
+            dictCode="language"
+            :placeholder="record.placeholder"
+            :disabled="formDisabled"
+            @change="paramValueChange(record.required, record.paramName, record.paramValue)"
+          />
+          <!-- 位置码字段：使用字典下拉 -->
+          <j-dict-select-tag
+            v-else-if="record.key === 'positionCode'"
+            v-model="record.paramValue"
+            dictCode="dm_location_code"
+            :placeholder="record.placeholder"
+            :disabled="formDisabled"
+            @change="paramValueChange(record.required, record.paramName, record.paramValue)"
+          />
+          <!-- 其他字段：使用文本输入框 -->
+          <a-input
+            v-else
+            v-model="record.paramValue"
+            :disabled="formDisabled"
+            :placeholder="record.placeholder"
+            @change="paramValueChange(record.required, record.paramName, record.paramValue)"
+          />
         </template>
       </a-table>
     </a-form-model>
@@ -44,11 +77,13 @@
 <script>
 import {JeecgListMixin} from '@/mixins/JeecgListMixin'
 import IetmProjectCompanyList from "@views/ietm/ietmprojectcompany/IetmProjectCompanyList";
+import JDictSelectTag from '@/components/dict/JDictSelectTag'
+import { getAction } from '@/api/manage'
 
 export default {
   name: 'IetmProjectParamsForm',
   mixins: [JeecgListMixin],
-  components: {IetmProjectCompanyList},
+  components: {IetmProjectCompanyList, JDictSelectTag},
   props: {
     formDisabled: {
       type: Boolean,
@@ -92,7 +127,7 @@ export default {
             if (newVal[item.key]) {
               item.paramValue = newVal[item.key]
             } else {
-              item.paramValue = 'zh'
+              item.paramValue = 'ZH'
             }
             break;
           case 'defaultBusinessRule':
@@ -161,8 +196,8 @@ export default {
         {
           key: 'lanuageCode',
           paramName: '语言',
-          paramValue: 'zh',
-          description: '请输入2-3位语言编码，如zh。',
+          paramValue: 'ZH',
+          description: '请输入2-3位语言编码，如ZH。',
           placeholder: '请输入2-3位语言编码',
           required: true
         }

@@ -1,216 +1,343 @@
 <template>
   <a-modal
+    :title="title"
+    :width="1000"
     :visible="visible"
-    title="编辑DM属性"
-    :width="700"
-    :maskClosable="false"
-    :confirmLoading="saveLoading"
-    okText="保存"
-    cancelText="返回"
-    @ok="handleSave"
-    @cancel="handleClose"
+    :confirmLoading="confirmLoading"
+    @ok="handleOk"
+    @cancel="handleCancel"
+    :bodyStyle="{ maxHeight: '70vh', overflowY: 'auto', padding: '16px 24px' }"
+    :footer="isViewMode ? null : undefined"
   >
-    <!-- 状态提示（红色，说明版本变化规则） -->
     <a-alert
-      :message="statusNote"
-      type="warning"
+      v-if="!isViewMode"
+      message="编辑说明：可修改技术名称和信息名称，其他字段为只读展示"
+      type="info"
       show-icon
-      style="margin-bottom: 16px; color: red;"
     />
 
-    <a-form :form="form" :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
+    <a-spin :spinning="confirmLoading">
+      <a-form-model ref="form" :model="model" :rules="validatorRules" :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }">
 
-      <!-- 数据模块代码（只读展示区） -->
-      <fieldset style="border:1px solid #d9d9d9;border-radius:4px;padding:12px 16px;margin-bottom:14px;">
-        <legend style="font-weight:bold;font-size:13px;padding:0 8px;width:auto;">数据模块代码</legend>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="密级" :label-col="{span:8}" :wrapper-col="{span:14}">
-              <a-input :value="currentRecord.security_dictText || '-'" disabled />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="DM类型" :label-col="{span:8}" :wrapper-col="{span:14}">
-              <a-input :value="currentRecord.dmType || '-'" disabled />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row>
-          <a-col :span="24">
-            <a-form-item label="DMC" :label-col="{span:4}" :wrapper-col="{span:19}">
-              <a-input
-                :value="currentRecord.dmcCode || '-'"
-                disabled
-                style="font-family:monospace;color:#1890ff;"
-              />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="语言" :label-col="{span:8}" :wrapper-col="{span:14}">
-              <a-input :value="currentRecord.languageIsoCode || '-'" disabled />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="国家" :label-col="{span:8}" :wrapper-col="{span:14}">
-              <a-input :value="currentRecord.countryIsoCode || '-'" disabled />
-            </a-form-item>
-          </a-col>
-        </a-row>
-      </fieldset>
+        <!-- 数据模块代码 -->
+        <div class="form-section">
+          <div class="section-title">
+            <a-icon type="code" class="section-icon" />
+            数据模块代码
+          </div>
 
-      <!-- 标题（可编辑区，蓝色边框突出） -->
-      <fieldset style="border:2px solid #1890ff;border-radius:4px;padding:12px 16px;margin-bottom:14px;background:#f0f7ff;">
-        <legend style="font-weight:bold;font-size:14px;color:#1890ff;padding:0 8px;width:auto;">
-          📝 标题（仅可编辑以下字段）
-        </legend>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="技术名称" :label-col="{span:8}" :wrapper-col="{span:14}">
-              <a-input
-                v-decorator="['techName', {
-                  rules: [
-                    { required: true, whitespace: true, message: '技术名称不能为空' },
-                    { max: 50, message: '技术名称最大50字符' }
-                  ]
-                }]"
-                placeholder="请输入技术名称（最多50字）"
-                :maxLength="50"
-                allow-clear
-              />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="信息名称" :label-col="{span:8}" :wrapper-col="{span:14}">
-              <a-input
-                v-decorator="['infoName', {
-                  rules: [
-                    { required: true, whitespace: true, message: '信息名称不能为空' },
-                    { max: 50, message: '信息名称最大50字符' }
-                  ]
-                }]"
-                placeholder="请输入信息名称（最多50字）"
-                :maxLength="50"
-                allow-clear
-              />
-            </a-form-item>
-          </a-col>
-        </a-row>
-      </fieldset>
+          <a-row :gutter="20">
+            <a-col :span="12">
+              <a-form-model-item label="密级">
+                <a-input v-model="model.security_dictText" disabled />
+              </a-form-model-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-model-item label="数据模块类型">
+                <a-input v-model="dmTypeDisplayName" disabled />
+              </a-form-model-item>
+            </a-col>
+          </a-row>
 
-      <!-- 版本信息（只读展示区） -->
-      <fieldset style="border:1px solid #d9d9d9;border-radius:4px;padding:12px 16px;">
-        <legend style="font-weight:bold;font-size:13px;padding:0 8px;width:auto;">版本</legend>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="当前版本号" :label-col="{span:8}" :wrapper-col="{span:14}">
-              <a-input :value="(currentRecord.issueNo || '') + '-' + (currentRecord.inWork || '')" disabled />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="签发日期" :label-col="{span:8}" :wrapper-col="{span:14}">
-              <a-input :value="formatDate(currentRecord.issueDate)" disabled />
-            </a-form-item>
-          </a-col>
-        </a-row>
-      </fieldset>
+          <a-row :gutter="20">
+            <a-col :span="24">
+              <a-form-model-item label="DMC" :label-col="{ span: 3 }" :wrapper-col="{ span: 21 }">
+                <a-input v-model="model.dmcCode" disabled style="font-family:monospace;color:#1890ff;font-weight:500;" />
+              </a-form-model-item>
+            </a-col>
+          </a-row>
 
-    </a-form>
+          <a-row :gutter="20">
+            <a-col :span="12">
+              <a-form-model-item label="信息码">
+                <a-input v-model="model.infoCode" disabled />
+              </a-form-model-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-model-item label="信息码变量">
+                <a-input v-model="model.infoCodeVariant" disabled />
+              </a-form-model-item>
+            </a-col>
+          </a-row>
+
+          <a-row :gutter="20">
+            <a-col :span="12">
+              <a-form-model-item label="位置码">
+                <a-input v-model="model.ietmLocationCode" disabled />
+              </a-form-model-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-model-item label="学习码">
+                <a-input v-model="model.learnCode" disabled />
+              </a-form-model-item>
+            </a-col>
+          </a-row>
+
+          <a-row :gutter="20">
+            <a-col :span="12">
+              <a-form-model-item label="学习事件码">
+                <a-input v-model="model.learnEventCode" disabled />
+              </a-form-model-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-model-item label="创作单位">
+                <a-input v-model="originatorDisplayName" disabled />
+              </a-form-model-item>
+            </a-col>
+          </a-row>
+
+          <a-row :gutter="20">
+            <a-col :span="12">
+              <a-form-model-item label="责任单位">
+                <a-input v-model="rpcDisplayName" disabled />
+              </a-form-model-item>
+            </a-col>
+            <a-col :span="12">
+              <!-- 占位，保持布局对称 -->
+            </a-col>
+          </a-row>
+        </div>
+
+        <!-- 标题 -->
+        <div class="form-section">
+          <div class="section-title">
+            <a-icon type="font-size" class="section-icon" />
+            标题
+          </div>
+
+          <a-row :gutter="20">
+            <a-col :span="12">
+              <a-form-model-item label="技术名称" prop="techName">
+                <a-input v-model="model.techName" placeholder="请输入技术名称" :disabled="isViewMode" />
+              </a-form-model-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-model-item label="信息名称" prop="infoName">
+                <a-input v-model="model.infoName" placeholder="请输入信息名称" :disabled="isViewMode" />
+              </a-form-model-item>
+            </a-col>
+          </a-row>
+        </div>
+
+        <!-- 语言 -->
+        <div class="form-section">
+          <div class="section-title">
+            <a-icon type="global" class="section-icon" />
+            语言
+          </div>
+
+          <a-row :gutter="20">
+            <a-col :span="12">
+              <a-form-model-item label="语言">
+                <a-input v-model="model.languageIsoCode" disabled />
+              </a-form-model-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-model-item label="国家">
+                <a-input v-model="model.countryIsoCode" disabled />
+              </a-form-model-item>
+            </a-col>
+          </a-row>
+        </div>
+
+        <!-- 版本 -->
+        <div class="form-section">
+          <div class="section-title">
+            <a-icon type="profile" class="section-icon" />
+            版本
+          </div>
+
+          <a-row :gutter="20">
+            <a-col :span="12">
+              <a-form-model-item label="版本类型">
+                <a-input v-model="model.versionType_dictText" disabled />
+              </a-form-model-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-model-item label="版本日期">
+                <a-input v-model="model.issueDate" disabled />
+              </a-form-model-item>
+            </a-col>
+          </a-row>
+        </div>
+
+      </a-form-model>
+    </a-spin>
+
+    <template slot="footer">
+      <a-button @click="handleCancel">取消</a-button>
+      <a-button type="primary" :loading="confirmLoading" @click="handleOk">保存</a-button>
+    </template>
   </a-modal>
 </template>
 
 <script>
-import { putAction } from '@/api/manage'
+import { httpAction } from '@/api/manage'
 
 export default {
   name: 'DmEditPropModal',
-  beforeCreate() {
-    // Ant Design Vue v1 推荐在 beforeCreate 中创建 form 实例
-    this.form = this.$form.createForm(this)
-  },
   data() {
     return {
+      title: '编辑属性',
       visible: false,
-      saveLoading: false,
-      currentRecord: {},
-      oldTechName: '',
-      oldInfoName: ''
+      confirmLoading: false,
+      model: {},
+      isViewMode: false, // 是否为查看模式
+      // 公司名称缓存
+      companyNameMap: {},
+      validatorRules: {
+        techName: [
+          { required: true, message: '请输入技术名称', trigger: 'blur' },
+          { max: 50, message: '技术名称最多50字符', trigger: 'blur' }
+        ],
+        infoName: [
+          { required: true, message: '请输入信息名称', trigger: 'blur' },
+          { max: 50, message: '信息名称最多50字符', trigger: 'blur' }
+        ]
+      },
+      url: {
+        edit: '/ietm/datamodule/editProp'
+      }
     }
   },
   computed: {
-    // 根据签出状态显示不同提示文字
-    statusNote() {
-      const isCheckedOut = !!this.currentRecord.checkoutUser
-      if (isCheckedOut) {
-        return '【编辑签出状态DM的属性时，修改技术名称、信息名称，则版本日期更新为当前日期，版本号不升级。】'
-      }
-      return '【编辑签入状态DM的属性时，系统将自动签出该DM，修改版本日期为当前日期，版本号升级。】'
+    // 创作单位完整名称
+    originatorDisplayName() {
+      if (!this.model.originator) return ''
+      return this.companyNameMap[this.model.originator] || this.model.originatorName || this.model.originator
+    },
+    // 责任单位完整名称
+    rpcDisplayName() {
+      if (!this.model.rpc) return ''
+      return this.companyNameMap[this.model.rpc] || this.model.rpcName || this.model.rpc
+    },
+    // 数据模块类型显示名称（优先使用字典文本，如果不存在则使用原始值）
+    dmTypeDisplayName() {
+      return this.model.dmType_dictText || this.model.dmType || ''
     }
   },
   methods: {
-    /**
-     * 打开弹窗，由父页面调用：this.$refs.editPropModal.show(record)
-     */
-    show(record) {
-      this.currentRecord = record || {}
-      this.oldTechName = (record && record.techName) ? record.techName : ''
-      this.oldInfoName = (record && record.infoName) ? record.infoName : ''
+    show(record, viewMode = false) {
+      this.model = Object.assign({}, record)
+      this.isViewMode = viewMode
+      this.title = viewMode ? 'DMC详情' : '编辑属性'
       this.visible = true
-      this.$nextTick(() => {
-        this.form.setFieldsValue({
-          techName: this.oldTechName,
-          infoName: this.oldInfoName
-        })
-      })
+      // 加载公司名称
+      this.loadCompanyNames(record.projectId)
     },
-    // 关闭弹窗
-    handleClose() {
-      this.visible = false
-      this.form.resetFields()
-      this.currentRecord = {}
-      this.oldTechName = ''
-      this.oldInfoName = ''
-    },
-    // 保存
-    handleSave() {
-      this.form.validateFields((err, values) => {
-        if (err) return
 
-        const techName = (values.techName || '').trim()
-        const infoName = (values.infoName || '').trim()
+    // 加载项目关联的公司列表
+    async loadCompanyNames(projectId) {
+      if (!projectId) return
 
-        // 变化检测
-        if (techName === this.oldTechName && infoName === this.oldInfoName) {
-          this.$message.warning('技术名称和信息名称没有任何变化')
-          return
+      try {
+        const url = '/ietmprojectcompany/ietmProjectCompany/list'
+        const params = { projectId, pageNo: 1, pageSize: 999 }
+        const res = await httpAction(url, params, 'get')
+
+        if (res.success && res.result && res.result.records) {
+          // 构建 companyCode -> companyName 的映射
+          const map = {}
+          res.result.records.forEach(item => {
+            map[item.companyCode] = item.companyName
+          })
+          this.companyNameMap = map
         }
-
-        this.saveLoading = true
-        putAction(`/ietm/datamodule/editProp/${this.currentRecord.id}`, { techName, infoName })
-          .then(res => {
-            if (res.success) {
-              this.$message.success(res.message || '修改DM属性成功')
-              this.visible = false
-              this.form.resetFields()
-              this.$emit('ok')
-            } else {
-              this.$message.error(res.message || '操作失败，请重试')
-            }
-          })
-          .catch(() => {
-            this.$message.error('网络异常，操作失败，请重试')
-          })
-          .finally(() => {
-            this.saveLoading = false
-          })
+      } catch (err) {
+        console.error('加载公司列表失败:', err)
+      }
+    },
+    handleOk() {
+      this.$refs.form.validate(valid => {
+        if (valid) {
+          this.confirmLoading = true
+          const formData = {
+            techName: this.model.techName,
+            infoName: this.model.infoName
+          }
+          httpAction(`${this.url.edit}/${this.model.id}`, formData, 'put')
+            .then(res => {
+              if (res.success) {
+                this.$message.success('保存成功')
+                this.visible = false
+                this.$emit('ok')
+              } else {
+                this.$message.warning(res.message || '保存失败')
+              }
+            })
+            .catch(err => {
+              this.$message.error('保存失败：' + (err.message || '未知错误'))
+            })
+            .finally(() => {
+              this.confirmLoading = false
+            })
+        }
       })
     },
-    // 格式化日期（取前10位）
-    formatDate(val) {
-      if (!val) return '-'
-      return String(val).substring(0, 10)
+    handleCancel() {
+      this.visible = false
+      this.$refs.form.clearValidate()
     }
   }
 }
 </script>
+
+<style scoped>
+.form-section {
+  margin-bottom: 16px;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  padding: 12px 16px;
+  background: #fafafa;
+}
+
+.form-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #262626;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #1890ff;
+  display: flex;
+  align-items: center;
+}
+
+.section-icon {
+  font-size: 16px;
+  color: #1890ff;
+  margin-right: 8px;
+}
+
+/deep/ .ant-form-item {
+  margin-bottom: 12px;
+}
+
+/deep/ .ant-form-item:last-child {
+  margin-bottom: 0;
+}
+
+/deep/ .ant-modal-header {
+  background: #f0f2f5;
+  border-bottom: 2px solid #1890ff;
+  padding: 14px 24px;
+}
+
+/deep/ .ant-modal-title {
+  font-weight: 600;
+  color: #262626;
+}
+
+/deep/ .ant-modal-footer {
+  border-top: 1px solid #e8e8e8;
+  padding: 10px 16px;
+}
+
+/deep/ .ant-alert {
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+</style>
