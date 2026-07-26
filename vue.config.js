@@ -27,9 +27,21 @@ module.exports = {
   // 打包app时放开该配置
   // publicPath:'/',
   configureWebpack: config => {
-    // 生产环境取消 console.log
+    // 生产环境移除 console
     if (process.env.NODE_ENV === 'production') {
-      config.optimization.minimizer[0].options.terserOptions.compress.drop_console = true
+      // 确保 optimization.minimizer 存在
+      if (config.optimization && config.optimization.minimizer && config.optimization.minimizer[0]) {
+        const terserPlugin = config.optimization.minimizer[0]
+        if (terserPlugin.options && terserPlugin.options.terserOptions) {
+          // 移除 console.log、console.info、console.debug
+          terserPlugin.options.terserOptions.compress = {
+            ...terserPlugin.options.terserOptions.compress,
+            drop_console: true,
+            drop_debugger: true,
+            pure_funcs: ['console.log', 'console.info', 'console.debug']
+          }
+        }
+      }
     }
   },
   chainWebpack: (config) => {
@@ -40,8 +52,30 @@ module.exports = {
       .set('@comp', resolve('src/components'))
       .set('@views', resolve('src/views'))
 
-    // 生产环境，开启js\css压缩
+    // 生产环境，移除 console 并开启js\css压缩
     if (process.env.NODE_ENV === 'production') {
+        // 移除 console
+        config.optimization.minimizer('terser').tap(args => {
+          // 获取 terser 配置
+          const terserOptions = args[0]
+          if (!terserOptions.terserOptions) {
+            terserOptions.terserOptions = {}
+          }
+          if (!terserOptions.terserOptions.compress) {
+            terserOptions.terserOptions.compress = {}
+          }
+
+          // 配置移除 console
+          Object.assign(terserOptions.terserOptions.compress, {
+            drop_console: true,      // 移除所有 console
+            drop_debugger: true,     // 移除 debugger
+            pure_funcs: ['console.log', 'console.info', 'console.debug']  // 明确移除的函数
+          })
+
+          return args
+        })
+
+        // 开启 gzip 压缩
         config.plugin('compressionPlugin').use(new CompressionPlugin({
           test: /\.(js|css|less)$/, // 匹配文件名
           threshold: 10240, // 对超过10k的数据压缩

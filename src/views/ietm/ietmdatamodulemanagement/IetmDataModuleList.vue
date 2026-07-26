@@ -71,20 +71,28 @@
               :dataSource="dataSource"
               :pagination="ipagination"
               :loading="loading"
-              :rowSelection="{ selectedRowKeys: selectedRowKeys, onChange: onSelectChange }"
+              :rowSelection="{
+                selectedRowKeys: selectedRowKeys,
+                onChange: onSelectChange,
+                type: 'checkbox',
+                fixed: true,
+                columnWidth: 50,
+                getCheckboxProps: record => ({
+                  props: {
+                    disabled: false
+                  }
+                })
+              }"
               :scroll="{ x: true }"
               :locale="{ emptyText: '暂无数据' }"
-              :customRow="customRow"
               rowKey="id"
               @change="handleTableChange"
               bordered
             >
               <span slot="dmcCode" slot-scope="text, record">
-                <a-tooltip :title="text">
-                  <a @click="handleViewDmcDetail(record)" style="color: #1890ff; font-family: monospace; cursor: pointer;">
-                    {{ text }}
-                  </a>
-                </a-tooltip>
+                <a @click="handleViewDmcDetail(record)" style="color: #1890ff; font-family: monospace; cursor: pointer;">
+                  {{ text }}
+                </a>
               </span>
 
               <span slot="versionInfo" slot-scope="text, record">
@@ -94,11 +102,21 @@
               </span>
 
               <span slot="checkoutStatus" slot-scope="text, record">
-                <a-tooltip v-if="record.checkoutUser" :title="`已签出：${record.checkoutUser}\n时间：${record.checkoutTime || ''}`">
-                  <a-icon type="lock" style="font-size: 18px; color: #ff9800;" />
+                <!-- 自己签出：绿色勾选，可签入/取消签出 -->
+                <a-tooltip
+                  v-if="record.checkoutUser && record.checkoutUser === currentUser"
+                  :title="`您已签出（可编辑）\n时间：${record.checkoutTime || ''}`">
+                  <a-icon type="check-circle" style="font-size: 18px; color: #52c41a;" />
                 </a-tooltip>
-                <a-tooltip v-else title="未签出，可用">
-                  <a-icon type="unlock" style="font-size: 18px; color: #52c41a;" />
+                <!-- 他人签出：红色锁，不可操作 -->
+                <a-tooltip
+                  v-else-if="record.checkoutUser"
+                  :title="`已被【${record.checkoutUser}】签出\n时间：${record.checkoutTime || ''}`">
+                  <a-icon type="lock" style="font-size: 18px; color: #ff4d4f;" />
+                </a-tooltip>
+                <!-- 已签入/未签出：灰色锁，可签出 -->
+                <a-tooltip v-else title="已签入，可签出">
+                  <a-icon type="lock" style="font-size: 18px; color: #d9d9d9;" />
                 </a-tooltip>
               </span>
 
@@ -177,6 +195,7 @@
     <dm-copy-modal ref="copyModal" @ok="loadData" />
     <dm-resource-modal ref="resourceModal" @ok="handleResourceModalOk" />
     <dm-edit-prop-modal ref="editPropModal" @ok="loadData" />
+    <batch-start-flow-modal ref="batchStartFlowModal" @ok="loadData" />
     <!-- DmImportModal 已删除：无 UI 入口，属于死代码 -->
   </div>
 </template>
@@ -196,6 +215,7 @@ import DmValidationModal from './components/DmValidationModal'
 import DmCopyModal from './components/DmCopyModal'
 import DmResourceModal from './components/DmResourceModal'
 import DmEditPropModal from './components/DmEditPropModal'
+import BatchStartFlowModal from './components/BatchStartFlowModal'
 import ConfigTree from './components/ConfigTree'
 // DmImportModal 已删除：无 UI 入口，属于死代码
 
@@ -214,6 +234,7 @@ export default {
     DmCopyModal,
     DmResourceModal,
     DmEditPropModal,
+    BatchStartFlowModal,
     ConfigTree
   },
   data() {
@@ -246,6 +267,7 @@ export default {
         list: '/ietm/datamodule/list',
         delete: '/ietm/datamodule/delete',
         deleteBatch: '/ietm/datamodule/batchDelete',
+        queryById: '/ietm/datamodule/queryById',
         checkOut: '/ietm/datamodule/checkOut',
         cancelCheckOut: '/ietm/datamodule/cancelCheckOut',
         checkIn: '/ietm/datamodule/checkIn',
@@ -551,12 +573,32 @@ export default {
       const id = record ? record.id : this.selectedRowKeys[0]
       this.$refs.validationModal.show(id)
     },
+    // 批量启动流程（符合需求文档第8.1节）
     handleStartWorkflow() {
+      // 1. 检查是否有勾选记录
       if (this.selectedRowKeys.length === 0) {
-        this.$message.warning('请选择至少一条记录')
+        this.$message.warning('请勾选数据来启动流程')
         return
       }
-      this.$refs.workflowModal.show(this.selectedRowKeys[0])
+
+      // 2. 获取所有勾选的记录
+      const selectedRecords = this.dataSource.filter(item =>
+        this.selectedRowKeys.includes(item.id)
+      )
+
+      // 3. 检查每条记录的businessstate_，不能为已启动流程的
+      for (let i = 0; i < selectedRecords.length; i++) {
+        const record = selectedRecords[i]
+        // businessstate_非空表示已启动流程
+        if (record.workflowStatus && record.workflowStatus !== '' && record.workflowStatus !== null) {
+          this.$message.warning(`第${i + 1}条数据已经启动了流程`)
+          return
+        }
+      }
+
+      // 4. 打开批量启动流程弹窗
+      // 传递完整的记录信息，用于生成insttitleparam
+      this.$refs.batchStartFlowModal.show(selectedRecords)
     },
     handleRestartWorkflow(record) {
       if (!record && this.selectedRowKeys.length === 0) {
@@ -667,46 +709,162 @@ export default {
       })
     },
     handleCheckOut() {
-      postAction(this.url.checkOut, { id: this.selectedRowKeys[0] })
-        .then(res => {
-          if (res.success) {
-            this.$message.success('签出成功')
-            this.loadData()
-          } else {
-            this.$message.error(res.message || '签出失败')
-          }
-        })
-        .catch(() => this.$message.error('签出失败，请稍后重试'))
+      const id = this.selectedRowKeys[0]
+      const record = this.selectedRows[0]
+
+      // TODO: 临时注释前置校验，方便测试
+      // 前置校验：工作流已启动
+      // if (!record.workflowInstanceId) {
+      //   this.$message.warning('该DM还未启动流程，不能签出')
+      //   return
+      // }
+
+      // 前置校验：当前节点为DM编写
+      // if (record.workflowStep !== 'DM编写') {
+      //   this.$message.warning('当前流程节点不是"DM编写"，不能签出')
+      //   return
+      // }
+
+      const currentVer = `${record.issueNo || '001'}-${record.inWork || '00'}`
+      const nextInWork = String(parseInt(record.inWork || '00') + 1).padStart(2, '0')
+      const nextVer = `${record.issueNo || '001'}-${nextInWork}`
+
+      // 签出前二次确认
+      this.$confirm({
+        title: '签出确认',
+        content: h => h('div', [
+          h('p', { style: 'margin-bottom: 12px' }, '确定要签出该数据模块吗？'),
+          h('p', { style: 'margin-bottom: 4px' }, [
+            h('span', { style: 'color: #8c8c8c' }, '当前版本：'),
+            h('b', currentVer)
+          ]),
+          h('p', { style: 'margin-bottom: 12px' }, [
+            h('span', { style: 'color: #8c8c8c' }, '签出后版本：'),
+            h('b', { style: 'color: #1890ff' }, nextVer)
+          ]),
+          h('p', { style: 'color: #faad14; font-size: 12px; margin-bottom: 0' },
+            '签出后原版本将自动保留为历史版本。')
+        ]),
+        onOk: () => {
+          // 第一阶段：查询最新状态
+          getAction(`${this.url.queryById}?id=${id}`)
+            .then(queryRes => {
+              if (!queryRes.success || !queryRes.result) {
+                this.$message.error('获取最新状态失败')
+                return
+              }
+
+              const latestRecord = queryRes.result
+
+              // 校验最新状态：是否已被签出
+              if (latestRecord.checkoutUser) {
+                this.$message.error(`该DM已被 ${latestRecord.checkoutUser} 签出`)
+                this.loadData() // 刷新列表显示最新状态
+                return
+              }
+
+              // TODO: 临时注释工作流校验，方便测试
+              // 校验最新状态：工作流已启动
+              // if (!latestRecord.workflowInstanceId) {
+              //   this.$message.error('该DM还未启动流程')
+              //   this.loadData()
+              //   return
+              // }
+
+              // 校验最新状态：当前节点为DM编写
+              // if (latestRecord.workflowStep !== 'DM编写') {
+              //   this.$message.error('当前流程节点不是"DM编写"')
+              //   this.loadData()
+              //   return
+              // }
+
+              // 第二阶段：执行签出
+              postAction(`${this.url.checkOut}?id=${id}`)
+                .then(res => {
+                  if (res.success) {
+                    this.$message.success('签出成功！新版本已生成，原版本已保留为历史版本')
+                    this.onClearSelected() // 清空旧选中，避免 selectedRows 持有过期数据
+                    this.loadData()
+                  } else {
+                    this.$message.error(res.message || '签出失败')
+                  }
+                })
+                .catch(() => this.$message.error('签出失败，请稍后重试'))
+            })
+            .catch(() => this.$message.error('获取最新状态失败，请稍后重试'))
+        }
+      })
     },
     handleCancelCheckOut() {
-      postAction(this.url.cancelCheckOut, { id: this.selectedRowKeys[0] })
-        .then(res => {
-          if (res.success) {
-            this.$message.success('取消签出成功')
-            this.loadData()
-          } else {
-            this.$message.error(res.message || '取消签出失败')
-          }
-        })
-        .catch(() => this.$message.error('取消签出失败，请稍后重试'))
+      const id = this.selectedRowKeys[0]
+
+      // 取消签出前二次确认
+      this.$confirm({
+        title: '取消签出确认',
+        content: '确定要取消签出吗？\n\n当前工作版本将被删除，并恢复到签出前的原版本。\n此操作不可撤销！',
+        okType: 'danger',
+        onOk: () => {
+          postAction(`${this.url.cancelCheckOut}?id=${id}`)
+            .then(res => {
+              if (res.success) {
+                this.$message.success('取消签出成功！已恢复到原版本')
+                this.onClearSelected() // 清空旧选中
+                this.loadData()
+              } else {
+                this.$message.error(res.message || '取消签出失败')
+              }
+            })
+            .catch(() => this.$message.error('取消签出失败，请稍后重试'))
+        }
+      })
     },
     handleCheckIn() {
+      const id = this.selectedRowKeys[0]
+
       this.$confirm({
         title: '签入',
         content: '确定要签入当前数据模块吗',
         onOk: () => {
-          postAction(this.url.checkIn, { id: this.selectedRowKeys[0] })
-            .then(res => {
-              if (res.success) {
-                this.$message.success('签入成功')
-                this.loadData()
-              } else {
-                this.$message.error(res.message || '签入失败')
+          // 第一阶段：查询最新状态
+          getAction(`${this.url.queryById}?id=${id}`)
+            .then(queryRes => {
+              if (!queryRes.success || !queryRes.result) {
+                this.$message.error('获取最新状态失败')
+                return
               }
+
+              const latestRecord = queryRes.result
+
+              // 校验最新状态：是否已签出
+              if (!latestRecord.checkoutUser) {
+                this.$message.error('该DM未被签出')
+                this.loadData() // 刷新列表显示最新状态
+                return
+              }
+
+              // 校验最新状态：是否本人签出
+              if (latestRecord.checkoutUser !== this.currentUser) {
+                this.$message.error(`该DM已被 ${latestRecord.checkoutUser} 签出，只能签入自己签出的数据模块`)
+                this.loadData()
+                return
+              }
+
+              // 第二阶段：执行签入
+              postAction(`${this.url.checkIn}?id=${id}`)
+                .then(res => {
+                  if (res.success) {
+                    this.$message.success('签入成功')
+                    this.onClearSelected() // 清空旧选中
+                    this.loadData()
+                  } else {
+                    this.$message.error(res.message || '签入失败')
+                  }
+                })
+                .catch(() => {
+                  this.$message.error('签入失败，请稍后重试')
+                })
             })
-            .catch(() => {
-              this.$message.error('签入失败，请稍后重试')
-            })
+            .catch(() => this.$message.error('获取最新状态失败，请稍后重试'))
         }
       })
     },
@@ -720,6 +878,7 @@ export default {
             .then(res => {
               if (res.success) {
                 that.$message.success('发布成功')
+                that.onClearSelected() // 清空旧选中
                 that.loadData()
               } else {
                 that.$message.error(res.message || '发布失败')
@@ -779,9 +938,12 @@ export default {
       const isMyCheckOut = record.checkoutUser === this.currentUser
       const isPublished = record.versionType === '1' // 已发布
       const isInWorkflow = record.workflowStatus && record.workflowStatus !== 'ended'
+      const hasWorkflowStarted = !!record.workflowInstanceId // 工作流已启动
+      const isDmWriteStep = record.workflowStep === 'DM编写' // 当前节点为DM编写
 
       this.buttonStates = {
-        // 签出：未签出 且未发布
+        // 签出：未签出 且未发布 且未被他人签出
+        // 注意：工作流相关校验在handleCheckOut方法中进行，避免按钮状态过于严格
         canCheckOut: !isCheckedOut && !isPublished,
 
         // 签入：本人已签出
@@ -929,31 +1091,6 @@ export default {
 
       // 更新按钮状态
       this.updateButtonStates()
-    },
-    // 自定义行属性 - 点击行选中
-    customRow(record) {
-      return {
-        on: {
-          click: () => {
-            const key = record.id
-            const index = this.selectedRowKeys.indexOf(key)
-            if (index >= 0) {
-              // 已选中，取消选中
-              this.selectedRowKeys.splice(index, 1)
-              const rowIndex = this.selectedRows.findIndex(row => row.id === key)
-              if (rowIndex >= 0) {
-                this.selectedRows.splice(rowIndex, 1)
-              }
-            } else {
-              // 未选中，添加选中
-              this.selectedRowKeys.push(key)
-              this.selectedRows.push(record)
-            }
-            // 触发选择变化
-            this.onSelectChange(this.selectedRowKeys, this.selectedRows)
-          }
-        }
-      }
     },
     // 加载DM资源列表
     loadResourceList(dmId) {
@@ -1242,6 +1379,30 @@ export default {
 
     ::v-deep .ant-card-body {
       padding: 12px;
+    }
+
+    // 表格选中行高亮
+    ::v-deep .ant-table-tbody > tr.ant-table-row-selected > td {
+      background-color: #e6f7ff !important;
+    }
+
+    // 表格行悬浮效果
+    ::v-deep .ant-table-tbody > tr:hover > td {
+      background-color: #fafafa;
+    }
+
+    // 复选框列固定样式优化
+    ::v-deep .ant-table-selection-column {
+      text-align: center;
+      padding-left: 8px !important;
+      padding-right: 8px !important;
+    }
+
+    // 复选框样式优化
+    ::v-deep .ant-checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
   }
 

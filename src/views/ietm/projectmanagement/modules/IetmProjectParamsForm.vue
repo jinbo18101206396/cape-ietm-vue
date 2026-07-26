@@ -22,7 +22,7 @@
           />
           <!-- 语言字段：使用字典下拉 -->
           <j-dict-select-tag
-            v-else-if="record.key === 'lanuageCode'"
+            v-else-if="record.key === 'languageCode'"
             v-model="record.paramValue"
             dictCode="language"
             :placeholder="record.placeholder"
@@ -123,7 +123,7 @@ export default {
               item.paramValue = 'CN'
             }
             break;
-          case 'lanuageCode':
+          case 'languageCode':
             if (newVal[item.key]) {
               item.paramValue = newVal[item.key]
             } else {
@@ -194,7 +194,7 @@ export default {
           required: true
         },
         {
-          key: 'lanuageCode',
+          key: 'languageCode',
           paramName: '语言',
           paramValue: 'ZH',
           description: '请输入2-3位语言编码，如ZH。',
@@ -324,7 +324,7 @@ export default {
                     errorMessages.push(`${paramName} 必须为2位字母`);
                   }
                   break;
-                case 'lanuageCode':
+                case 'languageCode':
                   if (!/^[A-Za-z]{2,3}$/.test(value)) {
                     errorMessages.push(`${paramName} 必须为2-3位字母`);
                   }

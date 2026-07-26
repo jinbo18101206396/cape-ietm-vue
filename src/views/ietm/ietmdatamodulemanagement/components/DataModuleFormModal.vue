@@ -313,7 +313,7 @@ export default {
         learnEventCode: '',
         yearOfChange: '',
         seqNo: '',
-        languageIsoCode: 'zh',  // 小写
+        languageIsoCode: 'ZH',  // 大写，与字典值保持一致
         countryIsoCode: 'CN',
         infoCode: '',
         dmType: '',
@@ -457,8 +457,8 @@ export default {
             this.model.security = res.result.security || ''
 
             // 语言和国家（从项目）
-            this.model.languageIsoCode = res.result.languageCode || 'ZH'
-            this.model.countryIsoCode = res.result.countryCode || 'CN'
+            this.model.languageIsoCode = res.result.languageIsoCode || 'ZH'
+            this.model.countryIsoCode = res.result.countryIsoCode || 'CN'
 
             // 技术名称（从构型节点）
             this.model.techName = res.result.techName || ''

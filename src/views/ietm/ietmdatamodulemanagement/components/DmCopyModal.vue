@@ -242,7 +242,7 @@ export default {
         originator: '', rpc: '',
         enterprise: '', extraCode: '',
         languageIsoCode: 'ZH', countryIsoCode: 'CN',
-        issueNo: '000', inWork: '00', issueType: 'new'
+        issueNo: '001', inWork: '00', issueType: 'new'
       },
       rules: {
         security: [{ required: true, message: '请选择密级', trigger: 'change' }],
@@ -452,9 +452,9 @@ export default {
           if (project.security != null) {
             projectSecurity = String(project.security)
           }
-          // 项目语言（注意字段名拼写：lanuageCode）
-          if (project.lanuageCode || project.languageCode) {
-            projectLanguage = project.lanuageCode || project.languageCode
+          // 项目语言
+          if (project.languageCode) {
+            projectLanguage = project.languageCode
           }
           // 项目国家
           if (project.countryCode) {
