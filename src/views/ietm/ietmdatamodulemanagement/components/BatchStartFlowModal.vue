@@ -1,0 +1,1494 @@
+<template>
+  <a-modal
+    title="批量启动流程"
+    :width="1400"
+    :visible="visible"
+    :confirmLoading="confirmLoading"
+    @ok="handleOk"
+    @cancel="handleCancel"
+    :maskClosable="false"
+    :destroyOnClose="true"
+    :bodyStyle="{ padding: 0 }"
+  >
+    <a-spin :spinning="confirmLoading">
+      <div class="batch-flow-modal-content">
+        <!-- 顶部信息栏 -->
+        <div class="info-banner">
+          <a-row :gutter="16">
+            <a-col :span="8">
+              <div class="info-item">
+                <a-icon type="file-text" class="info-icon" />
+                <span class="info-label">选中数量：</span>
+                <span class="info-value">{{ selectedDmCount }} 条</span>
+              </div>
+            </a-col>
+            <a-col :span="8">
+              <div class="info-item">
+                <a-icon type="calendar" class="info-icon" />
+                <span class="info-label">创建时间：</span>
+                <span class="info-value">{{ currentDate }}</span>
+              </div>
+            </a-col>
+            <a-col :span="8">
+              <div class="info-item">
+                <a-icon type="user" class="info-icon" />
+                <span class="info-label">创建人：</span>
+                <span class="info-value">{{ currentUserName }}</span>
+              </div>
+            </a-col>
+          </a-row>
+        </div>
+
+        <!-- 配置区域 -->
+        <div class="config-section">
+          <div class="section-header">
+            <div class="section-title">
+              <a-icon type="setting" class="title-icon" />
+              <span>流程配置</span>
+            </div>
+          </div>
+
+          <div class="config-content">
+            <a-form-model :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }">
+              <a-row :gutter="24">
+                <!-- 选择模板 -->
+                <a-col :span="12">
+                  <a-form-model-item label="流程模板" required>
+                    <a-select
+                      v-model="model.templateId"
+                      placeholder="请选择流程模板"
+                      :loading="templateLoading"
+                      :disabled="autoMatchedTemplate"
+                      @change="handleTemplateChange"
+                      allowClear
+                      size="default"
+                    >
+                      <a-select-option v-for="tmpl in templateList" :key="tmpl.id" :value="tmpl.id">
+                        <a-icon type="file-text" style="margin-right: 4px;" />
+                        {{ tmpl.tmplname }}
+                      </a-select-option>
+                    </a-select>
+                  </a-form-model-item>
+                </a-col>
+
+                <!-- 紧急级别 -->
+                <a-col :span="12">
+                  <a-form-model-item label="紧急级别" required>
+                    <a-select v-model="model.ifurgent" placeholder="请选择紧急级别" size="default">
+                      <a-select-option value="1">
+                        <a-badge status="default" text="一般" />
+                      </a-select-option>
+                      <a-select-option value="2">
+                        <a-badge status="warning" text="紧急" />
+                      </a-select-option>
+                      <a-select-option value="3">
+                        <a-badge status="error" text="特急" />
+                      </a-select-option>
+                    </a-select>
+                  </a-form-model-item>
+                </a-col>
+              </a-row>
+            </a-form-model>
+          </div>
+        </div>
+
+        <!-- 节点配置区域 -->
+        <div class="nodes-section">
+          <div class="section-header">
+            <div class="section-title">
+              <a-icon type="apartment" class="title-icon" />
+              <span>节点配置</span>
+              <span class="node-count">({{ model.nodes.length }} 个节点)</span>
+            </div>
+            <div class="section-actions">
+              <a-space :size="8">
+                <a-tooltip :title="!model.templateId ? '请先选择流程模板' : '加载选中模板的节点配置'">
+                  <a-button
+                    size="small"
+                    icon="check"
+                    type="primary"
+                    :disabled="!model.templateId"
+                    @click="handleConfirmTemplate"
+                  >
+                    加载模板
+                  </a-button>
+                </a-tooltip>
+                <a-tooltip title="手动添加新的流程节点">
+                  <a-button size="small" icon="plus" type="dashed" @click="handleAddNode">
+                    添加节点
+                  </a-button>
+                </a-tooltip>
+                <a-tooltip :title="selectedNodeKeys.length === 0 ? '请先选中要删除的节点' : `删除选中的${selectedNodeKeys.length}个节点`">
+                  <a-button
+                    size="small"
+                    icon="delete"
+                    type="danger"
+                    :disabled="selectedNodeKeys.length === 0"
+                    @click="handleDeleteSelectedNodes"
+                  >
+                    批量删除
+                  </a-button>
+                </a-tooltip>
+                <a-divider type="vertical" />
+                <a-tooltip title="检查流程节点配置是否正确">
+                  <a-button size="small" icon="check-circle" @click="handleCheckNodes">
+                    检查配置
+                  </a-button>
+                </a-tooltip>
+              </a-space>
+            </div>
+          </div>
+
+          <div class="nodes-content">
+            <a-table
+              :columns="nodeColumns"
+              :data-source="model.nodes"
+              :pagination="false"
+              :row-selection="{
+                selectedRowKeys: selectedNodeKeys,
+                onChange: onNodeSelectionChange,
+                getCheckboxProps: record => ({
+                  props: {
+                    disabled: record.seqno === 0 || record.ifexec === 'Y'
+                  }
+                })
+              }"
+              :scroll="{ x: 900, y: 400 }"
+              bordered
+              size="small"
+              rowKey="seqno"
+              :rowClassName="getNodeRowClassName"
+            >
+          <!-- 顺序号 -->
+          <template slot="seqno" slot-scope="text, record">
+            <a-tooltip v-if="record.seqno === 0" title="创建节点顺序号固定为0">
+              <a-input-number
+                v-model="record.seqno"
+                :min="0"
+                :max="9999"
+                :disabled="true"
+                style="width: 100%"
+              />
+            </a-tooltip>
+            <a-input-number
+              v-else
+              v-model="record.seqno"
+              :min="1"
+              :max="9999"
+              style="width: 100%"
+            />
+          </template>
+
+          <!-- 节点名称 -->
+          <template slot="nodename" slot-scope="text, record">
+            <a-tooltip v-if="isNodeNameNotEditable(record.nodename)" title="此节点名称不可编辑">
+              <a-input
+                v-model="record.nodename"
+                placeholder="请输入节点名称"
+                :disabled="true"
+              />
+            </a-tooltip>
+            <a-input
+              v-else
+              v-model="record.nodename"
+              placeholder="请输入节点名称"
+            />
+          </template>
+
+          <!-- 节点类型 -->
+          <template slot="nodetype" slot-scope="text, record">
+            <a-tooltip v-if="record.seqno === 0" title="创建节点类型固定，不可修改">
+              <a-select
+                v-model="record.nodetype"
+                placeholder="请选择"
+                style="width: 100%"
+                :disabled="true"
+              >
+                <a-select-option v-for="item in nodetypeOptions" :key="item.value" :value="item.value">
+                  {{ item.text }}
+                </a-select-option>
+              </a-select>
+            </a-tooltip>
+            <a-select
+              v-else
+              v-model="record.nodetype"
+              placeholder="请选择"
+              style="width: 100%"
+            >
+              <a-select-option v-for="item in nodetypeOptions" :key="item.value" :value="item.value">
+                {{ item.text }}
+              </a-select-option>
+            </a-select>
+          </template>
+
+          <!-- 处理人ID（authtype=1/2时显示）-->
+          <template v-if="showUseridColumn" slot="userid" slot-scope="text, record">
+            <a-select
+              v-model="record.userid"
+              mode="multiple"
+              placeholder="请选择处理人"
+              style="width: 100%"
+              :disabled="record.seqno === 0"
+            >
+              <a-select-option v-for="user in authorizedUsers" :key="user.id" :value="user.id">
+                {{ user.name }}
+              </a-select-option>
+            </a-select>
+          </template>
+
+          <!-- 处理人姓名（authtype非1/2时显示）-->
+          <template v-if="!showUseridColumn" slot="useridname" slot-scope="text, record">
+            <a-input
+              v-model="record.useridname"
+              placeholder="点击选择"
+              :disabled="record.seqno === 0"
+              @click="() => handleSelectUser(record)"
+              readonly
+              style="cursor: pointer;"
+            >
+              <a-icon slot="suffix" type="team" style="color: #1890ff;" />
+            </a-input>
+          </template>
+
+          <!-- 阶段（分阶段流程时显示）-->
+          <template v-if="isStageWorkflow" slot="stagename" slot-scope="text, record">
+            <a-select v-model="record.stagename" placeholder="请选择阶段" style="width: 100%">
+              <a-select-option v-for="(stage, idx) in stageOptions" :key="idx" :value="String(idx)">
+                {{ stage }}
+              </a-select-option>
+            </a-select>
+          </template>
+
+          <!-- 可跳转节点 -->
+          <template slot="ifgetback" slot-scope="text, record">
+            <a-select
+              v-model="record.ifgetback"
+              mode="multiple"
+              placeholder="不限制"
+              style="width: 100%"
+              allowClear
+            >
+              <a-select-option value="">不限制</a-select-option>
+              <a-select-option value="nochoice">不可跳转</a-select-option>
+              <a-select-option value="create">创建</a-select-option>
+              <a-select-option value="check">校对</a-select-option>
+              <a-select-option value="review">审核</a-select-option>
+              <a-select-option value="approve">批准</a-select-option>
+            </a-select>
+          </template>
+
+        </a-table>
+          </div>
+        </div>
+      </div>
+    </a-spin>
+
+    <!-- 用户选择器弹窗 -->
+    <user-selector
+      ref="userSelector"
+      @ok="handleUserSelected"
+    />
+  </a-modal>
+</template>
+
+<script>
+import { getAction, postAction } from '@/api/manage'
+import { generateUUID } from '@/utils/util'
+import UserSelector from './UserSelector.vue'
+
+export default {
+  name: 'BatchStartFlowModal',
+  components: {
+    UserSelector
+  },
+  props: {
+    selectedRecords: {
+      type: Array,
+      default: () => []
+    },
+    // 默认模板名称（从URL参数传入，如'DM'）
+    defaultTemplate: {
+      type: String,
+      default: 'DM'
+    },
+    // 是否检查所有节点（1=全部检查，0=只检查下一节点）
+    checkAllNode: {
+      type: String,
+      default: '1'
+    },
+    // 不可编辑的节点名称（逗号分隔，如'DM编写'）
+    notEditNode: {
+      type: String,
+      default: ''
+    },
+    // 不可删除的节点名称（逗号分隔，如'DM编写'）
+    notDelNode: {
+      type: String,
+      default: ''
+    }
+  },
+  data() {
+    return {
+      visible: false,
+      confirmLoading: false,
+      templateLoading: false,
+      selectedDmIds: [],
+      internalSelectedRecords: [], // 内部存储完整的记录信息（不与prop冲突）
+      selectedNodeKeys: [], // 节点表格选中的行
+      currentSelectingNode: null, // 当前正在选择处理人的节点
+      templateList: [], // 流程模板列表
+      authorizedUsers: [], // 授权用户列表（authtype=1/2时使用）
+      nodetypeOptions: [], // 处理方式字典选项（从WF_TEMPLATE_DTL_NODETYPE加载）
+      noteditNode: '', // 不可编辑的节点名称列表
+      notdelNode: '', // 不可删除的节点名称列表
+      authtype: '0', // 权限类型（从系统配置读取）
+      autoMatchedTemplate: false, // 是否自动匹配了模板
+      model: {
+        batchId: '',
+        dmIds: [],
+        templateId: '',
+        ifurgent: '1',
+        stagenames: '',
+        nodes: []
+      }
+    }
+  },
+  computed: {
+    selectedDmCount() {
+      return this.selectedDmIds.length
+    },
+    // 当前日期
+    currentDate() {
+      return new Date().toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      })
+    },
+    // 当前用户名（从Vuex Store获取）
+    currentUserName() {
+      const userInfo = this.$store.getters.userInfo
+      return (userInfo && (userInfo.realname || userInfo.username)) || '系统用户'
+    },
+    // 是否是分阶段流程
+    isStageWorkflow() {
+      if (!this.model.templateId) return false
+      const template = this.templateList.find(t => t.id === this.model.templateId)
+      return template && template.stagenames && template.stagenames.trim() !== ''
+    },
+    // 阶段选项（从stagenames解析）
+    stageOptions() {
+      if (!this.model.stagenames) return []
+      return this.model.stagenames.split(',').map(s => s.trim()).filter(s => s)
+    },
+    // 是否显示userid列（authtype=1/2时显示）
+    showUseridColumn() {
+      return this.authtype === '1' || this.authtype === '2'
+    },
+    // 动态计算表格列（按需求文档4.1节顺序）
+    nodeColumns() {
+      const baseColumns = []
+
+      // 1. 处理人姓名/ID列（第一列）
+      if (this.showUseridColumn) {
+        baseColumns.push({
+          title: '处理人ID',
+          dataIndex: 'userid',
+          width: 180,
+          scopedSlots: { customRender: 'userid' }
+        })
+      } else {
+        baseColumns.push({
+          title: '处理人',
+          dataIndex: 'useridname',
+          width: 180,
+          scopedSlots: { customRender: 'useridname' }
+        })
+      }
+
+      // 2. 阶段（分阶段流程时显示）- 隐藏阶段列
+      // if (this.isStageWorkflow) {
+      //   baseColumns.push({
+      //     title: '阶段',
+      //     dataIndex: 'stagename',
+      //     width: 100,
+      //     align: 'center',
+      //     scopedSlots: { customRender: 'stagename' }
+      //   })
+      // }
+
+      // 3. 节点名称
+      baseColumns.push({
+        title: '节点名称',
+        dataIndex: 'nodename',
+        width: 160,
+        scopedSlots: { customRender: 'nodename' }
+      })
+
+      // 4. 顺序号
+      baseColumns.push({
+        title: '顺序号',
+        dataIndex: 'seqno',
+        width: 80,
+        align: 'center',
+        scopedSlots: { customRender: 'seqno' }
+      })
+
+      // 5. 处理方式（nodetype字段）
+      baseColumns.push({
+        title: '处理方式',
+        dataIndex: 'nodetype',
+        width: 140,
+        align: 'center',
+        scopedSlots: { customRender: 'nodetype' }
+      })
+
+      // 6. 可跳转节点
+      baseColumns.push({
+        title: '可跳转节点',
+        dataIndex: 'ifgetback',
+        width: 180,
+        scopedSlots: { customRender: 'ifgetback' }
+      })
+
+      return baseColumns
+    }
+  },
+  methods: {
+    // 节点行样式类名
+    getNodeRowClassName(record, index) {
+      if (record.seqno === 0) {
+        return 'create-node-row'
+      }
+      if (record.ifexec === 'Y') {
+        return 'executed-node-row'
+      }
+      return index % 2 === 0 ? 'even-row' : 'odd-row'
+    },
+
+    // 打开弹窗
+    show(selectedRecords) {
+      this.visible = true
+      this.internalSelectedRecords = selectedRecords || [] // 存储完整记录到内部变量
+      this.selectedDmIds = (selectedRecords || []).map(r => r.id)
+      this.model.dmIds = [...this.selectedDmIds]
+      this.model.batchId = generateUUID()
+      this.selectedNodeKeys = []
+
+      // 从props初始化参数
+      this.noteditNode = this.notEditNode
+      this.notdelNode = this.notDelNode
+
+      // 重置节点配置（初始化创建节点）
+      this.resetNodes()
+
+      // 加载流程模板列表，加载完成后自动匹配模板
+      this.loadTemplateList()
+
+      // 加载处理方式字典
+      this.loadNodetypeDict()
+
+      // 读取系统配置中的authtype
+      this.loadAuthtype()
+
+      // 如果authtype=1/2，加载授权用户列表
+      if (this.showUseridColumn) {
+        this.loadAuthorizedUsers()
+      }
+    },
+
+    // 重置节点配置
+    resetNodes() {
+      const currentUser = this.$store.getters.userInfo
+      this.model.nodes = [
+        {
+          seqno: 0,
+          nodename: '创建节点',
+          nodetype: '0', // 默认"所有人必完成"
+          userid: (currentUser && currentUser.id) || '',
+          useridname: (currentUser && currentUser.realname) || '',
+          stagename: this.isStageWorkflow ? '0' : '',
+          ifgetback: [''], // 默认"不限制"（空字符串数组）
+          ifexec: 'Y' // 标记为已执行，不可删除
+        }
+      ]
+    },
+
+    // 加载流程模板列表
+    loadTemplateList() {
+      this.templateLoading = true
+
+      // 🔧 临时Mock数据（后端接口可用后删除此段）
+      // TODO: 与后端确认正确的接口路径后，启用真实接口
+      const useMockData = false // 设置为false启用真实接口
+
+      if (useMockData) {
+        console.warn('⚠️ 使用Mock数据 - loadTemplateList')
+        const mockTemplates = [
+          {
+            id: 'mock_template_dm_001',
+            tmplname: 'DM数据模块流程模板',
+            stagenames: '编写,审核,签批'
+          },
+          {
+            id: 'mock_template_pm_001',
+            tmplname: 'PM流程模板',
+            stagenames: '创建,审批,发布'
+          },
+          {
+            id: 'mock_template_cm_001',
+            tmplname: 'CM配置管理流程',
+            stagenames: ''
+          }
+        ]
+
+        setTimeout(() => {
+          this.templateList = mockTemplates
+          this.templateLoading = false
+
+          // 需求文档第12章：模板自动匹配
+          if (this.defaultTemplate) {
+            const matchedTemplate = this.templateList.find(
+              t => t.tmplname && t.tmplname.indexOf(this.defaultTemplate) >= 0
+            )
+            if (matchedTemplate) {
+              this.model.templateId = matchedTemplate.id
+              this.autoMatchedTemplate = true
+              // 自动加载模板节点
+              this.loadTemplateNodes(matchedTemplate.id)
+
+              // 如果模板有stagenames，设置分阶段标志
+              if (matchedTemplate.stagenames) {
+                this.model.stagenames = matchedTemplate.stagenames
+              }
+            }
+          }
+        }, 300)
+
+        return
+      }
+
+      // 真实接口调用
+      getAction('/ietm/workflow/template/getPubOwnWfTemplates')
+        .then(res => {
+          console.log('流程模板接口返回:', res)
+          if (res.success) {
+            this.templateList = res.result || []
+            console.log('加载到的模板列表:', this.templateList)
+
+            if (this.templateList.length === 0) {
+              this.$message.warning('暂无可用的流程模板，请先在系统中配置流程模板')
+            }
+
+            // 需求文档第12章：模板自动匹配
+            // 按 default_template 参数模糊匹配（indexOf >= 0）模板名，自动选中并禁用选择器
+            if (this.defaultTemplate) {
+              const matchedTemplate = this.templateList.find(
+                t => t.tmplname && t.tmplname.indexOf(this.defaultTemplate) >= 0
+              )
+              if (matchedTemplate) {
+                this.model.templateId = matchedTemplate.id
+                this.autoMatchedTemplate = true
+                // 自动加载模板节点
+                this.loadTemplateNodes(matchedTemplate.id)
+
+                // 如果模板有stagenames，设置分阶段标志
+                if (matchedTemplate.stagenames) {
+                  this.model.stagenames = matchedTemplate.stagenames
+                }
+              }
+            }
+          } else {
+            this.$message.warning('加载流程模板失败：' + (res.message || ''))
+          }
+        })
+        .catch(err => {
+          console.error('加载流程模板失败', err)
+          this.$message.error('加载流程模板失败：' + err.message)
+        })
+        .finally(() => {
+          this.templateLoading = false
+        })
+    },
+
+    // 加载处理方式字典（WF_TEMPLATE_DTL_NODETYPE）
+    loadNodetypeDict() {
+      // 必须与后端 WfConstants 保持一致：0=创建,1=审核,2=签批
+      this.nodetypeOptions = [
+        { text: '创建/所有人必完成', value: '0' },
+        { text: '审核/只1人完成', value: '1' },
+        { text: '签批', value: '2' }
+      ]
+    },
+
+    /**
+     * 将旧版文本型 nodetype（如"只1人完成"）标准化为数值字符串（"0"/"1"/"2"）。
+     * 历史数据中 wf_template_dtl.nodetype_ 可能保存的是中文文本，加载模板时需转换。
+     */
+    normalizeNodetype(nodetype) {
+      const textMap = {
+        '所有人必完成': '0',
+        '创建/所有人必完成': '0',
+        '创建': '0',
+        '只1人完成': '1',
+        '审核/只1人完成': '1',
+        '审核': '1',
+        '签批': '2',
+        '审批': '2'
+      }
+      if (nodetype && textMap[nodetype] !== undefined) {
+        return textMap[nodetype]
+      }
+      // 已经是合法数值直接返回
+      return nodetype || '0'
+    },
+
+    // 读取authtype配置
+    loadAuthtype() {
+      // 从localStorage或Vuex读取IETM_CONFIG
+      const ietmConfig = localStorage.getItem('IETM_CONFIG')
+      if (ietmConfig) {
+        try {
+          const config = JSON.parse(ietmConfig)
+          this.authtype = config.authtype || '0'
+        } catch (e) {
+          console.error('解析IETM_CONFIG失败', e)
+          this.authtype = '0'
+        }
+      }
+    },
+
+    // 加载授权用户列表（authtype=1/2时）
+    loadAuthorizedUsers() {
+      const currentProject = this.$store.getters.currentProject
+      const projectId = currentProject && currentProject.id
+      if (!projectId) {
+        this.$message.warning('未选择项目')
+        return
+      }
+
+      const params = {
+        objtype: this.authtype === '1' ? '1' : '2', // 1=按项目，2=按角色
+        objid: projectId,
+        authprojectid: projectId
+      }
+
+      postAction('/ietmauth/ietmAuth/getIetmAuths', params)
+        .then(res => {
+          if (res.success) {
+            this.authorizedUsers = (res.result || []).map(item => ({
+              id: item.userid || item.id,
+              name: item.username || item.name
+            }))
+          }
+        })
+        .catch(err => {
+          console.error('加载授权用户失败', err)
+        })
+    },
+
+    // 加载模板节点配置
+    loadTemplateNodes(templateId) {
+      if (!templateId) return
+
+      this.confirmLoading = true
+
+      // 🔧 临时Mock数据（后端接口可用后删除此段）
+      const useMockData = false // 设置为false启用真实接口
+
+      if (useMockData) {
+        console.warn('⚠️ 使用Mock数据 - loadTemplateNodes')
+
+        // 根据不同模板ID返回不同的节点配置
+        const mockNodesByTemplate = {
+          'mock_template_dm_001': [
+            { seqno: 1, nodename: 'DM编写', nodetype: '0', stagename: '编写', ifgetback: '' },
+            { seqno: 2, nodename: 'DM审核', nodetype: '1', stagename: '审核', ifgetback: '1' },
+            { seqno: 3, nodename: 'DM签批', nodetype: '2', stagename: '签批', ifgetback: '1,2' }
+          ],
+          'mock_template_pm_001': [
+            { seqno: 1, nodename: 'PM创建', nodetype: '0', stagename: '创建', ifgetback: '' },
+            { seqno: 2, nodename: 'PM审批', nodetype: '1', stagename: '审批', ifgetback: '1' },
+            { seqno: 3, nodename: 'PM发布', nodetype: '2', stagename: '发布', ifgetback: '' }
+          ],
+          'mock_template_cm_001': [
+            { seqno: 1, nodename: '配置管理', nodetype: '0', stagename: '', ifgetback: '' },
+            { seqno: 2, nodename: '变更审核', nodetype: '1', stagename: '', ifgetback: '1' }
+          ]
+        }
+
+        const mockNodes = mockNodesByTemplate[templateId] || []
+
+        setTimeout(() => {
+          if (mockNodes.length > 0) {
+            // 保留创建节点，加载其他节点
+            const createNode = this.model.nodes.find(n => n.seqno === 0)
+            const templateNodes = mockNodes.map(node => ({
+              seqno: node.seqno,
+              nodename: node.nodename,
+              nodetype: node.nodetype,
+              userid: '',
+              useridname: '',
+              stagename: node.stagename || '',
+              ifgetback: node.ifgetback || ''
+            }))
+
+            this.model.nodes = [createNode, ...templateNodes]
+            this.$message.success('模板节点加载成功')
+          } else {
+            this.$message.warning('模板无节点配置')
+          }
+          this.confirmLoading = false
+        }, 300)
+
+        return
+      }
+
+      // 真实接口调用
+      getAction(`/ietm/workflow/template/getTemplateDtl/${templateId}`)
+        .then(res => {
+          if (res.success && res.result && res.result.length > 0) {
+            // 保留创建节点，加载其他节点
+            const createNode = this.model.nodes.find(n => n.seqno === 0)
+            const templateNodes = res.result.map(node => ({
+              seqno: node.seqno,
+              nodename: node.nodename,
+              // normalizeNodetype：历史数据可能存的是中文文本，统一转为数值编码
+              nodetype: this.normalizeNodetype(node.nodetype),
+              userid: '',
+              useridname: '',
+              stagename: node.stagename || '',
+              ifgetback: node.ifgetback || ''
+            }))
+
+            this.model.nodes = [createNode, ...templateNodes.filter(n => n.seqno !== 0)]
+            this.$message.success('模板节点加载成功')
+          } else {
+            this.$message.warning('模板无节点配置')
+          }
+        })
+        .catch(err => {
+          console.error('加载模板节点失败', err)
+          this.$message.error('加载模板节点失败')
+        })
+        .finally(() => {
+          this.confirmLoading = false
+        })
+    },
+
+    // 模板变化事件
+    handleTemplateChange(templateId) {
+      if (!templateId) {
+        this.model.stagenames = ''
+        return
+      }
+
+      const template = this.templateList.find(t => t.id === templateId)
+      if (template) {
+        // 自动填充阶段名称
+        this.model.stagenames = template.stagenames || ''
+      }
+    },
+
+    // 确定模板（加载模板节点配置）
+    handleConfirmTemplate() {
+      if (!this.model.templateId) {
+        this.$message.warning('请先选择流程模板')
+        return
+      }
+
+      this.loadTemplateNodes(this.model.templateId)
+    },
+
+    // 刷新节点
+    handleRefreshNodes() {
+      this.resetNodes()
+      this.selectedNodeKeys = []
+      this.$message.info('已重置节点配置')
+    },
+
+    // 添加节点（符合需求文档第11.4节）
+    handleAddNode() {
+      // 校验：须有上一行先完整填写
+      if (this.model.nodes.length > 0) {
+        const lastNode = this.model.nodes[this.model.nodes.length - 1]
+        const validationError = this.validateNode(lastNode, this.model.nodes.length)
+        if (validationError) {
+          this.$message.warning('不能编辑，请确保上一条数据填写完整')
+          return
+        }
+      }
+
+      const maxSeqno = Math.max(...this.model.nodes.map(n => n.seqno), 0)
+      const newSeqno = maxSeqno + 10
+
+      this.model.nodes.push({
+        seqno: newSeqno,
+        nodename: '',
+        nodetype: '0', // 默认"所有人必完成"
+        userid: '',
+        useridname: '',
+        stagename: this.isStageWorkflow ? '0' : '',
+        ifgetback: [] // 默认"不限制"（空数组）
+      })
+
+      this.$message.success('已添加新节点')
+    },
+
+    // 删除选中的节点（批量删除）
+    handleDeleteSelectedNodes() {
+      if (this.selectedNodeKeys.length === 0) {
+        this.$message.warning('请选择要删除的节点')
+        return
+      }
+
+      // 删除节点需要用户确认（需求文档第11.4节）
+      this.$confirm({
+        title: '确认删除',
+        content: '删除的数据不能恢复，您确定要删除当前所选的数据？',
+        onOk: () => {
+          this.model.nodes = this.model.nodes.filter(
+            node => !this.selectedNodeKeys.includes(node.seqno) || node.seqno === 0 || node.ifexec === 'Y'
+          )
+          this.selectedNodeKeys = []
+          this.$message.success('已删除选中节点')
+        }
+      })
+    },
+
+    // 节点表格选择变化
+    onNodeSelectionChange(selectedRowKeys) {
+      this.selectedNodeKeys = selectedRowKeys
+    },
+
+    // 检查流程配置（手动点击"检查流程"按钮时）
+    handleCheckNodes() {
+      const errors = this.checkAllNodes()
+      if (errors.length > 0) {
+        this.$message.error(errors[0])
+      } else {
+        // 需求文档第11.2节：手动检查时显示"流程检查正确。"
+        this.$message.success('流程检查正确。')
+      }
+    },
+
+    // 判断节点名称是否不可编辑
+    isNodeNameNotEditable(nodename) {
+      if (!this.noteditNode || !nodename) return false
+      const notEditList = this.noteditNode.split(',').map(n => n.trim())
+      return notEditList.includes(nodename)
+    },
+
+    // 打开用户选择器
+    handleSelectUser(record) {
+      if (record.seqno === 0) {
+        this.$message.warning('创建节点的处理人不可修改')
+        return
+      }
+      this.currentSelectingNode = record
+      // 调用UserSelector的show方法，传入回调和当前值
+      this.$refs.userSelector.show(
+        (result) => {
+          // 回调函数：接收选择结果
+          record.userid = result.userid
+          record.useridname = result.useridname
+        },
+        { userid: record.userid, useridname: record.useridname }
+      )
+    },
+
+    // 用户选择完成（保留以支持emit方式）
+    handleUserSelected(result) {
+      if (!this.currentSelectingNode) return
+
+      // result结构: { userid: 'xxx,dpt_yyy', useridname: 'UserA,[DeptB]' }
+      this.currentSelectingNode.userid = result.userid
+      this.currentSelectingNode.useridname = result.useridname
+      this.currentSelectingNode = null
+    },
+
+    // 提交（符合需求文档第十二章交互细节）
+    handleOk() {
+      // 前端表单验证（需求文档第11.2节）
+      const errors = this.validateForm()
+      if (errors.length > 0) {
+        this.$message.error(errors[0])
+        return
+      }
+
+      // 防重复提交（需求文档第12章：提交时防重复点击）
+      if (this.confirmLoading) {
+        return
+      }
+      this.confirmLoading = true
+
+      // 组装数据，按照后端BatchStartFlowVO格式
+      const params = {
+        batchId: this.model.batchId,
+        dmIds: this.selectedDmIds,
+        nodes: this.model.nodes.map(node => ({
+          seqno: node.seqno,
+          nodename: node.nodename,
+          nodetype: node.nodetype,
+          userid: node.userid,
+          useridname: node.useridname || '',
+          stagename: node.stagename || '',
+          // ifgetback处理：过滤掉空字符串（"不限制"选项），其他值用逗号连接
+          ifgetback: Array.isArray(node.ifgetback)
+            ? node.ifgetback.filter(v => v !== '').join(',')
+            : (node.ifgetback || '')
+        })),
+        ifurgent: this.model.ifurgent,
+        templateId: this.model.templateId || '',
+        stagenames: this.model.stagenames || ''
+      }
+
+      // 🔧 临时Mock数据（后端接口可用后删除此段）
+      const useMockData = false // 设置为false启用真实接口
+
+      if (useMockData) {
+        console.warn('⚠️ 使用Mock数据 - batchstartflow')
+        console.log('提交参数:', params)
+
+        setTimeout(() => {
+          // 模拟成功响应
+          this.$message.success('保存成功！')
+
+          // 🔧 Mock模式提示
+          this.$message.warning('⚠️ 当前为Mock演示模式，请稍后查看列表更新效果', 3)
+
+          // 🔧 Mock模式：通知父组件更新数据
+          const firstWorkNode = this.model.nodes.find(n => n.seqno > 0)
+          if (firstWorkNode) {
+            this.$emit('mock-updated', {
+              dmIds: this.selectedDmIds,
+              workflowStep: firstWorkNode.nodename || 'DM编写',
+              workflowStatus: '1',
+              workflowStatus_dictText: '流转中'
+            })
+          }
+
+          this.handleCancel()
+          this.$emit('ok')
+        }, 500)
+
+        return
+      }
+
+      // 真实接口调用
+      postAction('/ietm/workflow/batchStartFlow', params)
+        .then(res => {
+          if (res.success) {
+            // 需求文档第12章：提示消息统一使用layer.msg（Vue中使用$message）
+            this.$message.success('保存成功！')
+
+            // 关闭弹窗
+            this.handleCancel()
+
+            // 需求文档第12章：提交成功刷新父页面
+            this.$emit('ok')
+          } else {
+            this.$message.error(res.message || '批量启动失败')
+            this.confirmLoading = false
+          }
+        })
+        .catch(err => {
+          console.error('批量启动流程失败', err)
+          if (err.response) {
+            const status = err.response.status
+            if (status === 400) {
+              this.$message.error('请求参数错误：' + (err.response.data.message || ''))
+            } else if (status === 401) {
+              this.$message.error('未登录或登录已过期，请重新登录')
+            } else if (status === 500) {
+              this.$message.error('服务器错误：' + (err.response.data.message || ''))
+            } else {
+              this.$message.error('操作失败：' + (err.message || '未知错误'))
+            }
+          } else if (err.request) {
+            this.$message.error('网络错误，请检查网络连接')
+          } else {
+            this.$message.error('操作失败：' + (err.message || '未知错误'))
+          }
+          this.confirmLoading = false
+        })
+    },
+
+    // 关闭弹窗
+    handleCancel() {
+      this.visible = false
+      this.confirmLoading = false  // 修复问题2：重置loading状态
+      this.model.templateId = ''
+      this.model.stagenames = ''
+      this.autoMatchedTemplate = false  // 修复问题1：重置自动匹配状态
+      this.resetNodes()
+      this.selectedNodeKeys = []
+    },
+
+    // 前端表单验证（符合需求文档第11.2节）
+    validateForm() {
+      const errors = []
+
+      // 1. 验证紧急级别
+      if (!this.model.ifurgent) {
+        errors.push('请选择紧急级别')
+        return errors
+      }
+
+      // 2. 验证节点列表不为空
+      if (!this.model.nodes || this.model.nodes.length === 0) {
+        errors.push('还没有流程信息，不能保存')
+        return errors
+      }
+
+      // 3. checkAllnode() 全量检查
+      return this.checkAllNodes()
+    },
+
+    /**
+     * 全量检查所有节点（对应需求文档第11.2节 checkAllnode()）
+     * @returns {Array} 错误信息数组，为空表示校验通过
+     */
+    checkAllNodes() {
+      const errors = []
+      const nodes = this.model.nodes
+
+      // 检查1：节点列表不为空
+      if (!nodes || nodes.length === 0) {
+        errors.push('还未设置流程节点。')
+        return errors
+      }
+
+      // 检查2：顺序号不能重复
+      const seqnoSet = new Set()
+      for (const node of nodes) {
+        if (seqnoSet.has(node.seqno)) {
+          errors.push('有重复的顺序号。')
+          return errors
+        }
+        seqnoSet.add(node.seqno)
+      }
+
+      // 按seqno升序排序后逐行校验
+      const sortedNodes = [...nodes].sort((a, b) => a.seqno - b.seqno)
+
+      for (let i = 0; i < sortedNodes.length; i++) {
+        const node = sortedNodes[i]
+        const rowNum = i + 1
+
+        // 检查3：处理人不能为空
+        if (!node.userid || node.userid.trim() === '') {
+          errors.push(`不能保存，请选择第 ${rowNum} 行的处理人.`)
+          return errors
+        }
+
+        // 检查4：节点名称不能为空
+        if (!node.nodename || node.nodename.trim() === '') {
+          errors.push(`不能保存，请填写第 ${rowNum} 行的节点名称.`)
+          return errors
+        }
+
+        // 检查5：顺序号不能为空
+        if (node.seqno === null || node.seqno === undefined || node.seqno === '') {
+          errors.push(`不能保存，请填写第 ${rowNum} 行的顺序号.`)
+          return errors
+        }
+
+        // 检查6：处理方式不能为空
+        if (!node.nodetype || node.nodetype === '') {
+          errors.push(`不能保存，请选择第 ${rowNum} 行的处理方式.`)
+          return errors
+        }
+
+        // 检查7：跳转节点规则
+        if (node.ifgetback) {
+          const ifgetbackArr = Array.isArray(node.ifgetback)
+            ? node.ifgetback
+            : node.ifgetback.split(',').map(v => v.trim())
+
+          // 规则1：《不限制》（空字符串）不能和其他节点同时选
+          if (ifgetbackArr.includes('') && ifgetbackArr.length > 1) {
+            errors.push(`不能保存第 ${rowNum} 行，当可跳转节点选择《不限制》时，不能再选择其它节点.`)
+            return errors
+          }
+
+          // 规则2：《不可跳转》（-1）不能和其他节点同时选
+          if (ifgetbackArr.includes('-1') && ifgetbackArr.length > 1) {
+            errors.push(`不能保存第 ${rowNum} 行，当可跳转节点选择《不可跳转》时，不能再选择其它节点.`)
+            return errors
+          }
+        }
+      }
+
+      // 检查8：分阶段流程特殊规则
+      if (this.isStageWorkflow && this.model.stagenames) {
+        const stageNames = this.model.stagenames.split(',').map(s => s.trim())
+
+        // 检查8.1：阶段与顺序号不能交叉
+        // 规则：同一阶段内的节点，seqno必须连续，不能跨阶段
+        const stageGroups = {}
+        for (const node of sortedNodes) {
+          const stage = node.stagename || '0'
+          if (!stageGroups[stage]) {
+            stageGroups[stage] = []
+          }
+          stageGroups[stage].push(node.seqno)
+        }
+
+        // 检查每个阶段的seqno是否连续（简化版，检查是否有交叉）
+        const allSeqnos = sortedNodes.map(n => n.seqno)
+        for (const stage in stageGroups) {
+          const seqnos = stageGroups[stage]
+          // 检查该阶段的seqno是否在整体顺序中连续
+          const minSeq = Math.min(...seqnos)
+          const maxSeq = Math.max(...seqnos)
+          const expectedCount = maxSeq - minSeq + 1
+
+          // 简化判断：如果该阶段的节点数量少于范围内应有的数量，说明有交叉
+          if (seqnos.length < expectedCount) {
+            // 检查是否真的有交叉（其他阶段的节点在这个范围内）
+            const hasIntersection = sortedNodes.some(n => {
+              return n.seqno >= minSeq && n.seqno <= maxSeq && n.stagename !== stage
+            })
+            if (hasIntersection) {
+              errors.push('流程阶段与顺序号有交叉情况，请检查。')
+              return errors
+            }
+          }
+        }
+
+        // 检查8.2：至少需要一个"下阶段"节点
+        // 规则：如果有多个阶段，至少要有一个节点的stagename不是'0'（本阶段）
+        if (stageNames.length > 1) {
+          const hasNextStage = sortedNodes.some(n => n.stagename && n.stagename !== '0')
+          if (!hasNextStage) {
+            errors.push('必须至少有一个下阶段的节点。')
+            return errors
+          }
+        }
+      }
+
+      // 所有检查通过
+      return errors
+    },
+
+    // 单独的validrow方法（用于节点操作时的即时校验）
+    validateNode(node, rowNum) {
+      if (!node.userid || node.userid.trim() === '') {
+        return `请选择第 ${rowNum} 行的处理人`
+      }
+      if (!node.nodename || node.nodename.trim() === '') {
+        return `请填写第 ${rowNum} 行的节点名称`
+      }
+      if (node.seqno === null || node.seqno === undefined) {
+        return `请填写第 ${rowNum} 行的顺序号`
+      }
+      if (!node.nodetype) {
+        return `请选择第 ${rowNum} 行的处理方式`
+      }
+      return null
+    },
+
+    // 备用校验（保持向后兼容）
+    validateFormLegacy() {
+      const errors = []
+
+      // 验证紧急级别
+      if (!this.model.ifurgent) {
+        errors.push('请选择紧急级别')
+        return errors
+      }
+
+      // 验证节点配置
+      if (this.model.nodes.length === 0) {
+        errors.push('请至少配置一个节点')
+        return errors
+      }
+
+      // 验证创建节点存在
+      let hasCreateNode = false
+      const seqnoSet = new Set()
+
+      for (const node of this.model.nodes) {
+        // 检查创建节点
+        if (node.nodetype === '0' && node.seqno === 0) {
+          hasCreateNode = true
+        }
+
+        // 检查seqno重复
+        if (seqnoSet.has(node.seqno)) {
+          errors.push(`节点顺序号重复：${node.seqno}`)
+          return errors
+        }
+        seqnoSet.add(node.seqno)
+
+        // 检查必填字段
+        if (!node.nodename || node.nodename.trim() === '') {
+          errors.push(`节点${node.seqno}：节点名称不能为空`)
+          return errors
+        }
+
+        if (!node.nodetype) {
+          errors.push(`节点${node.seqno}：节点类型不能为空`)
+          return errors
+        }
+
+        if (!node.userid || node.userid.trim() === '') {
+          errors.push(`节点${node.seqno}：处理人ID不能为空`)
+          return errors
+        }
+
+        if (!node.useridname || node.useridname.trim() === '') {
+          errors.push(`节点${node.seqno}：处理人姓名不能为空`)
+          return errors
+        }
+
+        // 校验userid和useridname数量一致
+        const userids = node.userid.split(',').filter(id => id.trim())
+        const usernames = node.useridname.split(',').filter(name => name.trim())
+        if (userids.length !== usernames.length) {
+          errors.push(`节点${node.seqno}：处理人ID数量（${userids.length}）与姓名数量（${usernames.length}）不一致`)
+          return errors
+        }
+      }
+
+      if (!hasCreateNode) {
+        errors.push('必须包含创建节点（节点类型=创建节点，顺序号=0）')
+        return errors
+      }
+
+      return errors
+    }
+  }
+}
+</script>
+
+<style scoped>
+/* 主容器 */
+.batch-flow-modal-content {
+  background: #f5f7fa;
+}
+
+/* 顶部信息栏 */
+.info-banner {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  padding: 12px 20px;
+  color: #fff;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+.info-icon {
+  font-size: 15px;
+  margin-right: 6px;
+  opacity: 0.9;
+}
+
+.info-label {
+  opacity: 0.9;
+  margin-right: 4px;
+}
+
+.info-value {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* 配置区域 */
+.config-section {
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.section-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid #e8e8e8;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+}
+
+.title-icon {
+  font-size: 16px;
+  margin-right: 8px;
+  color: #1890ff;
+}
+
+.node-count {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #8c8c8c;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+}
+
+.config-content {
+  padding: 16px 20px;
+}
+
+.field-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #8c8c8c;
+}
+
+/* 节点配置区域 */
+.nodes-section {
+  background: #fff;
+  margin: 12px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.nodes-content {
+  padding: 12px;
+}
+
+/* 表格行样式 */
+::v-deep .create-node-row {
+  background-color: #e6f7ff !important;
+  font-weight: 500;
+}
+
+::v-deep .create-node-row:hover td {
+  background-color: #bae7ff !important;
+}
+
+::v-deep .executed-node-row {
+  background-color: #f6ffed !important;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+::v-deep .executed-node-row:hover td {
+  background-color: #d9f7be !important;
+}
+
+::v-deep .even-row {
+  background-color: #fafafa;
+}
+
+::v-deep .ant-table-tbody > tr:hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > td {
+  background-color: #e6f7ff;
+}
+
+/* 表格单元格内input/select样式优化 */
+::v-deep .ant-table-tbody .ant-input,
+::v-deep .ant-table-tbody .ant-select {
+  border-radius: 2px;
+}
+
+::v-deep .ant-table-tbody .ant-input:focus,
+::v-deep .ant-table-tbody .ant-select-focused .ant-select-selector {
+  border-color: #40a9ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+/* 表格优化 */
+::v-deep .ant-table {
+  font-size: 13px;
+}
+
+/* 确保表头和表体对齐 */
+::v-deep .ant-table-thead > tr > th,
+::v-deep .ant-table-tbody > tr > td {
+  padding: 8px 8px !important;
+}
+
+/* 固定列宽，防止表头表体不对齐 */
+::v-deep .ant-table-thead > tr > th {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+::v-deep .ant-table-tbody > tr > td {
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* 确保bordered表格的边框对齐 */
+::v-deep .ant-table-bordered .ant-table-thead > tr > th,
+::v-deep .ant-table-bordered .ant-table-tbody > tr > td {
+  border-right: 1px solid #e8e8e8;
+}
+
+::v-deep .ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.85);
+  padding: 12px 8px;
+}
+
+::v-deep .ant-table-tbody > tr > td {
+  padding: 8px;
+}
+
+/* 删除链接样式 */
+::v-deep .ant-table-tbody a[disabled] {
+  color: #d9d9d9 !important;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
+/* 按钮组优化 */
+::v-deep .ant-space-item .ant-btn-sm {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+/* Modal底部按钮 */
+::v-deep .ant-modal-footer {
+  border-top: 1px solid #e8e8e8;
+  padding: 12px 24px;
+  background: #fafafa;
+}
+
+::v-deep .ant-modal-footer .ant-btn {
+  min-width: 80px;
+  height: 36px;
+}
+
+/* 紧急级别badge样式 */
+::v-deep .ant-badge-status-text {
+  margin-left: 4px;
+  font-size: 13px;
+}
+
+/* 滚动条样式优化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #bfbfbf;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+</style>

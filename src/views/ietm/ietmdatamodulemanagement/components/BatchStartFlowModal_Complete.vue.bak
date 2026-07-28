@@ -1,0 +1,50 @@
+<template>
+  <a-modal
+    title="批量启动流程"
+    :width="1400"
+    :visible="visible"
+    :confirmLoading="confirmLoading"
+    @ok="handleOk"
+    @cancel="handleCancel"
+    :maskClosable="false"
+    wrapClassName="batch-start-flow-modal"
+  >
+    <a-spin :spinning="confirmLoading">
+      <!-- North区：模板与配置工具栏 -->
+      <div class="toolbar-section">
+        <a-form-model :model="formData" :label-col="{ span: 8 }" :wrapper-col="{ span: 16 }">
+          <a-row :gutter="16">
+            <a-col :span="8">
+              <a-form-model-item label="选择模板">
+                <a-select
+                  v-model="formData.templateId"
+                  placeholder="请选择流程模板"
+                  :loading="templateLoading"
+                  :disabled="autoMatchedTemplate"
+                  allowClear
+                >
+                  <a-select-option
+                    v-for="tmpl in templateList"
+                    :key="tmpl.id"
+                    :value="tmpl.id"
+                  >
+                    {{ tmpl.tmplname }}
+                  </a-select-option>
+                </a-select>
+              </a-form-model-item>
+            </a-col>
+            <a-col :span="8">
+              <a-form-model-item label="是否紧急" required>
+                <a-select v-model="formData.ifurgent" placeholder="请选择">
+                  <a-select-option value="1">一般</a-select-option>
+                  <a-select-option value="2">紧急</a-select-option>
+                  <a-select-option value="3">特急</a-select-option>
+                </a-select>
+              </a-form-model-item>
+            </a-col>
+            <a-col :span="8">
+              <a-form-model-item label="选中DM数量" :label-col="{ span: 10 }" :wrapper-col="{ span: 14 }">
+                <a-input :value="`${selectedDmCount} 条`" disabled />
+              </a-form-model-item>
+            </a-col>
+          </a-row>

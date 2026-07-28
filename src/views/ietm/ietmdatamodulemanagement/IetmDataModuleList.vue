@@ -13,6 +13,7 @@
           <a-button type="primary" icon="close-circle" @click="handleCancelCheckOut" :disabled="!buttonStates.canCancelCheckOut">取消签出</a-button>
           <a-button type="primary" icon="import" @click="handleCheckIn" :disabled="!buttonStates.canCheckIn">签入</a-button>
           <a-button type="primary" icon="history" @click="handleHistory" :disabled="selectedRowKeys.length !== 1">历史版本</a-button>
+          <a-button type="primary" icon="edit" @click="handleEditDmContent" :disabled="selectedRowKeys.length !== 1">浏览或编辑DM内容</a-button>
           <a-button type="primary" icon="eye" @click="handlePreview" :disabled="selectedRowKeys.length !== 1">预览</a-button>
           <a-button type="primary" icon="check-circle" @click="handleValidate" :disabled="!buttonStates.canValidate">校验</a-button>
           <a-button type="primary" icon="rocket" @click="handlePublish" :disabled="!buttonStates.canPublish">发布</a-button>
@@ -195,7 +196,7 @@
     <dm-copy-modal ref="copyModal" @ok="loadData" />
     <dm-resource-modal ref="resourceModal" @ok="handleResourceModalOk" />
     <dm-edit-prop-modal ref="editPropModal" @ok="loadData" />
-    <batch-start-flow-modal ref="batchStartFlowModal" @ok="loadData" />
+    <batch-start-flow-modal ref="batchStartFlowModal" @ok="loadData" @mock-updated="handleMockFlowUpdated" />
     <!-- DmImportModal 已删除：无 UI 入口，属于死代码 -->
   </div>
 </template>
@@ -312,7 +313,9 @@ export default {
       currentSelectedDm: null,
       currentSelectedResource: null,
       // Ant Design Empty组件的简单图标
-      simpleImage: Empty.PRESENTED_IMAGE_SIMPLE
+      simpleImage: Empty.PRESENTED_IMAGE_SIMPLE,
+      // Mock模式：流程状态更新缓存
+      mockFlowUpdates: {} // { dmId: { workflowStep, workflowStatus, workflowStatus_dictText } }
     }
   },
   computed: {
@@ -330,6 +333,12 @@ export default {
     // 所有选中记录是否均可删除（用于工具栏批量删除按钮）
     canBatchDelete() {
       if (this.selectedRows.length === 0) return false
+      // 管理员可以删除所有可删除的记录
+      const isAdmin = this.currentUser === 'admin'
+      if (isAdmin) {
+        return this.selectedRows.every(record => this.canDeleteRecord(record))
+      }
+      // 普通用户只能删除自己创建的记录
       return this.selectedRows.every(
         record => this.canDeleteRecord(record) && record.createBy === this.currentUser
       )
@@ -337,6 +346,9 @@ export default {
     // 所有选中记录的创建者是否都是当前用户（用于控制删除按钮可见性）
     canShowDeleteButton() {
       if (this.selectedRows.length === 0) return false
+      // 管理员可以删除所有记录，普通用户只能删除自己创建的记录
+      const isAdmin = this.currentUser === 'admin' // 或根据实际角色判断
+      if (isAdmin) return true
       return this.selectedRows.every(record => record.createBy === this.currentUser)
     },
   },
@@ -373,6 +385,18 @@ export default {
       getAction(this.url.list, params).then((res) => {
         if (res.success) {
           this.dataSource = res.result.records || res.result
+
+          // 🔧 Mock模式：应用缓存的流程状态更新
+          if (Object.keys(this.mockFlowUpdates).length > 0) {
+            console.log('🔧 Mock模式：应用流程状态更新到列表数据')
+            this.dataSource.forEach(record => {
+              if (this.mockFlowUpdates[record.id]) {
+                Object.assign(record, this.mockFlowUpdates[record.id])
+                console.log(`✅ 更新记录 ${record.dmCode}:`, this.mockFlowUpdates[record.id])
+              }
+            })
+          }
+
           if (res.result.total) {
             this.ipagination.total = res.result.total
           } else {
@@ -390,6 +414,20 @@ export default {
         this.$message.error('加载数据失败，请检查网络连接')
         this.loading = false
       })
+    },
+
+    // 🔧 Mock模式：处理流程启动后的状态更新
+    handleMockFlowUpdated(data) {
+      console.log('🔧 Mock模式：记录流程状态更新', data)
+      // 记录需要更新的DM ID和状态
+      data.dmIds.forEach(id => {
+        this.mockFlowUpdates[id] = {
+          workflowStep: data.workflowStep,
+          workflowStatus: data.workflowStatus,
+          workflowStatus_dictText: data.workflowStatus_dictText
+        }
+      })
+      console.log('🔧 Mock更新缓存:', this.mockFlowUpdates)
     },
 
     handleAdd() {
@@ -556,6 +594,13 @@ export default {
 
       this.$refs.editorModal.show(data)
     },
+
+    // 浏览或编辑DM内容（工具栏按钮）
+    handleEditDmContent() {
+      // 复用 handleDmContent 方法
+      this.handleDmContent()
+    },
+
     handlePreview(record) {
       if (!record && this.selectedRowKeys.length === 0) {
         this.$message.warning('请选择一条记录')
@@ -586,14 +631,37 @@ export default {
         this.selectedRowKeys.includes(item.id)
       )
 
-      // 3. 检查每条记录的businessstate_，不能为已启动流程的
+      // 3. 检查每条记录是否允许启动流程
       for (let i = 0; i < selectedRecords.length; i++) {
         const record = selectedRecords[i]
-        // businessstate_非空表示已启动流程
-        if (record.workflowStatus && record.workflowStatus !== '' && record.workflowStatus !== null) {
-          this.$message.warning(`第${i + 1}条数据已经启动了流程`)
+
+        // 调试输出：查看实际的状态值
+        console.log(`记录${i + 1} - DMC: ${record.dmcCode || record.dmc}`)
+        console.log(`  status值:`, record.status, `(类型: ${typeof record.status})`, `- 含义：0=已删除，1=正常`)
+        console.log(`  workflowStatus值:`, record.workflowStatus, `(类型: ${typeof record.workflowStatus})`, `- 含义：null=未启动，0=已结束，1=流转中，2=已撤销`)
+
+        // status状态检查：0=已删除，1=正常
+        if (record.status == '0' || record.status === 0) {
+          this.$message.warning(`第${i + 1}条数据【${record.dmcCode || record.dmc}】已删除，无法启动流程`)
           return
         }
+
+        // workflowStatus流程状态检查：
+        // null或空=未启动流程：可以启动
+        // 0=流程已结束：可以重新启动
+        // 1=流转中：不允许启动新流程
+        // 2=已撤销：需要先处理
+        if (record.workflowStatus == '1' || record.workflowStatus === 1) {
+          this.$message.warning(`第${i + 1}条数据【${record.dmcCode || record.dmc}】处于审批中，无法启动新流程`)
+          return
+        }
+
+        if (record.workflowStatus == '2' || record.workflowStatus === 2) {
+          this.$message.warning(`第${i + 1}条数据【${record.dmcCode || record.dmc}】流程已撤销，请先处理后再启动`)
+          return
+        }
+
+        // workflowStatus = null/空/0 都允许启动流程
       }
 
       // 4. 打开批量启动流程弹窗

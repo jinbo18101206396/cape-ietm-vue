@@ -1,0 +1,26 @@
+<template>
+  <a-modal
+    title="批量启动流程"
+    :width="1400"
+    :visible="visible"
+    :confirmLoading="confirmLoading"
+    @ok="handleOk"
+    @cancel="handleCancel"
+    :maskClosable="false"
+    wrapClassName="batch-start-flow-modal"
+  >
+    <a-spin :spinning="confirmLoading">
+      <!-- TEMPLATE_PART_1 -->
+    </a-spin>
+
+    <!-- TEMPLATE_PART_2 -->
+  </a-modal>
+</template>
+
+<script>
+// SCRIPT_CONTENT
+</script>
+
+<style scoped>
+/* STYLE_CONTENT */
+</style>
