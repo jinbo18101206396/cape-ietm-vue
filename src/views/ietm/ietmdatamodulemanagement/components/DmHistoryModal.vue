@@ -195,8 +195,8 @@ export default {
       this.loading = true
       getAction('/ietm/datamodule/historyVersions', {
         sns,
-        infocode: infoCode,
-        infocodevariant: infoCodeVariant
+        infoCode,        // 修复：使用camelCase与后端@RequestParam一致
+        infoCodeVariant  // 修复：使用camelCase与后端@RequestParam一致
       }).then(res => {
         if (res.success) {
           this.dataSource = res.result || []

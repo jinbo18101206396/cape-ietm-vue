@@ -202,7 +202,7 @@
       <!-- DMC格式 + 预览 -->
       <div v-if="!isEditMode" class="dmc-preview-section">
         <a-alert
-          message="DMC格式：DMC-{schema}-{sys}-{subsys}-{comp}-{infoCode}{variant}-{loc}{lrn}{evt}-{year}-{seq}{orig}-{issue}-{work}_{lang}-{country}"
+          message="DMC格式：DMC-{sns}-{infoCode}{variant}-{loc}_{issue}-{work}_{lang}-{country}"
           type="success"
           show-icon
           style="font-family: 'Courier New', monospace; margin-bottom: 10px; font-size: 12px;"
@@ -248,7 +248,7 @@ export default {
         security: [{ required: true, message: '请选择密级', trigger: 'change' }],
         sns: [
           { required: true, message: '请先在左侧树中选择构型节点以生成SNS', trigger: 'blur' },
-          { max: 16, message: 'SNS最多16位', trigger: 'blur' }
+          { max: 30, message: 'SNS最多30位', trigger: 'blur' }
         ],
         infoCode: [
           { required: true, message: '请选择信息码', trigger: 'blur' },
@@ -274,8 +274,14 @@ export default {
           { max: 50, message: '责任单位代码最多50字符', trigger: 'change' }
         ],
         techName: [{ required: true, message: '请输入技术名称', trigger: 'blur' }],
-        languageIsoCode: [{ required: true, message: '请选择语言', trigger: 'change' }],
-        countryIsoCode: [{ required: true, message: '请选择国家', trigger: 'change' }]
+        languageIsoCode: [
+          { required: true, message: '请选择语言', trigger: 'change' },
+          { pattern: /^[a-z]{2,3}$/, message: '语言代码必须为2-3位小写字母（ISO 639标准）', trigger: 'blur' }
+        ],
+        countryIsoCode: [
+          { required: true, message: '请选择国家', trigger: 'change' },
+          { pattern: /^[A-Z]{2,3}$/, message: '国家代码必须为2-3位大写字母（ISO 3166标准）', trigger: 'blur' }
+        ]
       },
       url: {
         add: '/ietm/datamodule/add',
@@ -313,7 +319,7 @@ export default {
         learnEventCode: '',
         yearOfChange: '',
         seqNo: '',
-        languageIsoCode: 'ZH',  // 大写，与字典值保持一致
+        languageIsoCode: 'zh',  // ISO 639标准：小写语言代码
         countryIsoCode: 'CN',
         infoCode: '',
         dmType: '',
@@ -321,8 +327,8 @@ export default {
         rpc: '',
         techName: contextData.techName || '',  // 从构型节点传入
         infoName: '',
-        issueNo: '000',
-        inWork: '01',
+        issueNo: '001',  // 初始版本：发行编号001
+        inWork: '00',    // 初始版本：在编号00（与后端 saveDm 默认值及 isInitialVersion 判定一致）
         issueType: 'new'
       }
 
@@ -364,7 +370,8 @@ export default {
 
           // 将空字符串的可选字段转为null，避免触发后端正则校验
           const payload = { ...this.model }
-          const optionalFields = ['learnCode', 'learnEventCode']
+          // infoCodeVariant 空串也转null：与后端 checkDmcUnique 的 isNull 分支对齐，避免判重失效
+          const optionalFields = ['learnCode', 'learnEventCode', 'infoCodeVariant']
           optionalFields.forEach(k => { if (payload[k] === '') payload[k] = null })
 
           // 去除字符串字段的前后空格
@@ -375,8 +382,8 @@ export default {
             }
           })
 
-          // 语言/国家代码后端要求大写
-          if (payload.languageIsoCode) payload.languageIsoCode = payload.languageIsoCode.toUpperCase()
+          // 规范化大小写：语言代码小写（ISO 639）、国家代码大写（ISO 3166）
+          if (payload.languageIsoCode) payload.languageIsoCode = payload.languageIsoCode.toLowerCase()
           if (payload.countryIsoCode) payload.countryIsoCode = payload.countryIsoCode.toUpperCase()
 
           const url = payload.id ? this.url.edit : this.url.add
@@ -420,24 +427,30 @@ export default {
         this.model.infoName = row.description
       }
       if (row.dmtypename) {
-        // InfoCodeSelector返回的dmtypename是中文描述（从ietm_standard_dmtype表的dmtype_name字段）
-        // 需要映射为dm_type字典的value（descriptive/procedural等）
+        // InfoCodeSelector返回的dmtypename是中文名称（信息码所属DM类型的中文名）
+        // 需映射为字典 dm_type 的 value（description/procedure/faultIsolation/crew/maintPlanning/process/faultReporting/illustratedPartsCatalog）
+        // 注意：字典键是S1000D英文码，不能用 descriptive/procedural/fault 等错误值，否则 _dictText 解析失败、列表/详情不显示
         const dmTypeMap = {
-          '描述类': 'descriptive',
-          '程序类': 'procedural',
-          '故障类': 'fault',
-          '人员类': 'crew',
-          '前言类': 'frontmatter',
-          '规划类': 'planning',
-          '工艺类': 'process'
+          '描述类': 'description',
+          '程序类': 'procedure',
+          '过程类': 'process',
+          '工艺类': 'process',
+          '故障类': 'faultIsolation',
+          '故障隔离类': 'faultIsolation',
+          '故障报告类': 'faultReporting',
+          '图解零件目录类': 'illustratedPartsCatalog',
+          '乘员类': 'crew',
+          '操作类': 'crew',
+          '规划类': 'maintPlanning',
+          '维修计划类': 'maintPlanning'
         }
         const mappedValue = dmTypeMap[row.dmtypename]
         if (mappedValue) {
           this.model.dmType = mappedValue
         } else {
-          // 映射失败时，尝试直接使用原始值（可能后端返回的就是英文value）
-          this.model.dmType = row.dmtypename
-          console.warn('DM类型映射失败，使用原始值:', row.dmtypename)
+          // 无法映射到字典值（如"产品交叉引用表类""容器类"字典未定义）时置空，
+          // 由用户从必填下拉手动选择，避免写入非法值导致列表/详情DM类型不显示
+          this.model.dmType = ''
         }
       }
     },
@@ -457,7 +470,7 @@ export default {
             this.model.security = res.result.security || ''
 
             // 语言和国家（从项目）
-            this.model.languageIsoCode = res.result.languageIsoCode || 'ZH'
+            this.model.languageIsoCode = res.result.languageIsoCode || 'zh'
             this.model.countryIsoCode = res.result.countryIsoCode || 'CN'
 
             // 技术名称（从构型节点）
@@ -482,7 +495,6 @@ export default {
     // 加载项目单位列表（创作单位和责任单位）
     loadCompanyList(projectId) {
       if (!projectId) {
-        console.warn('projectId为空，无法加载单位列表')
         return
       }
       const params = { pid: projectId, pageNo: 1, pageSize: 1000 }
@@ -505,84 +517,28 @@ export default {
     // 根据需求文档，SNS从后端返回时应该已经包含分隔符（如 28-60-04-00A）
     // 如果后端返回的SNS不包含分隔符，则进行格式化处理
     snsFormatted() {
-      const sns = this.model.sns || ''
-      if (!sns) return ''
-
-      // 如果已经包含分隔符，直接返回
-      if (sns.includes('-')) return sns
-
-      // 否则按照编码规则补全分隔符
-      // SNS格式：{系统码}-{子系统码}-{组件码}-{子组件码}
-      // 规则：每段2-4位，最多4段，总长度最多16位
-
-      // 简单规则：按固定长度分段
-      // 常见格式：28-60-04-00A（2位-2位-2位-3位）
-      const segments = []
-      let pos = 0
-      const lengths = [2, 2, 2]  // 前3段固定2位
-
-      for (const len of lengths) {
-        if (pos < sns.length) {
-          segments.push(sns.substring(pos, pos + len))
-          pos += len
-        }
-      }
-
-      // 剩余部分作为最后一段
-      if (pos < sns.length) {
-        segments.push(sns.substring(pos))
-      }
-
-      return segments.join('-')
+      // SNS 由后端 calculateSnsForDm() 生成，已含连字符（如 ZB1-A-00-00-00-00A）
+      // 直接透传，无需前端二次切割
+      return this.model.sns || ''
     },
 
     dmcPreview() {
       const m = this.model
-      const parts = []
 
-      // DMC格式（S1000D标准）与后端IetmDataModuleServiceImpl.generateDmc()保持一致：
-      // DMC-{schema}-{sns}-{infocode}{variant}-{location}{learn}{event}-{yearOfChange}-{seqNo}{originator}-{issueno}-{inwork}_{lang}-{country}
+      // DMC格式：逐字符对标老系统 getDmc() 及后端 generateDmc()（纯S1000D缩略标识+文件名后缀）：
+      // DMC-{sns}-{infoCode}{infoCodeVariant}-{itemLocationCode}_{issueNo}-{inWork}_{lang}-{country}
+      // 注：yearOfChange/seqNo/originator/learn 码不进 DMC 字符串（仅存实体列与 <dmCode> XML 属性）。
+      const sns = this.snsFormatted || '[SNS]'
+      // infoCodeVariant 可为空（校验允许），空时不补——与后端 generateDmc 逐字符一致
+      const infoCodePart = (m.infoCode || '[信息码]') + (m.infoCodeVariant || '')
+      const loc = m.ietmLocationCode || 'A'
+      const issueBlock = (m.issueNo || '001') + '-' + (m.inWork || '00')
+      // 语言码小写、国家码大写，符合ISO 639/3166标准（DMC文件名中显示为 zh-CN）
+      const lang = (m.languageIsoCode || 'zh').toLowerCase()
+      const country = (m.countryIsoCode || 'CN').toUpperCase()
+      const langBlock = lang + '-' + country
 
-      // 第0段：前缀
-      parts.push('DMC')
-
-      // 第1段：Schema（默认J）
-      parts.push(m.schema || 'J')
-
-      // 第2段：SNS（使用格式化后的）
-      parts.push(this.snsFormatted || '[SNS]')
-
-      // 第3段：InfoCode + InfoCodeVariant（不带分隔符）
-      const infoCodePart = (m.infoCode || '[信息码]') + (m.infoCodeVariant || 'A')
-      parts.push(infoCodePart)
-
-      // 第4段：IetmLocationCode + LearnCode + LearnEventCode（可选字段直接拼接）
-      let segment4 = ''
-      if (m.ietmLocationCode) segment4 += m.ietmLocationCode
-      if (m.learnCode) segment4 += m.learnCode
-      if (m.learnEventCode) segment4 += m.learnEventCode
-      parts.push(segment4 || '[位置码]')
-
-      // 第5段：YearOfChange（变更年代码，默认00）
-      parts.push(m.yearOfChange || '00')
-
-      // 第6段：SeqNo + Originator（顺序码+创作单位，无分隔符）
-      let segment6 = ''
-      segment6 += (m.seqNo || '00')
-      segment6 += (m.originator || '[创作单位]')
-      parts.push(segment6)
-
-      // 第7段：IssueNo（默认001）
-      parts.push(m.issueNo || '001')
-
-      // 第8段：InWork_LanguageIsoCode（在编编号_语言代码，保持大写）
-      const segment8 = (m.inWork || '00') + '_' + (m.languageIsoCode || 'ZH')
-      parts.push(segment8)
-
-      // 第9段：CountryIsoCode（保持大写）
-      parts.push(m.countryIsoCode || 'CN')
-
-      return parts.join('-')
+      return `DMC-${sns}-${infoCodePart}-${loc}_${issueBlock}_${langBlock}`
     }
   }
 }

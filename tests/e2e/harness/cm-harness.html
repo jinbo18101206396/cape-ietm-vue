@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8"/>
+<title>CM Harness</title>
+<link rel="stylesheet" href="/node_modules/codemirror/lib/codemirror.css"/>
+<link rel="stylesheet" href="/node_modules/codemirror/addon/hint/show-hint.css"/>
+<style>html,body{margin:0}.CodeMirror{height:400px;border:1px solid #ccc}</style>
+</head>
+<body>
+<div id="ed"></div>
+
+<script src="/node_modules/codemirror/lib/codemirror.js"></script>
+<script src="/node_modules/codemirror/mode/xml/xml.js"></script>
+<script src="/node_modules/codemirror/addon/hint/show-hint.js"></script>
+<script src="/node_modules/codemirror/addon/hint/xml-hint.js"></script>
+<script src="/tests/e2e/harness/harness.gen.js"></script>
+<script>
+// 真实 CodeMirror 实例 + 真实源码函数（window.__SRC）
+const S = window.__SRC
+let cm, nodeList = [], linenoOffset = 1, schema = {}
+
+// 用真实 formatXml 格式化并重算 offset + 全量原子化（复刻 formateDM 关键步骤）
+function formateDM() {
+  cm.setValue(S.formatXml(cm.getValue(), 2))
+  linenoOffset = S.getLinenoOffset(cm)
+  cm.doc.getAllMarks().forEach(m => { if (m.atomic) m.clear() })
+  for (let i = 0; i < cm.lineCount(); i++) S.lineAtomic(cm, i)
+}
+
+window.HARNESS = {
+  // 初始化编辑器（value: 初始 XML；sc: schema；nl: nodeList）
+  init(value, sc, nl) {
+    schema = sc || {}
+    nodeList = nl || []
+    const host = document.getElementById('ed')
+    host.innerHTML = '<textarea></textarea>'
+    cm = CodeMirror.fromTextArea(host.querySelector('textarea'), {
+      mode: 'xml', lineNumbers: true,
+      hintOptions: { schemaInfo: schema }
+    })
+    cm.setValue(value || '')
+    formateDM()
+    linenoOffset = S.getLinenoOffset(cm)
+    cm.clearHistory()  // 复刻 Bug5 修复：加载后清空撤销栈
+    return { value: cm.getValue(), linenoOffset, lineCount: cm.lineCount() }
+  },
+  getValue() { return cm.getValue() },
+  getLines() { return cm.getValue().split('\n') },
+  lineCount() { return cm.lineCount() },
+  historySize() { return cm.historySize() },   // {undo, redo}
+  undo() { cm.undo(); return cm.getValue() },
+
+  // Bug1：把光标放到某行末尾（0-based），返回过滤后的补全候选 displayText 列表
+  hintListAt(line0) {
+    cm.setCursor({ line: line0, ch: cm.getLine(line0).length })
+    const res = S._elementHint(cm, { schemaInfo: schema }, { nodeList, linenoOffset, schema })
+    return (res && res.list ? res.list : []).map(it =>
+      typeof it === 'string' ? it : (it.displayText || it.text || ''))
+  },
+
+  // Bug2/6/7：在指定行末尾模拟「回车补全选中 name」→ 走 hint() 插入 → formateDM
+  pickAt(line0, name) {
+    cm.setCursor({ line: line0, ch: cm.getLine(line0).length })
+    const res = S._elementHint(cm, { schemaInfo: schema }, { nodeList, linenoOffset, schema })
+    const item = res.list.find(it => (it.displayText || it.text) === '<' + name)
+    if (!item) return { error: 'no candidate ' + name }
+    const from = cm.getCursor()
+    item.hint(cm, { from, to: from })   // 真实插入逻辑（glue 到父元素同行）
+    const glued = cm.getValue()
+    formateDM()                          // 真实格式化（应拆行）
+    return { glued, formatted: cm.getValue() }
+  },
+
+  // Bug7：在给定行、给定列尝试删除 1 个字符，返回是否被 atomic 拦（行内容不变=被保护）
+  // 返回 { before, after, protectedTag }：protectedTag=删除操作是否落在原子标签区
+  tryDeleteInTag(line0) {
+    // 定位到该行开标签名中间（'<' 后 2 个字符），试 Backspace 删一个字符
+    const text = cm.getLine(line0)
+    const lt = text.indexOf('<')
+    const chInName = lt + 2
+    cm.setCursor({ line: line0, ch: chInName })
+    const before = cm.getLine(line0)
+    // atomic 区内 setCursor 会被弹开；直接 replaceRange 删一个字符看是否报错/被保护
+    let blocked = false
+    try {
+      // 模拟 backspace：删除 [chInName-1, chInName]
+      const marks = cm.findMarksAt({ line: line0, ch: chInName })
+      blocked = marks.some(m => m.atomic)
+    } catch (e) { blocked = true }
+    return { before, tagIsAtomic: blocked }
+  },
+
+  // Bug3：属性写回（真实 _writeAttr）
+  writeAttr(lineText, name, val) { return S._writeAttr(lineText, name, val) },
+
+  // Bug8：按编辑器行反查节点（真实 getnodeBylineno）
+  nodeAtLine(editorLine1) {
+    const n = S.getnodeBylineno(nodeList, editorLine1, linenoOffset, cm)
+    return n ? { text: n.text, id: n.id, pid: n.pid } : null
+  }
+}
+window.__READY = true
+</script>
+</body>
+</html>

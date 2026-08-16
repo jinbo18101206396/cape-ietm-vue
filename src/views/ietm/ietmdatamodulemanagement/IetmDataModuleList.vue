@@ -7,19 +7,19 @@
           <a-button type="primary" icon="plus" @click="handleAdd">新建</a-button>
           <a-button type="primary" icon="copy" @click="handleCopy" :disabled="selectedRowKeys.length !== 1">复制</a-button>
           <a-button type="primary" icon="copy" @click="handleCopyNew" :disabled="!copyId">复制新建</a-button>
-          <a-button type="primary" icon="edit" @click="handleEditProp" :disabled="!buttonStates.canEditProp">编辑</a-button>
           <a-button v-if="canShowDeleteButton" type="danger" icon="delete" @click="handleDelete()" :disabled="!canBatchDelete">删除</a-button>
+          <a-button type="primary" icon="deployment-unit" @click="handleStartWorkflow" :disabled="!hasSelected">启动流程</a-button>
+          <a-button type="primary" icon="edit" @click="handleEditProp" :disabled="!buttonStates.canEditProp">编辑</a-button>
           <a-button type="primary" icon="export" @click="handleCheckOut" :disabled="!buttonStates.canCheckOut">签出</a-button>
           <a-button type="primary" icon="close-circle" @click="handleCancelCheckOut" :disabled="!buttonStates.canCancelCheckOut">取消签出</a-button>
-          <a-button type="primary" icon="import" @click="handleCheckIn" :disabled="!buttonStates.canCheckIn">签入</a-button>
-          <a-button type="primary" icon="history" @click="handleHistory" :disabled="selectedRowKeys.length !== 1">历史版本</a-button>
           <a-button type="primary" icon="edit" @click="handleEditDmContent" :disabled="selectedRowKeys.length !== 1">浏览或编辑DM内容</a-button>
+          <a-button type="primary" icon="import" @click="handleCheckIn" :disabled="!buttonStates.canCheckIn">签入</a-button>
           <a-button type="primary" icon="eye" @click="handlePreview" :disabled="selectedRowKeys.length !== 1">预览</a-button>
           <a-button type="primary" icon="check-circle" @click="handleValidate" :disabled="!buttonStates.canValidate">校验</a-button>
-          <a-button type="primary" icon="rocket" @click="handlePublish" :disabled="!buttonStates.canPublish">发布</a-button>
-          <a-button type="primary" icon="deployment-unit" @click="handleStartWorkflow" :disabled="!hasSelected">启动流程</a-button>
-          <a-button type="primary" icon="reload" @click="handleRestartWorkflow" :disabled="selectedRowKeys.length !== 1">重启流程</a-button>
+          <a-button type="primary" icon="history" @click="handleHistory" :disabled="selectedRowKeys.length !== 1">历史版本</a-button>
           <a-button type="primary" icon="apartment" @click="handleReference" :disabled="selectedRowKeys.length !== 1">引用关系</a-button>
+          <a-button type="primary" icon="rocket" @click="handlePublish" :disabled="!buttonStates.canPublish">发布</a-button>
+          <a-button type="primary" icon="reload" @click="handleRestartWorkflow" :disabled="selectedRowKeys.length !== 1">重启流程</a-button>
         </a-space>
       </div>
 
@@ -35,7 +35,7 @@
               编码规则：A-00-0-0-00-00-A
             </div>
 
-            <config-tree @select="onTreeSelect" />
+            <config-tree @select="onTreeSelect" @paste-success="handlePasteSuccess" />
           </a-card>
         </a-col>
 
@@ -187,15 +187,16 @@
     <!-- 所有弹窗组件-->
     <data-module-form-modal ref="formModal" @ok="loadData" />
     <dm-view-modal ref="viewModal" />
+    <dm-preview-modal ref="previewModal" />
     <dm-history-modal ref="historyModal" />
     <dm-reference-modal ref="referenceModal" />
-    <dm-editor-modal ref="editorModal" @ok="loadData" />
+    <dm-editor-modal ref="editorModal" @ok="handleEditorModalOk" />
     <dm-diff-modal ref="diffModal" />
     <dm-workflow-modal ref="workflowModal" @ok="loadData" />
     <dm-validation-modal ref="validationModal" />
     <dm-copy-modal ref="copyModal" @ok="loadData" />
     <dm-resource-modal ref="resourceModal" @ok="handleResourceModalOk" />
-    <dm-edit-prop-modal ref="editPropModal" @ok="loadData" />
+    <dm-edit-prop-modal ref="editPropModal" @ok="handleEditPropModalOk" />
     <batch-start-flow-modal ref="batchStartFlowModal" @ok="loadData" @mock-updated="handleMockFlowUpdated" />
     <!-- DmImportModal 已删除：无 UI 入口，属于死代码 -->
   </div>
@@ -207,6 +208,7 @@ import { getAction, postAction, deleteAction } from '@/api/manage'
 import { Empty } from 'ant-design-vue'
 import DataModuleFormModal from './components/DataModuleFormModal'
 import DmViewModal from './components/DmViewModal'
+import DmPreviewModal from './editor/components/DmPreviewModal'
 import DmHistoryModal from './components/DmHistoryModal'
 import DmReferenceModal from './components/DmReferenceModal'
 import DmEditorModal from './components/DmEditorModal'
@@ -226,6 +228,7 @@ export default {
   components: {
     DataModuleFormModal,
     DmViewModal,
+    DmPreviewModal,
     DmHistoryModal,
     DmReferenceModal,
     DmEditorModal,
@@ -246,15 +249,20 @@ export default {
       columns: [
         { title: '', align: 'center', dataIndex: 'checkoutUser', width: 60, fixed: 'left',
           scopedSlots: { customRender: 'checkoutStatus' } },
-        { title: 'DMC', align: 'center', dataIndex: 'dmcCode', width: 380, fixed: 'left',
+        { title: 'DMC', align: 'center', dataIndex: 'dmcCode', width: 380,
           scopedSlots: { customRender: 'dmcCode' } },
         { title: '技术名称', align: 'center', dataIndex: 'techName', width: 200, ellipsis: true },
         { title: '信息名称', align: 'center', dataIndex: 'infoName', width: 200, ellipsis: true },
         { title: 'DM类型', align: 'center', dataIndex: 'dmType_dictText', width: 100 },
         { title: '版本', align: 'center', dataIndex: 'versionInfo', width: 100,
           scopedSlots: { customRender: 'versionInfo' } },
-        { title: '版本类型', align: 'center', dataIndex: 'versionType_dictText', width: 100 },
-        { title: '签发日期', align: 'center', dataIndex: 'issueDate', width: 120,
+        { title: '版本类型', align: 'center', dataIndex: 'issueType', width: 90,
+          customRender: (text) => {
+            // 直接显示数据库中的issueType字段值（S1000D标准）
+            return text || '-'
+          }
+        },
+        { title: '版本日期', align: 'center', dataIndex: 'issueDate', width: 120,
           customRender: (text) => {
             return text ? (typeof text === 'string' ? text.substring(0, 10) : text) : '-'
           }
@@ -370,7 +378,7 @@ export default {
         this.dataSource = []
         this.loading = false
         this.ipagination.total = 0
-        return
+        return Promise.resolve()
       }
 
       // 参数合法，调用mixin 的原始loadData
@@ -382,7 +390,7 @@ export default {
       this.ipagination.current = arg
       var params = this.getQueryParams()
       this.loading = true
-      getAction(this.url.list, params).then((res) => {
+      return getAction(this.url.list, params).then((res) => {
         if (res.success) {
           this.dataSource = res.result.records || res.result
 
@@ -410,9 +418,11 @@ export default {
           this.ipagination.total = 0
         }
         this.loading = false
+        return res
       }).catch((err) => {
         this.$message.error('加载数据失败，请检查网络连接')
         this.loading = false
+        throw err
       })
     },
 
@@ -482,7 +492,18 @@ export default {
         return
       }
 
-      this.$refs.historyModal.show(data)
+      // 在系统Tab页签中打开历史版本页面
+      this.$router.push({
+        path: '/ietm/dm-history',
+        query: {
+          dmcCode: data.dmcCode || '',
+          projectId: data.projectId || '',
+          sns: data.sns || '',
+          infoCode: data.infoCode || '',
+          infoCodeVariant: data.infoCodeVariant || '',
+          ietmLocationCode: data.ietmLocationCode || ''
+        }
+      })
     },
     handleReference(record) {
       if (this.selectedRowKeys.length === 0) {
@@ -597,26 +618,132 @@ export default {
 
     // 浏览或编辑DM内容（工具栏按钮）
     handleEditDmContent() {
-      // 复用 handleDmContent 方法
-      this.handleDmContent()
+      if (this.selectedRowKeys.length === 0) {
+        this.$message.warning('请选择一条记录')
+        return
+      }
+
+      // 获取选中的DM数据
+      let data = null
+      if (this.selectedRows.length > 0 && this.selectedRows[0].id) {
+        data = this.selectedRows[0]
+      } else if (this.selectedRowKeys.length > 0) {
+        data = this.dataSource.find(item => item.id === this.selectedRowKeys[0])
+      }
+
+      if (!data || !data.id) {
+        this.$message.error('无法获取DM信息，请重新选择')
+        return
+      }
+
+      // 判断模式：如果是当前用户签出，则为编辑模式；否则为浏览模式
+      const isMyCheckOut = data.checkoutUser && data.checkoutUser === this.currentUser
+      const mode = isMyCheckOut ? 'edit' : 'browse'
+
+      // 在系统Tab页签中打开编辑器（西区=导航树，中区=编辑器，东区=属性和元素区）
+      this.$router.push({
+        path: `/ietm/dm-content-editor/${data.id}`,
+        query: {
+          mode: mode,
+          dmc: data.dmc || ''
+        }
+      })
     },
 
     handlePreview(record) {
+      // 工具栏调用时 record 是 MouseEvent，不是真实数据对象，需忽略
+      if (!record || typeof record.id === 'undefined') {
+        record = null
+      }
+
       if (!record && this.selectedRowKeys.length === 0) {
         this.$message.warning('请选择一条记录')
         return
       }
-      const id = record ? record.id : this.selectedRowKeys[0]
-      // 注意：window.open 不自动携带 Authorization header，需后端支持 Token 查询参数或 Cookie 认证
-      window.open(`/ietm/datamodule/previewDm?id=${id}`, '_blank')
+
+      // 从 record 或 selectedRows 获取完整的数据对象
+      let data = record
+      if (!data && this.selectedRows.length > 0) {
+        data = this.selectedRows[0]
+      } else if (!data && this.selectedRowKeys.length > 0) {
+        // selectedRows 为空时从 dataSource 中查找
+        data = this.dataSource.find(item => item.id === this.selectedRowKeys[0])
+      }
+
+      if (!data || !data.id) {
+        this.$message.error('无法获取记录信息')
+        return
+      }
+
+      // 调用后端预览接口，获取HTML后打开预览弹窗
+      const hideLoading = this.$message.loading('正在生成预览...', 0)
+      getAction(`/ietm/datamodule/preview/${data.id}`)
+        .then(res => {
+          hideLoading()
+
+          if (!res.success) {
+            this.$message.error('预览请求失败')
+            return
+          }
+
+          const result = res.result
+          if (!result) {
+            this.$message.error('预览返回数据为空')
+            return
+          }
+
+          // XSL 文件缺失
+          if (result.flag === 'noxsl') {
+            this.$message.warning('无解析引擎，无法预览')
+            return
+          }
+
+          // 内容为空（后端判断）
+          if (result.flag === 'null' || !result.html) {
+            this.$message.info('DM内容为空，无法预览')
+            return
+          }
+
+          // 其他失败情况
+          if (result.flag !== 'success') {
+            this.$message.warning('预览生成失败：' + (result.message || '未知错误'))
+            return
+          }
+
+          // 成功：显示预览弹窗
+          this.$refs.previewModal.show(result.html)
+        })
+        .catch(err => {
+          hideLoading()
+          this.$message.error('预览失败：' + (err.message || '网络错误'))
+        })
     },
     handleValidate(record) {
+      // 工具栏调用时 record 是 MouseEvent，不是真实数据对象，需忽略
+      if (!record || typeof record.id === 'undefined') {
+        record = null
+      }
+
       if (!record && this.selectedRowKeys.length === 0) {
         this.$message.warning('请选择一条记录')
         return
       }
-      const id = record ? record.id : this.selectedRowKeys[0]
-      this.$refs.validationModal.show(id)
+
+      // 从 record 或 selectedRows 获取完整的数据对象
+      let data = record
+      if (!data && this.selectedRows.length > 0) {
+        data = this.selectedRows[0]
+      } else if (!data && this.selectedRowKeys.length > 0) {
+        // selectedRows 为空时从 dataSource 中查找
+        data = this.dataSource.find(item => item.id === this.selectedRowKeys[0])
+      }
+
+      if (!data || !data.id) {
+        this.$message.error('无法获取记录信息')
+        return
+      }
+
+      this.$refs.validationModal.show(data.id)
     },
     // 批量启动流程（符合需求文档第8.1节）
     handleStartWorkflow() {
@@ -852,7 +979,15 @@ export default {
                   if (res.success) {
                     this.$message.success('签出成功！新版本已生成，原版本已保留为历史版本')
                     this.onClearSelected() // 清空旧选中，避免 selectedRows 持有过期数据
-                    this.loadData()
+                    this.loadData().then(() => {
+                      // 数据加载完成后，重新选中该记录并更新按钮状态
+                      const newRecord = this.dataSource.find(item => item.id === id)
+                      if (newRecord) {
+                        this.selectedRowKeys = [newRecord.id]
+                        this.selectedRows = [newRecord]
+                        this.updateButtonStates()
+                      }
+                    })
                   } else {
                     this.$message.error(res.message || '签出失败')
                   }
@@ -1033,10 +1168,8 @@ export default {
         // 校验：任何状态都可以
         canValidate: true,
 
-        // 编辑属性：临时启用 - 只检查未被他人签出
-        // TODO: 恢复正式条件 - 工作流已启动 + 节点为DM编写 + 未被他人签出
-        canEditProp: !record.checkoutUser || record.checkoutUser === this.currentUser
-        // 原条件：!!record.workflowInstanceId && record.workflowStep === 'DM编写' && (!record.checkoutUser || record.checkoutUser === this.currentUser)
+        // 编辑属性：工作流已启动或有流程节点 + 节点为DM编写 + 未被他人签出
+        canEditProp: (hasWorkflowStarted || isDmWriteStep) && isDmWriteStep && (!record.checkoutUser || record.checkoutUser === this.currentUser)
       }
     },
     // 树节点选择
@@ -1062,23 +1195,69 @@ export default {
       }
       const record = this.selectedRows[0]
 
-      // TODO: 临时注释工作流校验，方便测试
-      // 前置校验1：工作流已启动
-      // if (!record.workflowInstanceId) {
-      //   this.$message.warning('还没有启动流程，不能编辑DM属性。')
-      //   return
-      // }
+      // 前置校验1：工作流相关（放宽条件：有 workflowStep 即可，不强制要求 workflowInstanceId）
+      // 原因：某些历史数据或测试场景下，workflowInstanceId 可能为空，但 workflowStep 有值
+      if (!record.workflowInstanceId && !record.workflowStep) {
+        this.$message.warning('还没有启动流程，不能编辑DM属性。')
+        return
+      }
       // 前置校验2：当前节点为 DM编写
-      // if (record.workflowStep !== 'DM编写') {
-      //   this.$message.warning('流程状态不是DM编写状态，不能编辑DM属性。')
-      //   return
-      // }
+      if (record.workflowStep !== 'DM编写') {
+        this.$message.warning(`流程状态不是DM编写状态（当前：${record.workflowStep || '无'}），不能编辑DM属性。`)
+        return
+      }
       // 前置校验3：未被其他用户签出
       if (record.checkoutUser && record.checkoutUser !== this.currentUser) {
         this.$message.warning(`该DM已由【${record.checkoutUser}】签出，不能编辑DM属性。`)
         return
       }
       this.$refs.editPropModal.show(record, false) // 第二个参数 false 表示编辑模式
+    },
+    // 编辑属性modal确认后回调（重新选中记录并更新按钮状态）
+    handleEditPropModalOk() {
+      const id = this.selectedRowKeys.length > 0 ? this.selectedRowKeys[0] : null
+      if (!id) {
+        this.loadData()
+        return
+      }
+
+      this.loadData().then(() => {
+        // 数据加载完成后，重新选中该记录并更新按钮状态
+        const updatedRecord = this.dataSource.find(item => item.id === id)
+        if (updatedRecord) {
+          this.selectedRowKeys = [updatedRecord.id]
+          this.selectedRows = [updatedRecord]
+          this.currentSelectedDm = updatedRecord
+          this.updateButtonStates()
+          // 如果之前加载了资源列表，也需要刷新
+          if (this.resourceDataSource.length > 0) {
+            this.loadResourceList(updatedRecord.id)
+          }
+        }
+      })
+    },
+    // DM内容编辑器modal确认后回调（重新选中记录并更新按钮状态）
+    handleEditorModalOk() {
+      const id = this.selectedRowKeys.length > 0 ? this.selectedRowKeys[0] : null
+      if (!id) {
+        this.loadData()
+        return
+      }
+
+      this.loadData().then(() => {
+        // 数据加载完成后，重新选中该记录并更新按钮状态
+        const updatedRecord = this.dataSource.find(item => item.id === id)
+        if (updatedRecord) {
+          this.selectedRowKeys = [updatedRecord.id]
+          this.selectedRows = [updatedRecord]
+          this.currentSelectedDm = updatedRecord
+          this.updateButtonStates()
+          // 如果之前加载了资源列表，也需要刷新
+          if (this.resourceDataSource.length > 0) {
+            this.loadResourceList(updatedRecord.id)
+          }
+        }
+      })
     },
 
     /**
@@ -1130,9 +1309,8 @@ export default {
       this.$set(this.queryParam, 'projectId', node.projectId)
       this.$set(this.queryParam, 'cmNodeId', node.nodeId)
 
-      // 设置可选的查询参数
-      if (node.showChildren && node.nodePath) {
-        this.$set(this.queryParam, 'nodePath', node.nodePath)
+      // 设置可选的查询参数（showChildren不依赖nodePath，后端用CONNECT BY层级查询）
+      if (node.showChildren) {
         this.$set(this.queryParam, 'showChildren', true)
       }
 
@@ -1141,6 +1319,12 @@ export default {
       this.onClearSelected()
 
       // 重新加载数据
+      this.loadData(1)
+    },
+    // 粘贴节点DM成功后刷新列表
+    handlePasteSuccess() {
+      console.log('粘贴节点DM成功，刷新列表')
+      // 刷新当前列表
       this.loadData(1)
     },
     // DM列表行选择变化

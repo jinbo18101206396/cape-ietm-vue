@@ -156,7 +156,7 @@
               :scroll="{ x: 900, y: 400 }"
               bordered
               size="small"
-              rowKey="seqno"
+              rowKey="_rid"
               :rowClassName="getNodeRowClassName"
             >
           <!-- 顺序号 -->
@@ -502,6 +502,7 @@ export default {
       const currentUser = this.$store.getters.userInfo
       this.model.nodes = [
         {
+          _rid: generateUUID(), // 稳定行标识（rowKey/选择用），与可编辑的 seqno 解耦
           seqno: 0,
           nodename: '创建节点',
           nodetype: '0', // 默认"所有人必完成"
@@ -523,7 +524,6 @@ export default {
       const useMockData = false // 设置为false启用真实接口
 
       if (useMockData) {
-        console.warn('⚠️ 使用Mock数据 - loadTemplateList')
         const mockTemplates = [
           {
             id: 'mock_template_dm_001',
@@ -571,10 +571,8 @@ export default {
       // 真实接口调用
       getAction('/ietm/workflow/template/getPubOwnWfTemplates')
         .then(res => {
-          console.log('流程模板接口返回:', res)
           if (res.success) {
             this.templateList = res.result || []
-            console.log('加载到的模板列表:', this.templateList)
 
             if (this.templateList.length === 0) {
               this.$message.warning('暂无可用的流程模板，请先在系统中配置流程模板')
@@ -697,8 +695,6 @@ export default {
       const useMockData = false // 设置为false启用真实接口
 
       if (useMockData) {
-        console.warn('⚠️ 使用Mock数据 - loadTemplateNodes')
-
         // 根据不同模板ID返回不同的节点配置
         const mockNodesByTemplate = {
           'mock_template_dm_001': [
@@ -724,6 +720,7 @@ export default {
             // 保留创建节点，加载其他节点
             const createNode = this.model.nodes.find(n => n.seqno === 0)
             const templateNodes = mockNodes.map(node => ({
+              _rid: generateUUID(),
               seqno: node.seqno,
               nodename: node.nodename,
               nodetype: node.nodetype,
@@ -751,6 +748,7 @@ export default {
             // 保留创建节点，加载其他节点
             const createNode = this.model.nodes.find(n => n.seqno === 0)
             const templateNodes = res.result.map(node => ({
+              _rid: generateUUID(),
               seqno: node.seqno,
               nodename: node.nodename,
               // normalizeNodetype：历史数据可能存的是中文文本，统一转为数值编码
@@ -823,6 +821,7 @@ export default {
       const newSeqno = maxSeqno + 10
 
       this.model.nodes.push({
+        _rid: generateUUID(),
         seqno: newSeqno,
         nodename: '',
         nodetype: '0', // 默认"所有人必完成"
@@ -848,7 +847,7 @@ export default {
         content: '删除的数据不能恢复，您确定要删除当前所选的数据？',
         onOk: () => {
           this.model.nodes = this.model.nodes.filter(
-            node => !this.selectedNodeKeys.includes(node.seqno) || node.seqno === 0 || node.ifexec === 'Y'
+            node => !this.selectedNodeKeys.includes(node._rid) || node.seqno === 0 || node.ifexec === 'Y'
           )
           this.selectedNodeKeys = []
           this.$message.success('已删除选中节点')
@@ -947,9 +946,6 @@ export default {
       const useMockData = false // 设置为false启用真实接口
 
       if (useMockData) {
-        console.warn('⚠️ 使用Mock数据 - batchstartflow')
-        console.log('提交参数:', params)
-
         setTimeout(() => {
           // 模拟成功响应
           this.$message.success('保存成功！')

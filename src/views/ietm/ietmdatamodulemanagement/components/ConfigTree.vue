@@ -1,10 +1,30 @@
 <template>
   <div class="config-tree-container">
-    <!-- 树工具栏：只有显示子节点checkbox -->
+    <!-- 树工具栏：显示子节点checkbox + 三功能按钮 -->
     <div class="tree-toolbar">
-      <a-checkbox v-model="showChildren" @change="onShowChildrenChange">
-        显示子节点
-      </a-checkbox>
+      <div class="toolbar-left">
+        <a-checkbox v-model="showChildren" @change="onShowChildrenChange">
+          显示子节点DM
+        </a-checkbox>
+      </div>
+
+      <div class="toolbar-right">
+        <a-tooltip title="复制节点DM">
+          <a-button size="small" icon="copy" @click="handleCopyNode" :disabled="!currentNode">
+            复制
+          </a-button>
+        </a-tooltip>
+        <a-tooltip title="粘贴节点DM">
+          <a-button size="small" icon="snippets" @click="handlePasteNode" :disabled="!copiedNodeId || !currentNode">
+            粘贴
+          </a-button>
+        </a-tooltip>
+        <a-tooltip title="计算所有DM的引用信息">
+          <a-button size="small" icon="calculator" @click="handleCalcRefInfo" :disabled="treeData.length === 0">
+            计算引用
+          </a-button>
+        </a-tooltip>
+      </div>
     </div>
 
     <!-- 构型树 -->
@@ -33,7 +53,8 @@
 </template>
 
 <script>
-import { getAction } from '@/api/manage'
+import { getAction, postAction } from '@/api/manage'
+import Vue from 'vue'
 
 export default {
   name: 'ConfigTree',
@@ -52,7 +73,10 @@ export default {
       currentNode: null,
       currentProjectId: '',
       currentProjectInfo: null,
-      _isDestroyed: false  // 销毁标记，防止组件销毁后异步回调修改状态
+      _isDestroyed: false,  // 销毁标记，防止组件销毁后异步回调修改状态
+      // 复制粘贴状态
+      copiedNodeId: null,
+      copiedNodeData: null
     }
   },
   mounted() {
@@ -333,6 +357,101 @@ export default {
       if (this.currentNode) {
         this.emitSelect(this.currentNode)
       }
+    },
+
+    // 复制节点DM
+    handleCopyNode() {
+      if (!this.currentNode) {
+        this.$message.warning('请先选择一个节点')
+        return
+      }
+      this.copiedNodeId = this.currentNode.nodeId
+      this.copiedNodeData = { ...this.currentNode }
+      this.$message.success(`已复制节点"${this.currentNode.nodeName}"`)
+    },
+
+    // 粘贴节点DM
+    handlePasteNode() {
+      if (!this.copiedNodeId) {
+        this.$message.warning('请先复制一个节点')
+        return
+      }
+      if (!this.currentNode) {
+        this.$message.warning('请选择目标节点')
+        return
+      }
+      if (this.copiedNodeId === this.currentNode.nodeId) {
+        this.$message.warning('不能粘贴到相同节点')
+        return
+      }
+
+      const modal = this.$confirm({
+        title: '确认粘贴',
+        content: `确定要将"${this.copiedNodeData.nodeName}"下的所有DM复制到"${this.currentNode.nodeName}"吗？`,
+        okText: '确定',
+        cancelText: '取消',
+        onOk: () => {
+          return new Promise((resolve, reject) => {
+            getAction('/ietm/datamodule/batchCopyToNode', {
+              sourceCmNodeId: this.copiedNodeId,
+              targetCmNodeId: this.currentNode.nodeId,
+              targetCmNodeName: this.currentNode.nodeName
+            })
+              .then(res => {
+                if (res.success) {
+                  this.$message.success(res.message || '粘贴成功')
+                  this.$emit('paste-success')
+                  resolve()
+                } else {
+                  this.$message.error(res.message || '粘贴失败')
+                  reject()
+                }
+              })
+              .catch(err => {
+                console.error('粘贴节点DM失败', err)
+                this.$message.error('粘贴失败')
+                reject()
+              })
+          })
+        }
+      })
+    },
+
+    // 计算引用信息
+    handleCalcRefInfo() {
+      if (!this.currentProjectId) {
+        this.$message.warning('未打开任何项目')
+        return
+      }
+
+      const modal = this.$confirm({
+        title: '确认计算引用',
+        content: '确定要计算所有DM的引用信息吗？这可能需要较长时间。',
+        okText: '确定',
+        cancelText: '取消',
+        onOk: () => {
+          return new Promise((resolve, reject) => {
+            const hide = this.$message.loading('正在计算引用信息...', 0)
+            postAction('/ietm/datamodule/calcref/all', {})
+              .then(res => {
+                hide()
+                if (res.success) {
+                  this.$message.success('计算引用信息成功')
+                  resolve()
+                } else {
+                  this.$message.error(res.message || '计算失败')
+                  reject()
+                }
+              })
+              .catch(err => {
+                hide()
+                console.error('计算引用信息失败', err)
+                this.$message.error('计算失败')
+                reject()
+              })
+          })
+        }
+      })
     }
   }
 }
@@ -346,13 +465,47 @@ export default {
 
   // 树工具栏
   .tree-toolbar {
-    padding: 8px 12px;
+    padding: 10px 12px;
     margin-bottom: 12px;
-    background: #f5f7fa;
+    background: #fafafa;
+    border: 1px solid #e8e8e8;
     border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 40px;
 
-    .ant-checkbox-wrapper {
-      font-size: 13px;
+    .toolbar-left {
+      flex-shrink: 0;
+
+      .ant-checkbox-wrapper {
+        font-size: 13px;
+        color: #262626;
+      }
+    }
+
+    .toolbar-right {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+
+      .ant-btn {
+        height: 28px;
+        padding: 0 12px;
+        font-size: 12px;
+        border-radius: 2px;
+        transition: all 0.3s;
+
+        &:not(:disabled):hover {
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        &[disabled] {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
     }
   }
 

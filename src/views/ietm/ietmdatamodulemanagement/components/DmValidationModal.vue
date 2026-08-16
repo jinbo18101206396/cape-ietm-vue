@@ -1,54 +1,52 @@
 <template>
   <a-modal
     title="校验结果"
-    :width="900"
+    :width="800"
     :visible="visible"
     :footer="null"
     @cancel="handleCancel"
   >
-    <a-spin :spinning="loading">
-      <!-- 校验摘要 -->
-      <a-result
-        :status="validationResult.valid ? 'success' : 'error'"
-        :title="validationResult.valid ? '校验通过' : '校验失败'"
-      >
-        <template #extra>
-          <a-statistic-group>
-            <a-statistic title="错误" :value="validationResult.errorCount || 0" :value-style="{ color: '#cf1322' }">
-              <template #prefix><a-icon type="close-circle" /></template>
-            </a-statistic>
-            <a-statistic title="警告" :value="validationResult.warningCount || 0" :value-style="{ color: '#faad14' }">
-              <template #prefix><a-icon type="warning" /></template>
-            </a-statistic>
-            <a-statistic title="提示" :value="validationResult.infoCount || 0" :value-style="{ color: '#1890ff' }">
-              <template #prefix><a-icon type="info-circle" /></template>
-            </a-statistic>
-          </a-statistic-group>
-        </template>
-      </a-result>
+    <a-spin :spinning="loading" tip="正在校验，请稍候...">
+      <div v-if="!loading">
+        <!-- 校验通过 -->
+        <a-result
+          v-if="flag === '1'"
+          status="success"
+          title="校验通过"
+          sub-title="未发现XSD错误"
+        />
 
-      <!-- 错误列表 -->
-      <div v-if="validationResult.errors && validationResult.errors.length > 0" style="margin-top: 24px;">
-        <a-divider>错误详情</a-divider>
-        <a-list
-          :dataSource="validationResult.errors"
-          :pagination="{ pageSize: 10 }"
-        >
-          <a-list-item slot="renderItem" slot-scope="item">
-            <a-list-item-meta>
-              <div slot="title">
-                <a-tag :color="getLevelColor(item.level)">{{ item.level }}</a-tag>
-                <span style="margin-left: 8px;">{{ item.message }}</span>
-              </div>
-              <div slot="description">
-                <p v-if="item.lineNumber">位置：第{{ item.lineNumber }}行，第{{ item.columnNumber }}列</p>
-                <p v-if="item.suggestion" style="color: #52c41a;">
-                  <a-icon type="bulb" /> 建议：{{ item.suggestion }}
-                </p>
-              </div>
-            </a-list-item-meta>
-          </a-list-item>
-        </a-list>
+        <!-- 内容为空 -->
+        <a-result
+          v-else-if="flag === '0'"
+          status="warning"
+          title="内容为空"
+          sub-title="该DM尚未填写XML内容，无法校验"
+        />
+
+        <!-- 校验失败：错误列表 -->
+        <div v-else-if="flag === 'error'">
+          <a-alert
+            :message="`发现 ${errors.length} 个错误`"
+            type="error"
+            show-icon
+            style="margin-bottom: 16px;"
+          />
+          <a-table
+            :columns="columns"
+            :dataSource="errors"
+            :pagination="errors.length > 10 ? { pageSize: 10 } : false"
+            :rowKey="(record, index) => index"
+            size="small"
+            bordered
+          >
+            <span slot="lineno" slot-scope="text">
+              <a-tag v-if="text > 0" color="red">第 {{ text }} 行</a-tag>
+              <span v-else>-</span>
+            </span>
+            <span slot="info" slot-scope="text">{{ text }}</span>
+          </a-table>
+        </div>
       </div>
     </a-spin>
   </a-modal>
@@ -63,36 +61,49 @@ export default {
     return {
       visible: false,
       loading: false,
-      validationResult: {
-        valid: true,
-        errorCount: 0,
-        warningCount: 0,
-        infoCount: 0,
-        errors: []
-      }
+      flag: null,   // '0'=空内容  '1'=通过  'error'=有错误
+      errors: [],   // [{lineno, info}]
+      columns: [
+        // §17.3 序号列（对齐 rownumbers:true）
+        { title: '序号', width: 64, align: 'center', customRender: (t, r, i) => i + 1 },
+        { title: '行号', dataIndex: 'lineno', width: 100, align: 'center',
+          scopedSlots: { customRender: 'lineno' } },
+        { title: '错误信息', dataIndex: 'info',
+          scopedSlots: { customRender: 'info' } }
+      ]
     }
   },
   methods: {
-    show(dmId) {
+    show(dmId, prefetched) {
+      this.flag = null
+      this.errors = []
       this.visible = true
-      this.validate(dmId)
-    },
-    validate(dmId) {
-      this.loading = true
-      postAction('/ietm/datamodule/validate', { id: dmId }).then(res => {
-        if (res.success) {
-          this.validationResult = res.result
-        } else {
-          this.$message.error(res.message || '校验失败')
-        }
-      }).finally(() => {
+      // 发布流程已校验过：直接复用结果，避免重复请求后端（同一DM再打一次/validate）
+      if (prefetched && prefetched.flag) {
+        this.flag = prefetched.flag
+        this.errors = prefetched.errors || []
         this.loading = false
-      })
-    },
-    getLevelColor(level) {
-      if (level === 'ERROR') return 'red'
-      if (level === 'WARNING') return 'orange'
-      return 'blue'
+        return
+      }
+      this.loading = true
+      // 列表页调用：传 id，由后端从数据库读取内容校验
+      postAction('/ietm/dm-content/validate', { id: dmId })
+        .then(res => {
+          if (res.success) {
+            this.flag = res.result.flag
+            this.errors = res.result.errors || []
+          } else {
+            this.$message.error(res.message || '校验请求失败')
+            this.visible = false
+          }
+        })
+        .catch(() => {
+          this.$message.error('校验请求失败，请检查网络')
+          this.visible = false
+        })
+        .finally(() => {
+          this.loading = false
+        })
     },
     handleCancel() {
       this.visible = false

@@ -194,21 +194,6 @@ export default {
         .then(res => {
           if (res.success) {
             this.resources = res.result || []
-            // console.log('========== DM资源列表数据 ==========')
-            // console.log('数据总数:', this.resources.length)
-            // console.log('完整数据:', JSON.stringify(this.resources, null, 2))
-            if (this.resources.length > 0) {
-              // console.log('第一条资源详情:', this.resources[0])
-              // console.log('关键字段值:')
-              // console.log('  - resourceName:', this.resources[0].resourceName)
-              // console.log('  - fileName:', this.resources[0].fileName)
-              // console.log('  - fileSize:', this.resources[0].fileSize)
-              // console.log('  - remark:', this.resources[0].remark)
-              // console.log('  - operator:', this.resources[0].operator)
-              // console.log('  - operateTime:', this.resources[0].operateTime)
-              // console.log('  - filePath:', this.resources[0].filePath)
-            }
-            // console.log('====================================')
           } else {
             console.error('查询资源列表失败:', res.message)
           }
@@ -258,15 +243,11 @@ export default {
 
         const fileSize = this.resourceForm.file.size // 获取文件大小
 
-        // console.log('开始上传文件:', this.resourceForm.file.name, '大小:', fileSize)
-
         // 第一步：上传文件
         uploadAction('/sys/common/upload', formData)
           .then(uploadRes => {
-            // console.log('上传文件响应:', uploadRes)
             if (uploadRes.success) {
               const fileId = uploadRes.message // 文件路径在message字段中
-              // console.log('文件上传成功，fileId:', fileId)
 
               // 第二步：保存资源记录 - 使用URL参数
               const params = new URLSearchParams()
@@ -276,24 +257,12 @@ export default {
               params.append('fileSize', fileSize)
               params.append('comment', this.resourceForm.comment || '')
 
-              // console.log('========== 保存资源记录 ==========')
-              // console.log('参数详情:', {
-              //   dmId: this.dmId,
-              //   fileId: fileId,
-              //   resourceName: this.resourceForm.resourceName,
-              //   fileSize: fileSize,
-              //   comment: this.resourceForm.comment
-              // })
-              // console.log('URLSearchParams:', params.toString())
-              // console.log('===================================')
-
               return axios.post('/ietm/datamodule/saveDmResource', params)
             } else {
               throw new Error(uploadRes.message || '文件上传失败')
             }
           })
           .then(res => {
-            // console.log('保存资源记录响应:', res)
             if (res && res.success) {
               this.$message.success('添加成功')
               this.resourceModalVisible = false

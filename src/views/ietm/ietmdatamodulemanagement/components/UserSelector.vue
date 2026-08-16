@@ -389,13 +389,11 @@ export default {
       // 群组功能暂不支持，设置为空数组
       // 如果后端有群组接口，可以在此调用
       this.groups = []
-      console.info('群组功能暂未启用')
     },
 
     // 搜索
     handleSearch(type) {
       // 搜索逻辑在computed中实现
-      console.log(`搜索${type}:`, this.searchText[type])
     },
 
     // 选择变化

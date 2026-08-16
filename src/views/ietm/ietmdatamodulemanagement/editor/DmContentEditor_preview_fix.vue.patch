@@ -1,0 +1,98 @@
+// 预览功能修复方案（对照需求文档 §18）
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 修复点 1：增加 flag 详细判断（E-PRE-02）
+// ══════════════════════════════════════════════════════════════════════════════
+
+doPreview() {
+  const body = this.locale === 'cn' ? toEnXml(this.content, this.cn2enElem) : this.content
+  if (!body || !body.trim()) {
+    this.$message.info('DM内容为空,无法预览。')
+    return
+  }
+
+  postAction('/ietm/dm-content/preview', { content: body }).then(res => {
+    if (!res.success) {
+      this.$message.error('预览请求失败')
+      return
+    }
+
+    // 增加 flag 详细判断
+    const result = res.result
+    if (!result) {
+      this.$message.error('预览返回数据为空')
+      return
+    }
+
+    if (result.flag === 'noxsl') {
+      this.$message.warning('无解析引擎，无法预览')
+      return
+    }
+
+    if (result.flag === 'null' || !result.html) {
+      this.$message.info('DM内容为空，无法预览')
+      return
+    }
+
+    if (result.flag !== 'success') {
+      this.$message.warning('预览生成失败：' + (result.message || '未知错误'))
+      return
+    }
+
+    // 修正超链接（内部引用锚点跳转）
+    const html = result.html.replace(/href="#/g, 'href="#')
+    this.$refs.previewModal.show(html)
+  }).catch(err => {
+    this.$message.error('预览失败：' + (err.message || '网络错误'))
+  })
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 异常场景覆盖（需求文档 §18.11）
+// ══════════════════════════════════════════════════════════════════════════════
+
+// E-PRE-01 ✅ 空文档预览 - 已实现
+// E-PRE-02 🔴 XSL文件缺失 - 已修复（增加 flag === 'noxsl' 判断）
+// E-PRE-03 ⚠️ XML格式错误 - 建议：预览前调用 validThis 强制校验
+// E-PRE-04 ⚠️ 中文未转换 - 已实现 toEnXml
+// E-PRE-05 ⚠️ ICN图片缺失 - 后端XSL处理，前端无法控制
+// E-PRE-06 ℹ️ dmRef超链接 - 后端处理
+// E-PRE-07 ⚠️ internalRef锚点 - 需验证超链接修正是否生效
+// E-PRE-10 ℹ️ 多次点击 - 建议：预览期间禁用按钮
+// E-PRE-12 ⚠️ 大文档卡顿 - 建议：增加 loading 遮罩
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 可选优化
+// ══════════════════════════════════════════════════════════════════════════════
+
+// 1. 预览前强制校验（E-PRE-03）
+doPreview() {
+  // ...前面的代码相同...
+
+  // 可选：预览前校验
+  // this.doValidate().then(valid => {
+  //   if (!valid) {
+  //     this.$confirm({
+  //       title: '警告',
+  //       content: 'XML格式校验失败，预览可能不完整。是否继续？',
+  //       onOk: () => { this._doPreviewRequest(body) }
+  //     })
+  //     return
+  //   }
+  //   this._doPreviewRequest(body)
+  // })
+
+  this._doPreviewRequest(body)
+}
+
+_doPreviewRequest(body) {
+  postAction('/ietm/dm-content/preview', { content: body }).then(res => {
+    // ...flag 判断逻辑...
+  })
+}
+
+// 2. 预览期间禁用按钮（E-PRE-10）
+// 在 data 中增加：previewing: false
+// 按钮增加：:loading="previewing"
+// 请求前：this.previewing = true
+// 请求后（finally）：this.previewing = false

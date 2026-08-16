@@ -91,6 +91,7 @@ export default {
       validating: false,
       dmId: '',
       dmcCode: '',
+      currentRecord: null,
       content: '',
       originalContent: '',
       validateResult: null,
@@ -124,6 +125,7 @@ export default {
     show(record) {
       this.visible = true
       this.dmId = record.id
+      this.currentRecord = record // 保存完整 record，供 generateDefaultXml 使用
       this.dmcCode = record.dmcCode || this.generateDmcCode(record)
       this.validateResult = null
       this.isModified = false
@@ -147,29 +149,94 @@ export default {
       })
     },
 
+    // JS 版 DmcUtils.decomposeSns()：将 SNS 字符串拆解为 <dmCode> 的8个XML属性
+    // 对标后端 DmcUtils.decomposeSns()，保证前后端拆解逻辑一致
+    _decomposeSns(sns) {
+      const parts = (sns || '').split('-')
+      const seg3 = parts[3] || '0'
+      const seg5 = parts[5] || '00'
+      return {
+        modelIdentCode: parts[0] || '',
+        systemDiffCode: parts[1] || 'A',
+        systemCode: parts[2] || '00',
+        subSystemCode: seg3.substring(0, 1) || '0',
+        subSubSystemCode: seg3.length > 1 ? seg3.substring(1) : '0',
+        assyCode: parts[4] || '00',
+        disassyCode: seg5.substring(0, 2) || '00',
+        disassyCodeVariant: seg5.length > 2 ? seg5.substring(2) : 'A'
+      }
+    },
+
+    // BUG-1修复：生成符合S1000D标准的默认XML（<dmCode>使用XML属性格式，与后端generateS1000DXml一致）
     generateDefaultXml() {
+      const r = this.currentRecord || {}
+      const seg = this._decomposeSns(r.sns || '')
+      const modelIdentCode = seg.modelIdentCode || 'AA'
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+
+      const dmCodeAttrs = [
+        `modelIdentCode="${modelIdentCode}"`,
+        `systemDiffCode="${seg.systemDiffCode}"`,
+        `systemCode="${seg.systemCode}"`,
+        `subSystemCode="${seg.subSystemCode}"`,
+        `subSubSystemCode="${seg.subSubSystemCode || '0'}"`,
+        `assyCode="${seg.assyCode}"`,
+        `disassyCode="${seg.disassyCode}"`,
+        `disassyCodeVariant="${seg.disassyCodeVariant || 'A'}"`,
+        `infoCode="${r.infoCode || ''}"`,
+        // infoCodeVariant 空时输出空属性，不补A——对齐后端 generateS1000DXml 的 nvl(..,"")
+        `infoCodeVariant="${r.infoCodeVariant || ''}"`,
+        `itemLocationCode="${r.ietmLocationCode || 'A'}"`
+      ].join(' ')
+
       return `<?xml version="1.0" encoding="UTF-8"?>
 <dmodule>
   <identAndStatusSection>
     <dmAddress>
       <dmIdent>
-        <dmCode>${this.dmcCode || ''}</dmCode>
+        <dmCode ${dmCodeAttrs}/>
+        <language languageIsoCode="${r.languageIsoCode || 'zh'}" countryIsoCode="${r.countryIsoCode || 'CN'}"/>
+        <issueInfo issueNumber="${r.issueNo || '001'}" inWork="${r.inWork || '00'}"/>
       </dmIdent>
+      <dmAddressItems>
+        <issueDate year="${year}" month="${month}" day="${day}"/>
+        <dmTitle>
+          <techName>${r.techName || ''}</techName>
+          <infoName>${r.infoName || ''}</infoName>
+        </dmTitle>
+      </dmAddressItems>
     </dmAddress>
-    <dmAddressItems>
-      <issueDate/>
-      <language/>
-    </dmAddressItems>
+    <dmStatus>
+      <security securityClassification="${r.security || '01'}"/>
+      <responsiblePartnerCompany>
+        <enterpriseName>${r.rpcName || ''}</enterpriseName>
+      </responsiblePartnerCompany>
+      <originator>
+        <enterpriseName>${r.originatorName || ''}</enterpriseName>
+      </originator>
+    </dmStatus>
   </identAndStatusSection>
   <content>
-    <!-- 在此添加DM内容 -->
+    <description>
+      <para>${r.infoName || '数据模块内容'}</para>
+    </description>
   </content>
 </dmodule>`
     },
 
+    // 逐字符对标老系统 getDmc() 及后端 generateDmc()（纯S1000D缩略标识+文件名后缀）：
+    // DMC-{sns}-{infoCode}{infoCodeVariant}-{itemLocationCode}_{issueNo}-{inWork}_{lang}-{country}
     generateDmcCode(record) {
-      // 简单生成DMC编码
-      return `DMC-${record.schema || 'J'}-${record.sns || ''}-${record.infoCode || ''}${record.infoCodeVariant || ''}`
+      const r = record || {}
+      const sns = r.sns || ''
+      const infoCode = (r.infoCode || '') + (r.infoCodeVariant || '')
+      const loc = r.ietmLocationCode || 'A'
+      const issueBlock = (r.issueNo || '001') + '-' + (r.inWork || '00')
+      const langBlock = (r.languageIsoCode || 'zh') + '-' + (r.countryIsoCode || 'CN')
+      return `DMC-${sns}-${infoCode}-${loc}_${issueBlock}_${langBlock}`
     },
 
     handleContentChange(value) {
@@ -294,11 +361,9 @@ export default {
       const MAX_AUTO_SAVE_SIZE = 512 * 1024 // 512KB
 
       if (contentSize > MAX_AUTO_SAVE_SIZE) {
-        console.warn(`内容过大（${(contentSize / 1024).toFixed(1)}KB），已禁用自动保存`)
         return
       }
 
-      // console.log('自动保存DM内容...')
       this.doSave(true)
     },
 
@@ -366,6 +431,7 @@ export default {
       this.content = ''
       this.originalContent = ''
       this.dmId = ''
+      this.currentRecord = null
       this.isModified = false
       this.validateResult = null
     }

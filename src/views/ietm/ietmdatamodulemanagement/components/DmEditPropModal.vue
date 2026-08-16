@@ -150,7 +150,7 @@
           <a-row :gutter="20">
             <a-col :span="12">
               <a-form-model-item label="版本类型">
-                <a-input v-model="model.versionType_dictText" disabled />
+                <a-input v-model="versionTypeDisplayName" disabled />
               </a-form-model-item>
             </a-col>
             <a-col :span="12">
@@ -172,7 +172,7 @@
 </template>
 
 <script>
-import { httpAction } from '@/api/manage'
+import { httpAction, getAction } from '@/api/manage'
 
 export default {
   name: 'DmEditPropModal',
@@ -214,6 +214,10 @@ export default {
     // 数据模块类型显示名称（优先使用字典文本，如果不存在则使用原始值）
     dmTypeDisplayName() {
       return this.model.dmType_dictText || this.model.dmType || ''
+    },
+    // 版本类型显示名称（直接使用数据库字段）
+    versionTypeDisplayName() {
+      return this.model.issueType || '-'
     }
   },
   methods: {
@@ -224,6 +228,15 @@ export default {
       this.visible = true
       // 加载公司名称
       this.loadCompanyNames(record.projectId)
+      // 拉取完整实体（列表记录字段不全：密级/DM类型/语言/国家/版本类型/版本日期等）
+      // queryById 返回全字段并由 DictAspect 填充 _dictText，保证详情/编辑弹框数据完整
+      if (record.id) {
+        getAction('/ietm/datamodule/queryById', { id: record.id }).then(res => {
+          if (res.success && res.result) {
+            this.model = Object.assign({}, this.model, res.result)
+          }
+        })
+      }
     },
 
     // 加载项目关联的公司列表

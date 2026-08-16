@@ -241,14 +241,14 @@ export default {
         learnCode: '', learnEventCode: '',
         originator: '', rpc: '',
         enterprise: '', extraCode: '',
-        languageIsoCode: 'ZH', countryIsoCode: 'CN',
+        languageIsoCode: 'zh', countryIsoCode: 'CN',
         issueNo: '001', inWork: '00', issueType: 'new'
       },
       rules: {
         security: [{ required: true, message: '请选择密级', trigger: 'change' }],
         sns: [
           { required: true, message: 'SNS不能为空', trigger: 'blur' },
-          { max: 16, message: 'SNS最多16位', trigger: 'blur' }
+          { max: 30, message: 'SNS最多30位', trigger: 'blur' }
         ],
         infoCode: [
           { required: true, message: '信息码不能为空', trigger: 'blur' },
@@ -274,14 +274,20 @@ export default {
           { max: 50, message: '责任单位代码最多50字符', trigger: 'change' }
         ],
         techName: [{ required: true, message: '请输入技术名称', trigger: 'blur' }],
-        languageIsoCode: [{ required: true, message: '请选择语言', trigger: 'change' }],
-        countryIsoCode: [{ required: true, message: '请选择国家', trigger: 'change' }]
+        languageIsoCode: [
+          { required: true, message: '请选择语言', trigger: 'change' },
+          { pattern: /^[a-z]{2,3}$/, message: '语言代码必须为2-3位小写字母（ISO 639标准）', trigger: 'blur' }
+        ],
+        countryIsoCode: [
+          { required: true, message: '请选择国家', trigger: 'change' },
+          { pattern: /^[A-Z]{2,3}$/, message: '国家代码必须为2-3位大写字母（ISO 3166标准）', trigger: 'blur' }
+        ]
       },
       originatorList: [],
       rpcList: [],
       countryMap: {
-        ZH: [{ value: 'CN', label: '中国' }, { value: 'TW', label: '台湾' }],
-        EN: [{ value: 'US', label: '美国' }, { value: 'AU', label: '澳大利亚' }]
+        zh: [{ value: 'CN', label: '中国' }, { value: 'TW', label: '台湾' }],
+        en: [{ value: 'US', label: '美国' }, { value: 'AU', label: '澳大利亚' }]
       },
       url: {
         companyList: '/ietmprojectcompany/ietmProjectCompany/list',
@@ -295,85 +301,32 @@ export default {
       return this.mode === 'copy' ? '复制DM' : '复制新建DM'
     },
     countryOptions() {
-      return this.countryMap[this.model.languageIsoCode] || this.countryMap['ZH']
+      return this.countryMap[this.model.languageIsoCode] || this.countryMap['zh']
     },
 
     // SNS格式化显示
     snsFormatted() {
-      const sns = this.model.sns || ''
-      if (!sns) return ''
-
-      // 如果已经包含分隔符，直接返回
-      if (sns.includes('-')) return sns
-
-      // 否则按照编码规则补全分隔符
-      const segments = []
-      let pos = 0
-      const lengths = [2, 2, 2]  // 前3段固定2位
-
-      for (const len of lengths) {
-        if (pos < sns.length) {
-          segments.push(sns.substring(pos, pos + len))
-          pos += len
-        }
-      }
-
-      // 剩余部分作为最后一段
-      if (pos < sns.length) {
-        segments.push(sns.substring(pos))
-      }
-
-      return segments.join('-')
+      // SNS 由后端 calculateSnsForDm() 生成，已含连字符（如 ZB1-A-00-00-00-00A）
+      return this.model.sns || ''
     },
 
     // DMC预览
     dmcPreview() {
       const m = this.model
-      const parts = []
 
-      // DMC格式（S1000D标准）与后端IetmDataModuleServiceImpl.generateDmc()保持一致：
-      // DMC-{schema}-{sns}-{infocode}{variant}-{location}{learn}{event}-{yearOfChange}-{seqNo}{originator}-{issueno}-{inwork}_{lang}-{country}
+      // DMC格式：逐字符对标老系统 getDmc() 及后端 generateDmc()（纯S1000D缩略标识+文件名后缀）：
+      // DMC-{sns}-{infoCode}{infoCodeVariant}-{itemLocationCode}_{issueNo}-{inWork}_{lang}-{country}
+      const sns = this.snsFormatted || '[SNS]'
+      // infoCodeVariant 可为空（校验允许），空时不补——与后端 generateDmc 逐字符一致
+      const infoCodePart = (m.infoCode || '[信息码]') + (m.infoCodeVariant || '')
+      const loc = m.ietmLocationCode || 'A'
+      const issueBlock = (m.issueNo || '001') + '-' + (m.inWork || '00')
+      // 语言码小写、国家码大写，符合ISO 639/3166标准
+      const lang = (m.languageIsoCode || 'zh').toLowerCase()
+      const country = (m.countryIsoCode || 'CN').toUpperCase()
+      const langBlock = lang + '-' + country
 
-      // 第0段：前缀
-      parts.push('DMC')
-
-      // 第1段：Schema（默认J）
-      parts.push(m.schema || 'J')
-
-      // 第2段：SNS（使用格式化后的）
-      parts.push(this.snsFormatted || '[SNS]')
-
-      // 第3段：InfoCode + InfoCodeVariant（不带分隔符）
-      const infoCodePart = (m.infoCode || '[信息码]') + (m.infoCodeVariant || 'A')
-      parts.push(infoCodePart)
-
-      // 第4段：IetmLocationCode + LearnCode + LearnEventCode（可选字段直接拼接）
-      let segment4 = ''
-      if (m.ietmLocationCode) segment4 += m.ietmLocationCode
-      if (m.learnCode) segment4 += m.learnCode
-      if (m.learnEventCode) segment4 += m.learnEventCode
-      parts.push(segment4 || '[位置码]')
-
-      // 第5段：YearOfChange（变更年代码，默认00）
-      parts.push(m.yearOfChange || '00')
-
-      // 第6段：SeqNo + Originator（顺序码+创作单位，无分隔符）
-      let segment6 = ''
-      segment6 += (m.seqNo || '00')
-      segment6 += (m.originator || '[创作单位]')
-      parts.push(segment6)
-
-      // 第7段：IssueNo（默认001）
-      parts.push(m.issueNo || '001')
-
-      // 第8段：InWork_LanguageIsoCode（在编编号_语言代码，保持大写）
-      const segment8 = (m.inWork || '00') + '_' + (m.languageIsoCode || 'ZH')
-      parts.push(segment8)
-
-      // 第9段：CountryIsoCode（保持大写）
-      parts.push(m.countryIsoCode || 'CN')
-
-      return parts.join('-')
+      return `DMC-${sns}-${infoCodePart}-${loc}_${issueBlock}_${langBlock}`
     }
   },
 
@@ -478,8 +431,8 @@ export default {
           // 密级：优先项目配置，其次源DM，最后默认公开
           this.model.security = projectSecurity || fullDm.security || '1'
 
-          // 语言国家：优先项目配置，其次源DM，最后默认ZH/CN，统一转大写
-          this.model.languageIsoCode = (projectLanguage || fullDm.languageIsoCode || 'ZH').toUpperCase()
+          // 语言国家：优先项目配置，其次源DM，最后默认zh/CN（语言小写、国家大写）
+          this.model.languageIsoCode = (projectLanguage || fullDm.languageIsoCode || 'zh').toLowerCase()
           this.model.countryIsoCode = (projectCountry || fullDm.countryIsoCode || 'CN').toUpperCase()
         }
 
@@ -519,10 +472,25 @@ export default {
         this.model.infoName = row.description
       }
 
-      // 联动填充数据模块类型（始终更新，不仅仅是空值时）
-      // 注意：dmType字段存储的是类型名称（如"descript"），而不是ID
+      // 联动填充数据模块类型：dmType 必须存字典 dm_type 的 value（S1000D英文码），
+      // 不能直接存中文 dmtypename，否则 _dictText 解析失败、列表/详情DM类型不显示
       if (row.dmtypename) {
-        this.model.dmType = row.dmtypename
+        const dmTypeMap = {
+          '描述类': 'description',
+          '程序类': 'procedure',
+          '过程类': 'process',
+          '工艺类': 'process',
+          '故障类': 'faultIsolation',
+          '故障隔离类': 'faultIsolation',
+          '故障报告类': 'faultReporting',
+          '图解零件目录类': 'illustratedPartsCatalog',
+          '乘员类': 'crew',
+          '操作类': 'crew',
+          '规划类': 'maintPlanning',
+          '维修计划类': 'maintPlanning'
+        }
+        // 无法映射到字典值时置空，由用户从必填下拉手动选择，避免写入非法值
+        this.model.dmType = dmTypeMap[row.dmtypename] || ''
       }
     },
 
@@ -571,9 +539,14 @@ export default {
         }
         this.loading = true
 
-        // 语言/国家代码后端要求大写（与新建弹出框保持一致）
-        const languageIsoCode = this.model.languageIsoCode ? this.model.languageIsoCode.toUpperCase() : null
+        // 规范化大小写：语言代码小写（ISO 639）、国家代码大写（ISO 3166）
+        const languageIsoCode = this.model.languageIsoCode ? this.model.languageIsoCode.toLowerCase() : null
         const countryIsoCode = this.model.countryIsoCode ? this.model.countryIsoCode.toUpperCase() : null
+
+        // infoCodeVariant/learnCode/learnEventCode 空串转null：与后端 checkDmcUnique isNull 分支对齐
+        const infoCodeVariant = this.model.infoCodeVariant || null
+        const learnCode = this.model.learnCode || null
+        const learnEventCode = this.model.learnEventCode || null
 
         postAction('/ietm/datamodule/copyAndCreateDm', {
           sourceDmId: this.sourceDm.id,
@@ -582,10 +555,10 @@ export default {
           sns: this.model.sns,
           techName: this.model.techName,
           infoCode: this.model.infoCode,
-          infoCodeVariant: this.model.infoCodeVariant,
+          infoCodeVariant: infoCodeVariant,
           ietmLocationCode: this.model.ietmLocationCode,
-          learnCode: this.model.learnCode,
-          learnEventCode: this.model.learnEventCode,
+          learnCode: learnCode,
+          learnEventCode: learnEventCode,
           infoName: this.model.infoName,
           dmType: this.model.dmType,
           enterprise: this.model.enterprise,

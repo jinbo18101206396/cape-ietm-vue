@@ -127,7 +127,7 @@ export default {
             if (newVal[item.key]) {
               item.paramValue = newVal[item.key]
             } else {
-              item.paramValue = 'ZH'
+              item.paramValue = 'zh'
             }
             break;
           case 'defaultBusinessRule':
@@ -196,9 +196,9 @@ export default {
         {
           key: 'languageCode',
           paramName: '语言',
-          paramValue: 'ZH',
-          description: '请输入2-3位语言编码，如ZH。',
-          placeholder: '请输入2-3位语言编码',
+          paramValue: 'zh',
+          description: '请输入2-3位小写语言编码，如zh（符合ISO 639标准）。',
+          placeholder: '请输入2-3位小写语言编码',
           required: true
         }
       ],
@@ -303,39 +303,39 @@ export default {
         const emptyNames = emptyItems.map(item => item.paramName).join('、');
         errorMessages.push(`请填写必填项：${emptyNames}`);
       }
-      // 检查格式校验,暂时注掉位数校验
-      /*      requiredItems.forEach(item => {
-              const value = item.paramValue.trim();
-              const {key, paramName} = item;
+      // 检查格式校验（符合S1000D/GJB6600规范）
+      requiredItems.forEach(item => {
+        const value = item.paramValue.trim();
+        const {key, paramName} = item;
 
-              switch (key) {
-                case 'cageCode':
-                  if (!/^[A-Za-z0-9]{5}$/.test(value)) {
-                    errorMessages.push(`${paramName} 必须为5位字母或数字`);
-                  }
-                  break;
-                case 'positionCode':
-                  if (!/^[A-Za-z]$/.test(value)) {
-                    errorMessages.push(`${paramName} 必须为1位字母`);
-                  }
-                  break;
-                case 'countryCode':
-                  if (!/^[A-Za-z]{2}$/.test(value)) {
-                    errorMessages.push(`${paramName} 必须为2位字母`);
-                  }
-                  break;
-                case 'languageCode':
-                  if (!/^[A-Za-z]{2,3}$/.test(value)) {
-                    errorMessages.push(`${paramName} 必须为2-3位字母`);
-                  }
-                  break;
-                case 'defaultBusinessRule':
-                  // 该字段没有特殊格式要求，无需校验
-                  break;
-                default:
-                  break;
-              }
-            });*/
+        switch (key) {
+          case 'cageCode':
+            if (!/^[A-Za-z0-9]{5}$/.test(value)) {
+              errorMessages.push(`${paramName} 必须为5位字母或数字`);
+            }
+            break;
+          case 'positionCode':
+            if (!/^[A-Za-z]$/.test(value)) {
+              errorMessages.push(`${paramName} 必须为1位字母`);
+            }
+            break;
+          case 'countryCode':
+            if (!/^[A-Za-z]{2}$/.test(value)) {
+              errorMessages.push(`${paramName} 必须为2位字母`);
+            }
+            break;
+          case 'languageCode':
+            if (!/^[A-Za-z]{2,3}$/.test(value)) {
+              errorMessages.push(`${paramName} 必须为2-3位字母`);
+            }
+            break;
+          case 'defaultBusinessRule':
+            // 该字段没有特殊格式要求，无需校验
+            break;
+          default:
+            break;
+        }
+      });
       if (errorMessages.length > 0) {
         this.$message.error(errorMessages.join('\n'));
         return false;

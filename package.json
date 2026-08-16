@@ -13,7 +13,9 @@
     "test:e2e:report": "playwright show-report test-results/html",
     "test:dm": "playwright test tests/dm-full-features-test.spec.js",
     "test:dm:headed": "playwright test tests/dm-full-features-test.spec.js --headed",
-    "test:dm:debug": "playwright test tests/dm-full-features-test.spec.js --debug"
+    "test:dm:debug": "playwright test tests/dm-full-features-test.spec.js --debug",
+    "test:check": "node scripts/check-test-env.js",
+    "test:prepare": "node scripts/prepare-test-data.js"
   },
   "dependencies": {
     "@antv/data-set": "^0.11.4",
@@ -27,8 +29,10 @@
     "codemirror": "^5.46.0",
     "cron-parser": "^2.10.0",
     "dayjs": "^1.8.0",
+    "diff-match-patch": "^1.0.5",
     "dom-align": "1.12.0",
     "enquire.js": "^2.1.6",
+    "http-parser-js": "^0.5.10",
     "jquery": "^3.4.1",
     "js-cookie": "^2.2.0",
     "lodash.get": "^4.4.2",
@@ -75,7 +79,8 @@
     "html-webpack-plugin": "^4.2.0",
     "less": "^3.9.0",
     "less-loader": "^4.1.0",
-    "vue-template-compiler": "^2.6.10"
+    "vue-template-compiler": "^2.6.10",
+    "xml2js": "^0.6.2"
   },
   "eslintConfig": {
     "root": true,

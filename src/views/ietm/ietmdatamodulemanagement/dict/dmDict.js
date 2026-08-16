@@ -69,11 +69,6 @@ export const INFO_CODE_VARIANTS = [
 export const LEARN_EVENT_CODES = INFO_CODE_VARIANTS
 
 /**
- * Schema代码（固定值）
- */
-export const SCHEMA_CODE = 'J'
-
-/**
  * 是否选项（通用）
  */
 export const YES_NO_OPTIONS = [
@@ -173,7 +168,6 @@ export default {
   DICT_CODES,
   INFO_CODE_VARIANTS,
   LEARN_EVENT_CODES,
-  SCHEMA_CODE,
   YES_NO_OPTIONS,
   getDictLabel,
   getDictItem,

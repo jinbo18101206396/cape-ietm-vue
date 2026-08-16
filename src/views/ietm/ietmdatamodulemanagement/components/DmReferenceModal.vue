@@ -7,13 +7,23 @@
     @cancel="handleCancel"
   >
     <a-spin :spinning="loading">
-      <!-- 顶部信息 -->
-      <a-alert
-        :message="`当前DM：${currentDmc}`"
-        type="info"
-        show-icon
-        style="margin-bottom: 16px"
-      />
+      <!-- 顶部工具栏：计算引用 + 当前DM信息 -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <a-alert
+          :message="`当前DM：${currentDmc}`"
+          type="info"
+          show-icon
+          style="flex: 1; margin-right: 12px; margin-bottom: 0;"
+        />
+        <a-button
+          type="primary"
+          icon="calculator"
+          :loading="calculating"
+          @click="handleCalculateRef"
+        >
+          计算该DM引用信息
+        </a-button>
+      </div>
 
       <!-- 引用类型切换 -->
       <a-radio-group v-model="refType" button-style="solid" style="margin-bottom: 16px" @change="handleRefTypeChange">
@@ -82,7 +92,7 @@
         :dataSource="detailDataSource"
         :pagination="false"
         size="small"
-        rowKey="id"
+        :rowKey="(record, index) => index"
       >
         <span slot="dmcCode" slot-scope="text, record">
           <a @click="handleViewDm(record)">{{ text }}</a>
@@ -107,7 +117,7 @@
 </template>
 
 <script>
-import { getAction } from '@/api/manage'
+import { getAction, postAction } from '@/api/manage'
 
 export default {
   name: 'DmReferenceModal',
@@ -115,6 +125,8 @@ export default {
     return {
       visible: false,
       loading: false,
+      calculating: false,   // 计算引用信息 loading 状态
+      requestSeq: 0,        // 防竞态：每次 loadReferenceTree 自增，响应回来时校验是否最新
       currentDmc: '',
       currentDmId: '',
       refType: 'out', // out-出引用, in-入引用
@@ -166,13 +178,16 @@ export default {
       this.loadReferenceTree()
     },
 
-    // 加载引用关系树
+    // 加载引用关系树（防竞态版）
     loadReferenceTree() {
+      const seq = ++this.requestSeq
       this.loading = true
       getAction('/ietm/datamodule/referenceTree', {
         dmId: this.currentDmId,
         refType: this.refType
       }).then(res => {
+        // 若已有更新的请求发出，丢弃当前过期响应
+        if (seq !== this.requestSeq) return
         if (res.success) {
           const data = res.result || []
           this.buildTreeData(data)
@@ -181,8 +196,30 @@ export default {
         } else {
           this.$message.error(res.message || '加载引用关系失败')
         }
+      }).catch(() => {
+        if (seq !== this.requestSeq) return
+        this.$message.error('加载引用关系失败，请重试')
       }).finally(() => {
-        this.loading = false
+        if (seq === this.requestSeq) this.loading = false
+      })
+    },
+
+    // 计算该DM引用信息
+    handleCalculateRef() {
+      this.calculating = true
+      postAction('/ietm/datamodule/calcref/' + this.currentDmId).then(res => {
+        if (res.success) {
+          const refCount = (res.result && res.result.refCount) || 0
+          this.$message.success('计算引用信息成功，共提取 ' + refCount + ' 条引用')
+          // 重新加载引用关系树以刷新统计数据
+          this.loadReferenceTree()
+        } else {
+          this.$message.error(res.message || '计算引用信息失败')
+        }
+      }).catch(() => {
+        this.$message.error('计算引用信息失败，请重试')
+      }).finally(() => {
+        this.calculating = false
       })
     },
 
@@ -299,6 +336,8 @@ export default {
       this.outRefCount = 0
       this.inRefCount = 0
       this.maxDepth = 0
+      this.calculating = false
+      this.requestSeq = 0
     }
   }
 }

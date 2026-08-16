@@ -52,11 +52,15 @@ module.exports = {
       .set('@comp', resolve('src/components'))
       .set('@views', resolve('src/views'))
 
+    // Node.js v24: disable symlinks to avoid webpack resolution errors
+    config.resolve.symlinks(false)
+
     // 生产环境，移除 console 并开启js\css压缩
     if (process.env.NODE_ENV === 'production') {
-        // 移除 console
+        // 注意：移除console的配置已在上面的configureWebpack中处理
+        // 下面的.tap()方法在Node.js v24环境下不兼容，已注释
+        /*
         config.optimization.minimizer('terser').tap(args => {
-          // 获取 terser 配置
           const terserOptions = args[0]
           if (!terserOptions.terserOptions) {
             terserOptions.terserOptions = {}
@@ -64,16 +68,14 @@ module.exports = {
           if (!terserOptions.terserOptions.compress) {
             terserOptions.terserOptions.compress = {}
           }
-
-          // 配置移除 console
           Object.assign(terserOptions.terserOptions.compress, {
-            drop_console: true,      // 移除所有 console
-            drop_debugger: true,     // 移除 debugger
-            pure_funcs: ['console.log', 'console.info', 'console.debug']  // 明确移除的函数
+            drop_console: true,
+            drop_debugger: true,
+            pure_funcs: ['console.log', 'console.info', 'console.debug']
           })
-
           return args
         })
+        */
 
         // 开启 gzip 压缩
         config.plugin('compressionPlugin').use(new CompressionPlugin({

@@ -33,8 +33,7 @@
           <a-tag v-if="model.isLatest === '1'" color="green">最新版本</a-tag>
         </a-descriptions-item>
         <a-descriptions-item label="版本类型">
-          <a-badge v-if="model.versionType === '1'" status="success" text="已发布" />
-          <a-badge v-else status="processing" text="草稿" />
+          <a-badge :status="versionTypeStatus" :text="versionTypeText" />
         </a-descriptions-item>
 
         <!-- DMC编码详情 -->
@@ -218,6 +217,21 @@ export default {
       loading: false,
       contentVisible: false,
       model: {}
+    }
+  },
+  computed: {
+    // 版本类型显示文本（直接使用数据库字段）
+    versionTypeText() {
+      return this.model.issueType || '-'
+    },
+    // 版本类型状态（用于badge颜色）
+    versionTypeStatus() {
+      const issueType = this.model.issueType
+      if (issueType === 'new') return 'success'
+      if (issueType === 'revised') return 'processing'
+      if (issueType === 'changed') return 'warning'
+      if (issueType === 'deleted') return 'error'
+      return 'default'
     }
   },
   methods: {
