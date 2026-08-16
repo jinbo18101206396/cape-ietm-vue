@@ -1,19 +1,19 @@
 <template>
   <a-modal
     title="引用关系"
-    :width="1000"
+    :width="900"
     :visible="visible"
     :footer="null"
     @cancel="handleCancel"
   >
     <a-spin :spinning="loading">
-      <!-- 顶部工具栏：计算引用 + 当前DM信息 -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <!-- 顶部工具栏：当前DM信息 + 计算引用 -->
+      <div class="ref-header">
         <a-alert
           :message="`当前DM：${currentDmc}`"
           type="info"
           show-icon
-          style="flex: 1; margin-right: 12px; margin-bottom: 0;"
+          class="ref-header__alert"
         />
         <a-button
           type="primary"
@@ -25,93 +25,101 @@
         </a-button>
       </div>
 
-      <!-- 引用类型切换 -->
-      <a-radio-group v-model="refType" button-style="solid" style="margin-bottom: 16px" @change="handleRefTypeChange">
-        <a-radio-button value="out">
-          <a-icon type="export" /> 出引用 ({{ outRefCount }})
-        </a-radio-button>
-        <a-radio-button value="in">
-          <a-icon type="import" /> 入引用 ({{ inRefCount }})
-        </a-radio-button>
-      </a-radio-group>
-
-      <!-- 引用关系树 -->
-      <a-tree
-        v-if="treeData.length > 0"
-        :tree-data="treeData"
-        :default-expand-all="true"
-        :show-line="true"
-      >
-        <template slot="title" slot-scope="item">
-          <span>
-            <a-icon :type="item.icon" />
-            <strong style="margin-left: 8px;">{{ item.dmcCode }}</strong>
-            <span style="margin-left: 8px; color: #999;">{{ item.techName }}</span>
-            <a-tag v-if="item.isCircular" color="red" style="margin-left: 8px;">
-              <a-icon type="warning" /> 循环引用
-            </a-tag>
-            <a-tag v-if="item.refType" color="blue" style="margin-left: 8px;">
-              {{ item.refType }}
-            </a-tag>
-          </span>
-        </template>
-      </a-tree>
-
-      <a-empty v-else description="暂无引用关系" />
-
-      <!-- 引用统计 -->
-      <a-divider>引用统计</a-divider>
-      <a-row :gutter="16">
+      <!-- 统计条 -->
+      <a-row :gutter="12" class="ref-stats">
         <a-col :span="8">
-          <a-statistic title="出引用数量" :value="outRefCount" suffix="个">
-            <template #prefix>
-              <a-icon type="export" style="color: #1890ff;" />
-            </template>
-          </a-statistic>
+          <div class="ref-stats__item">
+            <a-icon type="export" class="ref-stats__icon ref-stats__icon--out" />
+            <span class="ref-stats__label">出引用</span>
+            <span class="ref-stats__value">{{ outRefCount }}</span>
+          </div>
         </a-col>
         <a-col :span="8">
-          <a-statistic title="入引用数量" :value="inRefCount" suffix="个">
-            <template #prefix>
-              <a-icon type="import" style="color: #52c41a;" />
-            </template>
-          </a-statistic>
+          <div class="ref-stats__item">
+            <a-icon type="import" class="ref-stats__icon ref-stats__icon--in" />
+            <span class="ref-stats__label">入引用</span>
+            <span class="ref-stats__value">{{ inRefCount }}</span>
+          </div>
         </a-col>
         <a-col :span="8">
-          <a-statistic title="引用深度" :value="maxDepth" suffix="层">
-            <template #prefix>
-              <a-icon type="apartment" style="color: #faad14;" />
-            </template>
-          </a-statistic>
+          <div class="ref-stats__item">
+            <a-icon type="apartment" class="ref-stats__icon ref-stats__icon--depth" />
+            <span class="ref-stats__label">引用深度</span>
+            <span class="ref-stats__value">{{ maxDepth }}</span>
+          </div>
         </a-col>
       </a-row>
 
-      <!-- 引用详情列表 -->
-      <a-divider>引用详情</a-divider>
-      <a-table
-        :columns="detailColumns"
-        :dataSource="detailDataSource"
-        :pagination="false"
-        size="small"
-        :rowKey="(record, index) => index"
-      >
-        <span slot="dmcCode" slot-scope="text, record">
-          <a @click="handleViewDm(record)">{{ text }}</a>
-        </span>
+      <!-- 引用类型切换 -->
+      <a-radio-group v-model="refType" button-style="solid" class="ref-toggle" @change="handleRefTypeChange">
+        <a-radio-button value="out">
+          <a-icon type="export" /> 出引用
+        </a-radio-button>
+        <a-radio-button value="in">
+          <a-icon type="import" /> 入引用
+        </a-radio-button>
+      </a-radio-group>
 
-        <span slot="refType" slot-scope="text">
-          <a-tag color="blue">{{ text }}</a-tag>
-        </span>
+      <!-- 关系树 / 详情列表 标签页 -->
+      <a-tabs default-active-key="tree" size="small" class="ref-tabs">
+        <a-tab-pane key="tree">
+          <span slot="tab"><a-icon type="apartment" /> 关系树</span>
+          <div class="ref-pane">
+            <a-tree
+              v-if="treeData.length > 0"
+              :tree-data="treeData"
+              :default-expand-all="true"
+              :show-line="true"
+            >
+              <template slot="title" slot-scope="item">
+                <span>
+                  <a-icon :type="item.icon" />
+                  <strong style="margin-left: 8px;">{{ item.dmcCode }}</strong>
+                  <span style="margin-left: 8px; color: #999;">{{ item.techName }}</span>
+                  <a-tag v-if="item.isCircular" color="red" style="margin-left: 8px;">
+                    <a-icon type="warning" /> 循环引用
+                  </a-tag>
+                  <a-tag v-if="item.refType" color="blue" style="margin-left: 8px;">
+                    {{ item.refType }}
+                  </a-tag>
+                </span>
+              </template>
+            </a-tree>
+            <a-empty v-else description="暂无引用关系" />
+          </div>
+        </a-tab-pane>
 
-        <span slot="refDepth" slot-scope="text">
-          <a-tag>第{{ text }}层</a-tag>
-        </span>
+        <a-tab-pane key="detail">
+          <span slot="tab"><a-icon type="unordered-list" /> 详情列表</span>
+          <div class="ref-pane">
+            <a-table
+              :columns="detailColumns"
+              :dataSource="detailDataSource"
+              :pagination="false"
+              size="small"
+              :rowKey="(record, index) => index"
+            >
+              <span slot="dmcCode" slot-scope="text, record">
+                <a @click="handleViewDm(record)">{{ text }}</a>
+              </span>
 
-        <span slot="action" slot-scope="text, record">
-          <a @click="handleViewDm(record)">查看</a>
-          <a-divider type="vertical" />
-          <a @click="handleShowReference(record)">引用链</a>
-        </span>
-      </a-table>
+              <span slot="refType" slot-scope="text">
+                <a-tag color="blue">{{ text }}</a-tag>
+              </span>
+
+              <span slot="refDepth" slot-scope="text">
+                <a-tag>第{{ text }}层</a-tag>
+              </span>
+
+              <span slot="action" slot-scope="text, record">
+                <a @click="handleViewDm(record)">查看</a>
+                <a-divider type="vertical" />
+                <a @click="handleShowReference(record)">引用链</a>
+              </span>
+            </a-table>
+          </div>
+        </a-tab-pane>
+      </a-tabs>
     </a-spin>
   </a-modal>
 </template>
@@ -344,6 +352,66 @@ export default {
 </script>
 
 <style scoped>
+/* 顶部工具栏 */
+.ref-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.ref-header__alert {
+  flex: 1;
+  margin-right: 12px;
+  margin-bottom: 0;
+}
+
+/* 统计条 */
+.ref-stats {
+  margin-bottom: 12px;
+}
+.ref-stats__item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+}
+.ref-stats__icon {
+  font-size: 18px;
+  margin-right: 8px;
+}
+.ref-stats__icon--out {
+  color: #1890ff;
+}
+.ref-stats__icon--in {
+  color: #52c41a;
+}
+.ref-stats__icon--depth {
+  color: #faad14;
+}
+.ref-stats__label {
+  color: #666;
+  margin-right: auto;
+}
+.ref-stats__value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #262626;
+}
+
+/* 类型切换 */
+.ref-toggle {
+  margin-bottom: 12px;
+}
+
+/* 标签页内容面板：固定高度可滚动 */
+.ref-pane {
+  height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .ant-tree >>> .ant-tree-node-content-wrapper {
   display: inline-block;
   width: 100%;
