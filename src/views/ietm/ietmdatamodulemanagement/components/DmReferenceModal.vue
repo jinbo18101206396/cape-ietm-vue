@@ -4,6 +4,7 @@
     :width="900"
     :visible="visible"
     :footer="null"
+    :z-index="1000"
     @cancel="handleCancel"
   >
     <a-spin :spinning="loading">
@@ -70,19 +71,20 @@
               :tree-data="treeData"
               :default-expand-all="true"
               :show-line="true"
+              class="ref-tree"
             >
               <template slot="title" slot-scope="item">
-                <span>
-                  <a-icon :type="item.icon" />
-                  <strong style="margin-left: 8px;">{{ item.dmcCode }}</strong>
-                  <span style="margin-left: 8px; color: #999;">{{ item.techName }}</span>
-                  <a-tag v-if="item.isCircular" color="red" style="margin-left: 8px;">
-                    <a-icon type="warning" /> 循环引用
-                  </a-tag>
-                  <a-tag v-if="item.refType" color="blue" style="margin-left: 8px;">
-                    {{ item.refType }}
-                  </a-tag>
-                </span>
+                <div class="tree-node" :class="{ 'tree-node--root': item.isRoot }">
+                  <div class="tree-node__main">
+                    <span class="tree-node__code">{{ item.dmcCode }}</span>
+                    <span v-if="item.techName" class="tree-node__name">{{ item.techName }}</span>
+                  </div>
+                  <div class="tree-node__meta">
+                    <span v-if="item.refDepth" class="tree-node__depth">L{{ item.refDepth }}</span>
+                    <a-tag v-if="item.refType" color="blue" size="small">{{ item.refType }}</a-tag>
+                    <a-tag v-if="item.isCircular" color="red" size="small"><a-icon type="warning" /> 循环</a-tag>
+                  </div>
+                </div>
               </template>
             </a-tree>
             <a-empty v-else description="暂无引用关系" />
@@ -98,22 +100,21 @@
               :pagination="false"
               size="small"
               :rowKey="(record, index) => index"
+              class="ref-detail-table"
             >
               <span slot="dmcCode" slot-scope="text, record">
                 <a @click="handleViewDm(record)">{{ text }}</a>
               </span>
 
               <span slot="refType" slot-scope="text">
-                <a-tag color="blue">{{ text }}</a-tag>
+                <a-tag color="blue" size="small">{{ text }}</a-tag>
               </span>
 
               <span slot="refDepth" slot-scope="text">
-                <a-tag>第{{ text }}层</a-tag>
+                <span class="depth-badge">L{{ text }}</span>
               </span>
 
               <span slot="action" slot-scope="text, record">
-                <a @click="handleViewDm(record)">查看</a>
-                <a-divider type="vertical" />
                 <a @click="handleShowReference(record)">引用链</a>
               </span>
             </a-table>
@@ -121,14 +122,31 @@
         </a-tab-pane>
       </a-tabs>
     </a-spin>
+
+    <!-- DM内容预览弹窗（嵌套） -->
+    <dm-ref-content-modal ref="dmRefContentModal" @show-detail="handleShowFullDetail" />
+
+    <!-- DM完整详情弹窗（嵌套） -->
+    <dm-view-modal ref="dmViewModal" />
+
+    <!-- 引用链弹窗（嵌套） -->
+    <dm-reference-chain-modal ref="dmReferenceChainModal" />
   </a-modal>
 </template>
 
 <script>
 import { getAction, postAction } from '@/api/manage'
+import DmRefContentModal from './DmRefContentModal'
+import DmViewModal from './DmViewModal'
+import DmReferenceChainModal from './DmReferenceChainModal'
 
 export default {
   name: 'DmReferenceModal',
+  components: {
+    DmRefContentModal,
+    DmViewModal,
+    DmReferenceChainModal
+  },
   data() {
     return {
       visible: false,
@@ -137,6 +155,8 @@ export default {
       requestSeq: 0,        // 防竞态：每次 loadReferenceTree 自增，响应回来时校验是否最新
       currentDmc: '',
       currentDmId: '',
+      currentTechName: '',  // 当前DM技术名称
+      currentInfoName: '',  // 当前DM信息名称
       refType: 'out', // out-出引用, in-入引用
       treeData: [],
       outRefCount: 0,
@@ -146,30 +166,40 @@ export default {
         {
           title: 'DMC编码',
           dataIndex: 'dmcCode',
-          width: 250,
+          width: 330,
           scopedSlots: { customRender: 'dmcCode' }
         },
         {
           title: '技术名称',
           dataIndex: 'techName',
+          width: 140,
+          ellipsis: true
+        },
+        {
+          title: '信息名称',
+          dataIndex: 'infoName',
+          width: 140,
           ellipsis: true
         },
         {
           title: '引用类型',
           dataIndex: 'refType',
-          width: 120,
+          width: 80,
+          align: 'center',
           scopedSlots: { customRender: 'refType' }
         },
         {
-          title: '引用深度',
+          title: '层级',
           dataIndex: 'refDepth',
-          width: 100,
+          width: 70,
+          align: 'center',
           scopedSlots: { customRender: 'refDepth' }
         },
         {
           title: '操作',
           dataIndex: 'action',
-          width: 150,
+          width: 80,
+          align: 'center',
           scopedSlots: { customRender: 'action' }
         }
       ],
@@ -182,6 +212,8 @@ export default {
       this.visible = true
       this.currentDmc = record.dmcCode
       this.currentDmId = record.id
+      this.currentTechName = record.techName || ''
+      this.currentInfoName = record.infoName || ''
       this.refType = 'out'
       this.loadReferenceTree()
     },
@@ -233,13 +265,34 @@ export default {
 
     // 构建树形数据
     buildTreeData(data) {
-      this.treeData = data.map(item => this.convertToTreeNode(item))
+      // 将当前DM作为根节点，后端返回的数据作为children
+      const rootNode = {
+        key: this.currentDmId,
+        title: this.currentDmc,
+        dmcCode: this.currentDmc,
+        techName: this.currentTechName,
+        infoName: this.currentInfoName,
+        refType: '',
+        refDepth: 0,
+        isCircular: false,
+        isRoot: true, // 标记为根节点
+        icon: 'home',
+        scopedSlots: { title: 'title' },
+        children: data.map(item => this.convertToTreeNode(item))
+      }
+
+      this.treeData = [rootNode]
     },
 
     // 转换为树节点
     convertToTreeNode(item) {
+      // 根据引用类型确定DM ID字段
+      // 出引用：使用 targetDmId（当前DM引用了谁）
+      // 入引用：使用 sourceDmId（谁引用了当前DM）
+      const dmId = this.refType === 'out' ? item.targetDmId : item.sourceDmId
+
       const node = {
-        key: item.dmId,
+        key: dmId,
         title: item.dmcCode,
         dmcCode: item.dmcCode,
         techName: item.techName,
@@ -263,12 +316,18 @@ export default {
       const flatData = []
       const flatten = (items, depth = 1) => {
         items.forEach(item => {
+          // 根据引用类型确定DM ID字段
+          // 出引用：使用 targetDmId（当前DM引用了谁）
+          // 入引用：使用 sourceDmId（谁引用了当前DM）
+          const dmId = this.refType === 'out' ? item.targetDmId : item.sourceDmId
+
           flatData.push({
-            id: item.dmId,
+            id: dmId,
             dmcCode: item.dmcCode,
             techName: item.techName,
             infoName: item.infoName,
-            refType: item.refType,
+            refType: item.refType || 'dmRef', // 默认值
+            refPosition: item.refPosition, // 引用位置
             refDepth: depth,
             isCircular: item.isCircular
           })
@@ -279,6 +338,9 @@ export default {
       }
       flatten(data)
       this.detailDataSource = flatData
+
+      // 调试：查看数据
+      console.log('详情列表数据:', flatData)
     },
 
     // 计算统计数据
@@ -326,14 +388,27 @@ export default {
 
     // 查看DM
     handleViewDm(record) {
-      this.$message.info(`查看DM：${record.dmcCode}`)
-      // TODO: 打开DM查看弹窗
+      if (!record.id) {
+        this.$message.warning('无法获取DM ID')
+        return
+      }
+      // 打开DM内容预览弹窗，传递引用信息
+      const refInfo = {
+        refType: record.refType,
+        refPosition: record.refPosition
+      }
+      this.$refs.dmRefContentModal.show(record.id, refInfo)
+    },
+
+    // 从内容预览弹窗打开完整详情
+    handleShowFullDetail(dmId) {
+      this.$refs.dmViewModal.show(dmId)
     },
 
     // 显示引用链
     handleShowReference(record) {
-      this.$message.info(`显示引用链：${record.dmcCode}`)
-      // TODO: 高亮显示引用路径
+      // 打开引用链弹窗，传递当前记录、根DM ID、根DMC、引用类型
+      this.$refs.dmReferenceChainModal.show(record, this.currentDmId, this.currentDmc, this.refType)
     },
 
     // 关闭弹窗
@@ -412,8 +487,172 @@ export default {
   padding-right: 4px;
 }
 
-.ant-tree >>> .ant-tree-node-content-wrapper {
-  display: inline-block;
+/* 关系树优化样式 */
+.ref-tree {
+  font-size: 13px;
+}
+
+/* 树节点：简洁布局 */
+.tree-node {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  min-height: 32px;
   width: 100%;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+
+.tree-node:hover {
+  background: #fafafa;
+}
+
+/* 根节点：突出显示 */
+.tree-node--root {
+  background: #e6f7ff;
+  border-left: 3px solid #1890ff;
+  padding-left: 8px;
+  font-weight: 500;
+}
+
+.tree-node--root:hover {
+  background: #d6f0ff;
+}
+
+/* 左侧主要信息 */
+.tree-node__main {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 10px;
+}
+
+.tree-node__code {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  color: #262626;
+  flex-shrink: 0;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-node--root .tree-node__code {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.tree-node__name {
+  color: #8c8c8c;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 右侧元数据 */
+.tree-node__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.tree-node__depth {
+  display: inline-block;
+  padding: 0 6px;
+  height: 20px;
+  line-height: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fa8c16;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 2px;
+}
+
+/* 优化树节点间距 */
+.ref-tree >>> .ant-tree-node-content-wrapper {
+  display: inline-block;
+  width: calc(100% - 24px);
+  padding: 0;
+  line-height: 1.5;
+}
+
+.ref-tree >>> .ant-tree-node-content-wrapper:hover {
+  background: transparent;
+}
+
+.ref-tree >>> .ant-tree-treenode {
+  padding: 2px 0;
+}
+
+/* 优化缩进 */
+.ref-tree >>> .ant-tree-indent-unit {
+  width: 18px;
+}
+
+/* 优化连接线 */
+.ref-tree >>> .ant-tree-show-line .ant-tree-indent-unit::before {
+  border-left: 1px solid #e8e8e8;
+}
+
+.ref-tree >>> .ant-tree-switcher {
+  color: #bfbfbf;
+}
+
+/* 详情列表样式优化 */
+.ref-detail-table {
+  font-size: 13px;
+}
+
+.ref-detail-table >>> .ant-table {
+  font-size: 13px;
+}
+
+.ref-detail-table >>> .ant-table-thead > tr > th {
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  background: #fafafa;
+}
+
+.ref-detail-table >>> .ant-table-tbody > tr > td {
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ref-detail-table >>> .ant-table-tbody > tr:hover > td {
+  background: #fafafa;
+}
+
+/* DMC编码列 */
+.ref-detail-table >>> td:first-child a {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+}
+
+/* 层级徽章 */
+.depth-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  height: 20px;
+  line-height: 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fa8c16;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 2px;
+}
+
+/* 操作链接 */
+.ref-detail-table >>> .ant-table-tbody a {
+  font-size: 13px;
 }
 </style>

@@ -61,7 +61,7 @@ export default {
   data() {
     return {
       loading: false,
-      showChildren: false,
+      showChildren: true,
       treeData: [],
       expandedKeys: [],
       selectedKeys: [],

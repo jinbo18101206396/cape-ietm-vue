@@ -289,7 +289,7 @@ export default {
       currentProjectId: '',
       currentProjectInfo: null,
       // 构型树操作
-      showChildIcn: false
+      showChildIcn: true
     }
   },
   created() {

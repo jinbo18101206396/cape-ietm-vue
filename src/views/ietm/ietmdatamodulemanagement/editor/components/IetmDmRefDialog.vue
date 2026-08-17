@@ -2,7 +2,7 @@
   <a-modal
     title="引用DM"
     :visible="visible"
-    :width="1000"
+    :width="1100"
     :mask="false"
     :maskClosable="false"
     :destroyOnClose="true"
@@ -20,27 +20,15 @@
         <a-tabs v-model="activeTab" size="small" class="dm-ref-tabs">
           <!-- 页签1：引用最新版 -->
           <a-tab-pane key="latest" tab="引用最新版">
-            <!-- 搜索栏（表单栅格对齐，四项等宽 + 操作按钮右对齐）-->
-            <a-form class="dm-ref-search" layout="inline" @submit.prevent="searchData">
-              <a-row :gutter="8" style="width:100%">
-                <a-col :span="6">
-                  <a-input v-model="query.dmc" placeholder="DMC" size="small" allow-clear @pressEnter="searchData"/>
-                </a-col>
-                <a-col :span="6">
-                  <a-input v-model="query.techName" placeholder="技术名称" size="small" allow-clear @pressEnter="searchData"/>
-                </a-col>
-                <a-col :span="6">
-                  <a-input v-model="query.infoName" placeholder="信息名称" size="small" allow-clear @pressEnter="searchData"/>
-                </a-col>
-                <a-col :span="6">
-                  <a-input v-model="query.dmTypeName" placeholder="DM类型" size="small" allow-clear @pressEnter="searchData"/>
-                </a-col>
-              </a-row>
-              <div class="dm-ref-search-btns">
-                <a-button type="primary" size="small" icon="search" @click="searchData">查询</a-button>
-                <a-button size="small" icon="delete" @click="clearData">清空</a-button>
-              </div>
-            </a-form>
+            <!-- 搜索栏 -->
+            <div class="dm-ref-search">
+              <a-input v-model="query.dmc" placeholder="DMC" size="small" allow-clear class="search-dmc" @pressEnter="searchData"/>
+              <a-input v-model="query.techName" placeholder="技术名称" size="small" allow-clear class="search-field" @pressEnter="searchData"/>
+              <a-input v-model="query.infoName" placeholder="信息名称" size="small" allow-clear class="search-field" @pressEnter="searchData"/>
+              <a-input v-model="query.dmTypeName" placeholder="DM类型" size="small" allow-clear class="search-field" @pressEnter="searchData"/>
+              <a-button type="primary" size="small" icon="search" @click="searchData">查询</a-button>
+              <a-button size="small" icon="delete" @click="clearData">清空</a-button>
+            </div>
             <!-- DM列表 -->
             <a-table
               class="dm-ref-table"
@@ -51,7 +39,8 @@
               :loading="latestLoading"
               :custom-row="latestCustomRow"
               :row-class-name="rowClassName"
-              :scroll="{ x: 820, y: 260 }"
+              :scroll="{ x: 820, y: 240 }"
+              :bordered="true"
               row-key="id"
               size="small"
               @change="onLatestTableChange"/>
@@ -185,7 +174,7 @@ export default {
         {
           title: '版本类型',
           dataIndex: 'issueType',
-          width: 70,
+          width: 90,
           align: 'center',
           // 直接显示数据库中的 issueType 字段
           customRender: (v, row) => {
@@ -223,7 +212,7 @@ export default {
         {
           title: '版本类型',
           dataIndex: 'issueType',
-          width: 70,
+          width: 90,
           align: 'center',
           // 直接显示数据库中的 issueType 字段
           customRender: (v, row) => {
@@ -499,21 +488,18 @@ export default {
   flex-direction: column;
 }
 .dm-ref-tabs {
-  height: 100%;
+  /deep/ .ant-tabs-tabpane { overflow: visible; }
 }
 .dm-ref-search {
-  margin-bottom: 12px;
-
-  .ant-row { margin-bottom: 8px; }
-  .ant-input { width: 100%; }
-}
-.dm-ref-search-btns {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 8px;
+  margin-bottom: 8px;
+
+  .search-dmc { flex: 2; min-width: 0; }
+  .search-field { flex: 1; min-width: 0; }
 }
 .dm-ref-table {
-  /* 表头与内容更紧凑清晰 */
   /deep/ .ant-table-thead > tr > th {
     background: #fafafa;
     font-weight: 600;
@@ -525,8 +511,8 @@ export default {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 12px;
-  padding: 10px 12px;
+  margin-top: 16px;
+  padding: 8px 12px;
   background: #f5f7fa;
   border: 1px solid #eef0f3;
   border-radius: 4px;
@@ -535,7 +521,7 @@ export default {
   .dm-ref-tip {
     color: #888;
     font-size: 12px;
-    margin-left: auto;   /* 提示信息右对齐，与选项区拉开层次 */
+    margin-left: auto;
     cursor: help;
   }
   .dm-ref-tip b { color: red; }
