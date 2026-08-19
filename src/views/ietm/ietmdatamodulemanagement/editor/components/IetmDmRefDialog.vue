@@ -39,7 +39,7 @@
               :loading="latestLoading"
               :custom-row="latestCustomRow"
               :row-class-name="rowClassName"
-              :scroll="{ x: 820, y: 240 }"
+              :scroll="{ x: 950, y: 240 }"
               :bordered="true"
               row-key="id"
               size="small"
@@ -74,6 +74,16 @@
           </a-tab-pane>
           <!-- 页签2：引用指定版本 -->
           <a-tab-pane key="version" tab="引用指定版本">
+            <!-- 搜索栏 -->
+            <div class="dm-ref-search">
+              <a-input v-model="queryVersion.dmc" placeholder="DMC" size="small" allow-clear class="search-dmc" @pressEnter="searchVersion"/>
+              <a-input v-model="queryVersion.techName" placeholder="技术名称" size="small" allow-clear class="search-field" @pressEnter="searchVersion"/>
+              <a-input v-model="queryVersion.infoName" placeholder="信息名称" size="small" allow-clear class="search-field" @pressEnter="searchVersion"/>
+              <a-input v-model="queryVersion.dmTypeName" placeholder="DM类型" size="small" allow-clear class="search-field" @pressEnter="searchVersion"/>
+              <a-button type="primary" size="small" icon="search" @click="searchVersion">查询</a-button>
+              <a-button size="small" icon="delete" @click="clearVersion">清空</a-button>
+            </div>
+            <!-- DM列表 -->
             <a-table
               class="dm-ref-table"
               :columns="columnsVersion"
@@ -81,7 +91,8 @@
               :row-selection="versionRowSelection"
               :pagination="versionPagination"
               :loading="versionLoading"
-              :scroll="{ x: 820, y: 300 }"
+              :scroll="{ x: 950, y: 240 }"
+              :bordered="true"
               row-key="id"
               size="small"
               @change="onVersionTableChange"/>
@@ -121,8 +132,11 @@ export default {
       // 当前树节点
       cmNode: null,
 
-      // 搜索条件（仅页签1）
+      // 搜索条件（页签1：引用最新版）
       query: { dmc: '', techName: '', infoName: '', dmTypeName: '' },
+
+      // 搜索条件（页签2：引用指定版本）
+      queryVersion: { dmc: '', techName: '', infoName: '', dmTypeName: '' },
 
       // 页签1：最新版
       latestList: [],
@@ -329,7 +343,11 @@ export default {
         ...base,
         onlyIssued: true,
         pageNo: this.versionPagination.current,
-        pageSize: this.versionPagination.pageSize
+        pageSize: this.versionPagination.pageSize,
+        dmc: this.queryVersion.dmc || undefined,
+        techName: this.queryVersion.techName || undefined,
+        infoName: this.queryVersion.infoName || undefined,
+        dmTypeName: this.queryVersion.dmTypeName || undefined
       }
       getAction('/ietm/datamodule/listForDialog', params).then(res => {
         if (res.success) {
@@ -348,6 +366,8 @@ export default {
     onVersionTableChange(pg) { this.versionPagination.current = pg.current; this.versionPagination.pageSize = pg.pageSize; this.loadVersion() },
     searchData() { this.latestPagination.current = 1; this.latestCheckedKeys = []; this.loadLatest() },
     clearData() { this.query = { dmc: '', techName: '', infoName: '', dmTypeName: '' }; this.searchData() },
+    searchVersion() { this.versionPagination.current = 1; this.versionCheckedKeys = []; this.loadVersion() },
+    clearVersion() { this.queryVersion = { dmc: '', techName: '', infoName: '', dmTypeName: '' }; this.searchVersion() },
 
     // ── 行交互（页签1）────────────────────────────────────────────
     latestCustomRow(record) {
