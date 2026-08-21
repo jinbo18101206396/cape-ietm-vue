@@ -18,6 +18,7 @@
       :scroll="{ x: 1200 }"
       size="small"
       bordered
+      @row-dblclick="handleRowDblClick"
     >
       <!-- 处理人（编辑态用 JSelectUserByDep） -->
       <template #useridname="text, record">
@@ -43,7 +44,7 @@
           v-if="isEditing(record)"
           v-model="record.nodename"
           size="small"
-          placeholder="节点名称"
+          placeholder="请输入节点名称（最多50字）"
           :maxLength="50"
         />
         <span v-else>{{ record.nodename }}</span>
@@ -62,8 +63,21 @@
       </template>
 
       <!-- 阶段（从主表 stagenames 提取） -->
-      <template #stagename="text">
-        {{ formatStagename(text) }}
+      <!-- 🔴 B1修复: 编辑态支持阶段选择（对齐旧系统 Line 704-733） -->
+      <template #stagename="text, record">
+        <a-select
+          v-if="isEditing(record) && existStage && isStageLeader"
+          v-model="record.stagename"
+          size="small"
+          style="width: 100px"
+        >
+          <a-select-option
+            v-for="option in getStageOptions()"
+            :key="option.value"
+            :value="option.value"
+          >{{ option.text }}</a-select-option>
+        </a-select>
+        <span v-else>{{ formatStagename(text) }}</span>
       </template>
 
       <!-- 处理方式（编辑态用 a-select，否则字典文本） -->
@@ -158,6 +172,27 @@ export default {
       default: null
     },
     readonly: {
+      type: Boolean,
+      default: false
+    },
+    // 🔴 B1修复: 分阶段相关props
+    // 各阶段的第一处理人
+    stageUsers: {
+      type: Array,
+      default: () => []
+    },
+    // 各阶段的执行状态
+    stageExecutionStatus: {
+      type: Array,
+      default: () => []
+    },
+    // 当前用户所在阶段
+    currentUserStage: {
+      type: String,
+      default: null
+    },
+    // 当前用户是否是阶段第一人
+    isStageLeader: {
       type: Boolean,
       default: false
     }
@@ -293,6 +328,13 @@ export default {
       return record.ifexec === 'N' || record.ifexec === 'R'
     },
 
+    // 🟡 I4修复：双击行编辑（对齐旧系统 Line 378-383 onClickRow）
+    handleRowDblClick(record) {
+      if (!this.canEditNodes) return
+      if (!this.canRowEdit(record)) return
+      this.startEditRow(record)
+    },
+
     // 新增节点（面板"新增节点"按钮调用）：追加一空行进入编辑
     insertNode() {
       // P0-19: 新增节点前钩子 - beforeInsertnode
@@ -302,6 +344,16 @@ export default {
       if (!canInsert) {
         this.$message.warning('不允许新增节点')
         return
+      }
+
+      // 🔴 B1修复: 分阶段权限检查（对齐旧系统 Line 636-648）
+      if (this.existStage && this.isStageLeader) {
+        // 检查本阶段是否已结束
+        const currentStageStatus = this.stageExecutionStatus.find(s => s.stage === this.currentUserStage)
+        if (currentStageStatus && currentStageStatus.ifexec === 'Y') {
+          this.$message.warning('本阶段已经结束不能新增节点！')
+          return
+        }
       }
 
       if (this.editingRowId) {
@@ -322,6 +374,13 @@ export default {
       const nextSeq = this.dataSource.length > 0
         ? Math.max(...this.dataSource.map(r => Number(r.seqno) || 0)) + 1
         : 0
+
+      // 🔴 B1修复: 设置新节点的默认阶段（对齐旧系统 Line 704-733）
+      let defaultStage = ''
+      if (this.existStage && this.currentUserStage != null) {
+        defaultStage = this.currentUserStage
+      }
+
       const row = {
         id: 'new_' + Date.now(),
         instid: this.instanceId,
@@ -333,7 +392,7 @@ export default {
         ifexec: 'N',
         // 🟠 遗漏16修复：补充新增节点的默认字段
         ifgetback: '', // 默认不限制跳转
-        stagename: '', // 分阶段时应设置当前阶段
+        stagename: defaultStage, // 🔴 B1修复：分阶段时设置当前阶段
         ifjump: '0', // 默认0次跳转
         _isNew: true
       }
@@ -342,12 +401,42 @@ export default {
       this.editSnapshot = null
     },
 
+    // 🔧 优化4：提取阶段判断逻辑，提升可读性
+    isNextStageFirstNode(record) {
+      if (!this.existStage || !this.isStageLeader || this.currentUserStage == null) return false
+
+      const recordStage = record.stagename
+      const currentStage = parseInt(this.currentUserStage) || 0
+
+      // 不是本阶段的节点
+      if (recordStage === this.currentUserStage) return false
+
+      // 查找下阶段的第一个节点
+      const nextStageUser = this.stageUsers.find(s => parseInt(s.stage) === currentStage + 1)
+
+      // 判断是否是下阶段的第一个节点
+      return nextStageUser && record.seqno === nextStageUser.seqno
+    },
+
     // 开始编辑某行
     startEditRow(record) {
       if (!this.canRowEdit(record)) {
         this.$message.warning('只能编辑未处理或退回的节点')
         return
       }
+
+      // 🔴 B1修复: 分阶段编辑权限检查（对齐旧系统 Line 802-810）
+      // 🔧 优化4：使用提取的方法简化逻辑
+      if (this.existStage && this.isStageLeader && this.currentUserStage != null) {
+        const recordStage = record.stagename
+
+        // 不是本阶段的节点，且不是下阶段的第一个节点
+        if (recordStage !== this.currentUserStage && !this.isNextStageFirstNode(record)) {
+          this.$message.warning('不能编辑除下阶段第一个节点之外的其它阶段的节点！')
+          return
+        }
+      }
+
       if (this.editingRowId && this.editingRowId !== record.id) {
         this.$message.warning('请先确定或取消当前编辑的节点')
         return
@@ -364,6 +453,36 @@ export default {
       if (Array.isArray(info)) {
         record.useridname = info.map(i => i.text).join(',')
       }
+    },
+
+    // 🟠 遗漏22修复：检查顺序号唯一性（还原旧系统 Line 1055-1070）
+    // 🔧 优化5：提取为独立方法，提升可维护性
+    isSeqnoDuplicate(record) {
+      return this.dataSource.some(r =>
+        r.id !== record.id &&
+        r.seqno === record.seqno &&
+        !r._isNew
+      )
+    },
+
+    // 🟡 V2修复：可跳转节点互斥性校验（对齐旧系统 Line 1167-1175）
+    // 🔧 优化5：提取为独立方法，提升可维护性
+    validateIfgetback(ifgetback) {
+      if (ifgetback == null || ifgetback === '') return { valid: true }
+
+      const getback = ifgetback.split(',').map(g => g.trim()).filter(g => g)
+
+      // 《不可跳转》不能与其他选项共存
+      if (getback.includes('-1') && getback.length > 1) {
+        return { valid: false, message: '当可跳转节点选择《不可跳转》时，不能再选择其它节点' }
+      }
+
+      // 《不限制》（空字符串）不能与其他选项共存
+      if (getback.includes('') && getback.length > 1) {
+        return { valid: false, message: '当可跳转节点选择《不限制》时，不能再选择其它节点' }
+      }
+
+      return { valid: true }
     },
 
     // 确定（保存单行，调用后端 saveNode）
@@ -392,15 +511,21 @@ export default {
       }
 
       // 🟠 遗漏22修复：检查顺序号唯一性（还原旧系统 Line 1055-1070）
-      const duplicate = this.dataSource.find(r =>
-        r.id !== record.id &&
-        r.seqno === record.seqno &&
-        !r._isNew
-      )
+      // 🔧 优化5：使用提取的方法
+      const duplicate = this.dataSource.find(r => this.isSeqnoDuplicate(record) && r.seqno === record.seqno)
       if (duplicate) {
         this.$message.warning(`顺序号 ${record.seqno} 已被节点【${duplicate.nodename}】使用，请更换！`)
         return
       }
+
+      // 🟡 V2修复：可跳转节点互斥性校验（对齐旧系统 Line 1167-1175）
+      // 🔧 优化5：使用提取的方法
+      const validation = this.validateIfgetback(record.ifgetback)
+      if (!validation.valid) {
+        this.$message.warning(validation.message)
+        return
+      }
+
       try {
         const payload = {
           id: record._isNew ? null : record.id,
@@ -438,6 +563,16 @@ export default {
       this.editSnapshot = null
     },
 
+    // 🔧 优化6：提取后续节点检查逻辑
+    hasProcessedNodesAfter(record) {
+      const currentIndex = this.dataSource.findIndex(r => r.id === record.id)
+      if (currentIndex === -1) return false
+
+      return this.dataSource
+        .slice(currentIndex + 1)
+        .some(r => r.ifexec === 'Y' || r.ifexec === 'J')
+    },
+
     // 删除节点（调用后端 delete，仅未处理节点）
     deleteRow(record) {
       // P0-19: 删除节点前钩子 - beforeDelnode
@@ -454,17 +589,21 @@ export default {
         return
       }
 
-      // 🔴 遗漏21修复：检查后续节点是否已处理（还原旧系统 Line 1008-1016）
-      const currentIndex = this.dataSource.findIndex(r => r.id === record.id)
-      if (currentIndex !== -1) {
-        const hasProcessedAfter = this.dataSource
-          .slice(currentIndex + 1)
-          .some(r => r.ifexec === 'Y' || r.ifexec === 'J')
-
-        if (hasProcessedAfter) {
-          this.$message.warning('此节点后面还有已处理的节点，不能删除！')
+      // 🔴 B1修复: 分阶段删除权限检查（对齐旧系统 Line 1008-1018）
+      if (this.existStage && this.isStageLeader && this.currentUserStage != null) {
+        const recordStage = record.stagename
+        // 登录人是本阶段第一个节点的处理人，不能删除其它阶段的节点
+        if (recordStage !== this.currentUserStage) {
+          this.$message.warning('不能删除其它阶段的节点！')
           return
         }
+      }
+
+      // 🔴 遗漏21修复：检查后续节点是否已处理（还原旧系统 Line 1008-1016）
+      // 🔧 优化6：使用提取的方法
+      if (this.hasProcessedNodesAfter(record)) {
+        this.$message.warning('此节点后面还有已处理的节点，不能删除！')
+        return
       }
 
       if (record._isNew) {
@@ -534,12 +673,25 @@ export default {
     },
 
     // 附件链接数据（从执行记录带出，还原旧 filename 列）
+    // 🟠 D2修复：支持多文件（逗号分隔）- 对齐旧系统 Line 577-581
     fileLinks(dtlid) {
       const list = this.execMap[dtlid]
       if (!list) return []
-      return list
-        .filter(e => e.filename && e.filename.trim() !== '')
-        .map(e => ({ id: e.id, filename: e.filename }))
+
+      const links = []
+      list.forEach(e => {
+        if (e.filename && e.filename.trim() !== '') {
+          // 支持多文件（逗号分隔）
+          const files = e.filename.split(',').map(f => f.trim()).filter(f => f)
+          files.forEach(f => {
+            links.push({
+              id: e.id,
+              filename: f
+            })
+          })
+        }
+      })
+      return links
     },
 
     downloadAttachment(id, filename) {
@@ -560,6 +712,37 @@ export default {
       if (!isNaN(index) && index >= 0 && index < stages.length) return stages[index]
       return stagename
     },
+
+    // 🔴 B1修复: 获取阶段选项（对齐旧系统 Line 704-733）
+    // 🔧 优化3：简化逻辑，提升可读性
+    getStageOptions() {
+      if (!this.existStage || !this.instance || !this.instance.stagenames) return []
+      if (!this.isStageLeader || this.currentUserStage == null) return []
+
+      const stages = this.instance.stagenames.split(',')
+      const currentStage = parseInt(this.currentUserStage) || 0
+
+      // 检查下阶段是否有节点
+      const hasNextStageNodes = this.dataSource.some(node => {
+        const nodeStage = parseInt(node.stagename)
+        return !isNaN(nodeStage) && nodeStage > currentStage
+      })
+
+      // 构建选项：当前阶段 + 下阶段（如果下阶段无节点且存在）
+      const options = [
+        { value: String(currentStage), text: stages[currentStage] || String(currentStage) }
+      ]
+
+      if (!hasNextStageNodes && currentStage + 1 < stages.length) {
+        options.push({
+          value: String(currentStage + 1),
+          text: stages[currentStage + 1] || String(currentStage + 1)
+        })
+      }
+
+      return options
+    },
+
     getNodetypeText(nodetype) {
       const map = { '0': '创建节点', '1': '审核节点', '2': '签批节点' }
       return map[nodetype] || nodetype

@@ -132,6 +132,34 @@
 
     <!-- 补ICN后缀弹框（§16.4 correctIcn） -->
     <icn-suffix-modal ref="icnSuffixModal" @ok="onIcnSuffixOk" @cancel="onIcnSuffixCancel"/>
+
+    <!-- 流程信息面板（South区域，可折叠+可拖高，还原旧 region:'south' split+collapsed） -->
+    <div v-if="showWorkflowPanel" class="region-south" :class="{ 'region-south--collapsed': workflowCollapsed }">
+      <!-- 拖拽分隔条（展开时才可拖） -->
+      <div
+        v-if="!workflowCollapsed"
+        class="south-resize-bar"
+        @mousedown="startWorkflowResize"
+      ></div>
+      <!-- 标题栏：点击折叠/展开 -->
+      <div class="south-title-bar" @click="toggleWorkflowPanel">
+        <span class="south-title">流程信息</span>
+        <a-icon :type="workflowCollapsed ? 'up' : 'down'" class="south-toggle-icon"/>
+      </div>
+      <!-- 面板主体：折叠时隐藏 -->
+      <div
+        v-show="!workflowCollapsed"
+        class="south-body"
+        :style="{ height: workflowHeight + 'px' }"
+      >
+        <workflow-info-panel
+          ref="workflowPanel"
+          :formid="id"
+          :readonly="readonly"
+          @workflow-change="onWorkflowChange"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -148,6 +176,7 @@ import IetmSymbolDialog   from './components/IetmSymbolDialog'
 import IetmInterrefDialog from './components/IetmInterrefDialog'
 import DmIdListModal      from './components/DmIdListModal'
 import IcnSuffixModal     from './components/IcnSuffixModal'
+import WorkflowInfoPanel  from '../components/WorkflowInfoPanel'
 import { getTreeNodesfromXml, buildCnNodeList, extractRootContent, getnodeBylineno, formatXml } from './utils/xmlTree'
 import { toEnXml, toCnXml } from './utils/enCnConvert'
 import { getDmcByLineno } from './utils/refsBuilder'
@@ -167,7 +196,8 @@ export default {
     IetmSymbolDialog,
     IetmInterrefDialog,
     DmIdListModal,
-    IcnSuffixModal
+    IcnSuffixModal,
+    WorkflowInfoPanel
   },
   data() {
     return {
@@ -197,7 +227,12 @@ export default {
       moveRowVisible: false, moveRowFrom: 1, moveRowTo: 1,
       symbolDialogVisible:   false,
       interrefVisible:       false,
-      icnlist: []  // ICN后缀映射数组（§16.4.3 四时机维护）
+      icnlist: [],  // ICN后缀映射数组（§16.4.3 四时机维护）
+      showWorkflowPanel: false,  // 流程信息面板显示控制
+      // 南区流程信息：默认折叠（对齐旧系统 region:'south',collapsed:true）+ 点标题栏展开/可拖高
+      workflowCollapsed: true,
+      workflowHeight: 350,
+      workflowResizing: false
     }
   },
   computed: {
@@ -236,6 +271,9 @@ export default {
     this.isClosing = true  // 标记页面正在关闭
     if (this.autoSaveTimer) clearInterval(this.autoSaveTimer)
     window.removeEventListener('beforeunload', this._beforeUnload)
+    // 清理南区拖拽监听
+    document.removeEventListener('mousemove', this.handleWorkflowResize)
+    document.removeEventListener('mouseup', this.stopWorkflowResize)
   },
   // 路由离开守卫：内容已改未保存 → 弹确认（验收§15）
   beforeRouteLeave(to, from, next) {
@@ -310,7 +348,11 @@ export default {
       }).catch(err => {
         this.$message.error('加载失败：' + (err.message || '网络错误'))
         console.error('[DM加载] 网络异常:', err)
-      }).finally(() => { this.loading = false })
+      }).finally(() => {
+        this.loading = false
+        // 加载完成后检查是否有流程实例
+        this.checkWorkflowExists()
+      })
     },
     setupAutoSave() {
       if (this.autoSaveTimer) clearInterval(this.autoSaveTimer)
@@ -1561,6 +1603,69 @@ export default {
       e.preventDefault()
       e.returnValue = ''
       return ''
+    },
+
+    // ── 流程信息面板 ──────────────────────────────────────────────────────────
+    /**
+     * 检查是否存在流程实例
+     */
+    async checkWorkflowExists() {
+      if (!this.id) return
+
+      try {
+        const res = await getAction('/ietm/workflow/instance/getByFormid', { formid: this.id })
+        // 如果有流程实例，显示流程信息面板
+        this.showWorkflowPanel = res.success && res.result != null
+      } catch (err) {
+        console.warn('[流程信息] 查询流程实例失败:', err)
+        this.showWorkflowPanel = false
+      }
+    },
+
+    /**
+     * 流程状态变化回调
+     * @param {Object} data - 流程变化数据
+     */
+    onWorkflowChange(data) {
+      console.log('[流程信息] 流程状态变化:', data)
+
+      // 如果流程提交处理完成，可能需要重新检查编辑权限
+      if (data && data.submitted) {
+        // TODO: 根据业务需求，判断是否需要切换为只读模式
+        // 例如：当"DM编写"节点处理完成后，切换为浏览模式
+        // this.mode = 'browse'
+        // this.$router.replace({ query: { ...this.$route.query, mode: 'browse' } })
+      }
+    },
+
+    // ── 南区流程信息：折叠/拖高（还原旧 region south split+collapsed）──
+    toggleWorkflowPanel() {
+      this.workflowCollapsed = !this.workflowCollapsed
+    },
+    startWorkflowResize(e) {
+      this.workflowResizing = true
+      this._resizeStartY = e.clientY
+      this._resizeStartH = this.workflowHeight
+      document.body.style.cursor = 'ns-resize'
+      document.body.style.userSelect = 'none'
+      document.addEventListener('mousemove', this.handleWorkflowResize)
+      document.addEventListener('mouseup', this.stopWorkflowResize)
+    },
+    handleWorkflowResize(e) {
+      if (!this.workflowResizing) return
+      // 向上拖增高、向下拖减高
+      const delta = this._resizeStartY - e.clientY
+      const next = this._resizeStartH + delta
+      if (next >= 200 && next <= 600) {
+        this.workflowHeight = next
+      }
+    },
+    stopWorkflowResize() {
+      this.workflowResizing = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', this.handleWorkflowResize)
+      document.removeEventListener('mouseup', this.stopWorkflowResize)
     }
   }
 }
@@ -1575,8 +1680,13 @@ export default {
 
 // 布局占用高度：全局头 59px + 多页签栏 52px + 外层容器上边距 12px = 123px；
 // 再留 12px 底部间距（与两侧 margin 对齐），共 135px，使整页正好落在视口内、无外层滚动条。
-.dm-editor-page { height: calc(100vh - 135px); background: #f0f2f5; }
-.editor-body-spin { height: 100%; }
+.dm-editor-page {
+  height: calc(100vh - 135px);
+  background: #f0f2f5;
+  display: flex;
+  flex-direction: column;
+}
+.editor-body-spin { flex: 1; overflow: hidden; }
 /deep/ .editor-body-spin > .ant-spin-container { height: 100%; }
 .editor-body { display: flex; height: 100%; gap: 8px; padding: 8px; }
 
@@ -1732,4 +1842,52 @@ export default {
 .edge-left  { margin-right: @edge-gap; }
 .edge-right { margin-left:  @edge-gap; }
 .edge-icon  { font-size: 13px; font-weight: bold; line-height: 1; }
+
+/* ── South区域（流程信息面板） ─────────────── */
+.region-south {
+  flex-shrink: 0;
+  border-top: 1px solid @border;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 拖拽分隔条（展开时可拖高） */
+.south-resize-bar {
+  height: 5px;
+  cursor: ns-resize;
+  background: @border;
+  transition: background 0.2s;
+}
+.south-resize-bar:hover  { background: #1890ff; }
+.south-resize-bar:active { background: #096dd9; }
+
+/* 标题栏（点击折叠/展开，还原旧 panel-title '流程信息'） */
+.south-title-bar {
+  flex-shrink: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  background: #fafafa;
+  border-bottom: 1px solid @border;
+  cursor: pointer;
+  user-select: none;
+}
+.region-south--collapsed .south-title-bar {
+  border-bottom: none;
+}
+.south-title {
+  font-weight: bold;
+  color: #2d75cd;
+}
+.south-toggle-icon {
+  color: #999;
+}
+
+/* 面板主体（折叠时 v-show 隐藏；高度由 workflowHeight 控制） */
+.south-body {
+  overflow: auto;
+}
 </style>

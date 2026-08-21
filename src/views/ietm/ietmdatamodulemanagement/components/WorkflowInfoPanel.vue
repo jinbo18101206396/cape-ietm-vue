@@ -2,86 +2,77 @@
   <div class="workflow-info-panel">
     <!-- ═══ center：工具栏 + 节点表 ═══ -->
     <div class="center-region">
-      <!-- 工具栏（还原旧 toolbarWfInstance） -->
+      <!-- 工具栏（还原旧 toolbarWfInstance） - 优化布局 -->
       <div class="wf-toolbar">
-        <span class="wf-legend">{{ legend }}</span>
+        <!-- 左侧：图例 + 刷新 -->
+        <div class="toolbar-section toolbar-left">
+          <span class="wf-legend">{{ legend }}</span>
+          <a-button type="link" size="small" icon="reload" @click="refreshAll">刷新</a-button>
+        </div>
 
-        <a-button type="link" size="small" icon="reload" @click="refreshAll">刷新</a-button>
+        <!-- 中间：节点操作按钮组 -->
+        <div class="toolbar-section toolbar-center" v-if="canEditNodes">
+          <a-button-group size="small">
+            <a-button type="link" icon="plus" @click="handleInsertNode">新增节点</a-button>
+            <!-- 🔧 Issue-3修复: 添加禁用状态，未选中或选中节点不可删时禁用 -->
+            <a-button type="link" icon="delete" :disabled="!canDeleteSelectedNode" @click="handleDeleteNode">删除节点</a-button>
+            <a-button type="link" icon="save" @click="handleSaveNodes">保存节点</a-button>
+          </a-button-group>
+        </div>
 
-        <!-- 新增节点（还原旧"增加节点"，仅编辑态且流程未结束） -->
-        <a-button
-          v-if="canEditNodes"
-          type="link"
-          size="small"
-          icon="plus"
-          @click="handleInsertNode"
-        >新增节点</a-button>
+        <!-- 右侧：状态控制 -->
+        <div class="toolbar-section toolbar-right">
+          <!-- 紧急程度（还原旧 ifurgent 下拉，即时 updateUrgent） -->
+          <span class="wf-urgent" v-if="instance">
+            <label class="urgent-label">紧急程度：</label>
+            <a-select
+              :value="urgent"
+              size="small"
+              style="width: 96px"
+              :disabled="instOver"
+              @change="handleUrgentChange"
+            >
+              <a-select-option value="1">一般</a-select-option>
+              <a-select-option value="2">★紧急</a-select-option>
+              <a-select-option value="3">★★特急</a-select-option>
+            </a-select>
+          </span>
 
-        <!-- 删除节点（还原旧"刪除节点"） -->
-        <!-- 🔧 Issue-3修复: 添加禁用状态，未选中或选中节点不可删时禁用 -->
-        <a-button
-          v-if="canEditNodes"
-          type="link"
-          size="small"
-          icon="delete"
-          :disabled="!canDeleteSelectedNode"
-          @click="handleDeleteNode"
-        >删除节点</a-button>
-
-        <!-- 保存节点（还原旧"保存节点"） -->
-        <a-button
-          v-if="canEditNodes"
-          type="link"
-          size="small"
-          icon="save"
-          @click="handleSaveNodes"
-        >保存节点</a-button>
-
-        <!-- 紧急程度（还原旧 ifurgent 下拉，即时 updateUrgent） -->
-        <span class="wf-urgent" v-if="instance">
-          <a-select
-            :value="urgent"
+          <!-- 拿回（还原旧 tdGetback）：选中自己已通过的节点，流程未结束时可用 -->
+          <!-- P2-3: 动态检测是否有可拿回的节点 -->
+          <!-- 🔧 Issue-4优化: 添加禁用状态，未选中或选中节点不可拿回时禁用 -->
+          <a-button
+            v-if="hasGetbackNode"
+            type="link"
             size="small"
-            style="width: 96px"
-            :disabled="instOver"
-            @change="handleUrgentChange"
-          >
-            <a-select-option value="1">一般</a-select-option>
-            <a-select-option value="2">★紧急</a-select-option>
-            <a-select-option value="3">★★特急</a-select-option>
-          </a-select>
-        </span>
+            icon="rollback"
+            :disabled="!canTakeBackSelected"
+            @click="handleTakeBack"
+          >拿回</a-button>
+        </div>
+      </div>
 
-        <!-- 追加意见（还原旧 tdAddopinion）：选中已处理节点可追加，流程未结束时可用 -->
-        <!-- 🔧 Issue-4修复: 改用 hasAddOpinionableNode 条件，只有存在可追加意见的节点时才显示 -->
-        <span class="wf-addopinion" v-if="hasAddOpinionableNode">
-          <a-input
-            v-model="addOpinionText"
-            size="small"
-            placeholder="追加意见（选中已处理节点）"
-            style="width: 220px"
-            :maxLength="500"
-          />
-          <a-button type="link" size="small" icon="save" @click="handleAddOpinion">保存意见</a-button>
-        </span>
-
-        <!-- 拿回（还原旧 tdGetback）：选中自己已通过的节点，流程未结束时可用 -->
-        <!-- P2-3: 动态检测是否有可拿回的节点 -->
-        <!-- 🔧 Issue-4优化: 添加禁用状态，未选中或选中节点不可拿回时禁用 -->
-        <a-button
-          v-if="hasGetbackNode"
-          type="link"
+      <!-- 追加意见独立行（还原旧 tdAddopinion）：选中已处理节点可追加，流程未结束时可用 -->
+      <!-- 🔧 Issue-4修复: 改用 hasAddOpinionableNode 条件，只有存在可追加意见的节点时才显示 -->
+      <div class="wf-addopinion-bar" v-if="hasAddOpinionableNode">
+        <label class="opinion-label">追加意见：</label>
+        <a-textarea
+          v-model="addOpinionText"
           size="small"
-          icon="rollback"
-          :disabled="!canTakeBackSelected"
-          @click="handleTakeBack"
-        >拿回</a-button>
+          placeholder="选中已处理节点后，可在此追加意见（最多500字）"
+          :rows="1"
+          style="flex: 1; max-width: 600px"
+          :maxLength="500"
+          show-count
+        />
+        <a-button type="primary" size="small" icon="save" @click="handleAddOpinion">保存意见</a-button>
       </div>
 
       <!-- 🔧 Issue-1修复: 分阶段规则说明（独立一行，增强视觉分离） -->
+      <!-- 🟡 L2修复: 文案优化，补充"下阶段无节点时"限定（对齐旧系统 Line 48） -->
       <div class="wf-stage-tip" v-if="existStage">
         <a-icon type="info-circle" />
-        分阶段流程规则：各阶段首位处理人可维护本阶段节点、编辑下阶段首节点、增加下阶段节点
+        分阶段流程规则：当流程分阶段时，每个阶段的第一个人可维护本阶段节点、编辑下阶段第一个节点、下阶段无节点时可增加下阶段节点
       </div>
 
       <!-- 节点表 -->
@@ -93,6 +84,10 @@
           :todo-dtl-id="todoDtlId"
           :readonly="readonly"
           :can-edit-nodes="canEditNodes"
+          :stage-users="stageUsers"
+          :stage-execution-status="stageExecutionStatus"
+          :current-user-stage="currentUserStage"
+          :is-stage-leader="isStageLeader"
           @select="handleNodeSelect"
           @nodes-loaded="handleNodesLoaded"
           @before-insert-node="(e) => $emit('before-insert-node', e)"
@@ -104,19 +99,28 @@
 
     <!-- ═══ south：常驻处理表单（还原旧 execform）═══ -->
     <div class="south-region" v-if="showExecForm">
-      <div class="exec-legend">{{ execLegend }}</div>
+      <div class="exec-header">
+        <div class="exec-legend">{{ execLegend }}</div>
+        <span v-if="isLastTodo" class="last-node-note">
+          <a-icon type="warning" />
+          当前处理节点是最后一个节点。提交处理后本流程将结束，并且不能修改。
+        </span>
+      </div>
+
       <div class="exec-body">
-        <div class="exec-row">
-          <a-radio-group v-model="form.ifpass" @change="onIfpassChange">
+        <!-- 第一行：处理选项 -->
+        <div class="exec-row exec-options-row">
+          <label class="exec-label">处理选项：</label>
+          <a-radio-group v-model="form.ifpass" @change="onIfpassChange" class="exec-radio-group">
             <a-radio value="1">通过</a-radio>
             <a-radio value="2">发表不同意见</a-radio>
             <a-radio value="9">流程终止</a-radio>
-            <a-radio value="3">跳转：</a-radio>
+            <a-radio value="3">跳转至</a-radio>
           </a-radio-group>
           <a-select
             :value="form.targetDtlid"
             size="small"
-            style="width: 180px"
+            style="width: 200px"
             placeholder="请选择要跳转的节点"
             :disabled="form.ifpass !== '3'"
             @change="v => form.targetDtlid = v"
@@ -127,31 +131,34 @@
               :value="n.id"
             >{{ n.nodename }}</a-select-option>
           </a-select>
-          <span v-if="isLastTodo" class="last-node-note">
-            【当前处理节点是最后一个节点。提交处理后本流程将结束，并且不能修改。】
-          </span>
         </div>
-        <div class="exec-row">
-          <span class="exec-label">意见:</span>
+
+        <!-- 第二行：意见 + 附件 + 提交 -->
+        <div class="exec-row exec-submit-row">
+          <label class="exec-label">处理意见：</label>
           <a-textarea
             v-model="form.opinion"
-            :rows="1"
+            placeholder="请填写处理意见（最多500字）"
+            :rows="2"
             :maxLength="500"
-            style="width: 60%"
+            show-count
+            class="exec-textarea"
           />
-          <a-upload
-            :file-list="fileList"
-            :before-upload="beforeUpload"
-            @remove="handleFileRemove"
-          >
-            <a-button size="small" icon="upload">附件</a-button>
-          </a-upload>
-          <a-button
-            type="primary"
-            size="small"
-            :loading="submitting"
-            @click="handleSubmit"
-          >提交处理</a-button>
+          <div class="exec-actions">
+            <a-upload
+              :file-list="fileList"
+              :before-upload="beforeUpload"
+              @remove="handleFileRemove"
+            >
+              <a-button size="small" icon="upload">附件</a-button>
+            </a-upload>
+            <a-button
+              type="primary"
+              size="small"
+              :loading="submitting"
+              @click="handleSubmit"
+            >提交处理</a-button>
+          </div>
         </div>
       </div>
     </div>
@@ -202,7 +209,12 @@ export default {
         opinion: ''
       },
       fileList: [],
-      submitting: false
+      submitting: false,
+
+      // 🔧 优化1：缓存分阶段计算结果，避免重复计算
+      _stageUsersCache: null,
+      _stageStatusCache: null,
+      _nodesVersion: 0 // 节点版本号，用于缓存失效
     }
   },
   computed: {
@@ -308,26 +320,17 @@ export default {
     },
     // P2-3: 是否有可拿回的节点（还原旧系统拿回按钮动态显隐逻辑）
     // 检查是否存在自己已通过（ifexec=Y）且是自己处理的节点
+    // 🔧 优化2：使用提取的方法简化判断
     hasGetbackNode() {
       if (this.instOver || !this.nodes || this.nodes.length === 0) return false
-      const userInfo = this.$store.getters.userInfo
-      const currentUserId = userInfo ? userInfo.id : ''
-      const currentUsername = userInfo ? userInfo.username : ''
-      return this.nodes.some(node => {
-        if (node.ifexec !== 'Y') return false
-        const userids = (node.userid || '').split(',')
-        return userids.includes(currentUserId) || userids.includes(currentUsername)
-      })
+      return this.nodes.some(node => node.ifexec === 'Y' && this.isCurrentUserNode(node))
     },
     // 🔧 Issue-4修复: 是否有可追加意见的节点
     // 只有存在【已处理】且【非创建节点】且【处理人为自己】的节点时才显示"保存意见"按钮
+    // 🔧 优化2：使用提取的方法简化判断
     hasAddOpinionableNode() {
       if (!this.instance || this.instOver) return false
       if (!this.nodes || this.nodes.length === 0) return false
-
-      const userInfo = this.$store.getters.userInfo
-      const currentUserId = userInfo ? userInfo.id : ''
-      const currentUsername = userInfo ? userInfo.username : ''
 
       return this.nodes.some(node => {
         // 必须已处理
@@ -335,8 +338,7 @@ export default {
         // 不能是创建节点
         if (node.seqno === 0 || node.seqno === '0') return false
         // 必须是自己处理的
-        const userids = (node.userid || '').split(',')
-        return userids.includes(currentUserId) || userids.includes(currentUsername)
+        return this.isCurrentUserNode(node)
       })
     },
     // 🔧 Issue-3修复: 当前选中节点是否可删除（工具栏按钮禁用状态）
@@ -356,12 +358,104 @@ export default {
       }
       return true
     },
-    // 🔧 Issue-4优化: 当前选中节点是否可拿回（拿回按钮禁用状态）
+    // 🔧 优化2：使用提取的方法简化判断
     canTakeBackSelected() {
       if (!this.selectedNode) return false
       if (this.selectedNode.ifexec !== 'Y') return false
-      const userids = (this.selectedNode.userid || '').split(',')
-      return userids.includes(this.currentUserId) || userids.includes(this.currentUsername)
+      return this.isCurrentUserNode(this.selectedNode)
+    },
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🔴 B1修复: 分阶段权限逻辑（对齐旧系统 Line 178-268）
+    // 🔧 优化1：添加缓存机制，避免重复计算
+    // ═══════════════════════════════════════════════════════════════
+
+    // 各阶段的第一处理人 [{stage: '0', user: 'xxx', seqno: 1}, ...]
+    stageUsers() {
+      if (!this.existStage || !this.nodes || this.nodes.length === 0) return []
+
+      // 缓存机制：nodes 未变化时复用缓存
+      if (this._stageUsersCache && this._nodesVersion === this.nodes.length) {
+        return this._stageUsersCache
+      }
+
+      const users = []
+      const seen = new Set()
+
+      this.nodes.forEach(node => {
+        const stage = node.stagename
+        if (stage != null && stage !== '' && !seen.has(stage)) {
+          seen.add(stage)
+          users.push({
+            stage: stage,
+            user: node.userid,
+            seqno: node.seqno
+          })
+        }
+      })
+
+      // 按阶段排序
+      const sorted = users.sort((a, b) => {
+        const stageA = parseInt(a.stage) || 0
+        const stageB = parseInt(b.stage) || 0
+        return stageA - stageB
+      })
+
+      // 更新缓存
+      this._stageUsersCache = sorted
+      return sorted
+    },
+
+    // 各阶段的执行状态 [{stage: '0', ifexec: 'N'/'Y'}, ...]
+    stageExecutionStatus() {
+      if (!this.existStage || !this.nodes || this.nodes.length === 0) return []
+
+      // 缓存机制：nodes 未变化时复用缓存
+      if (this._stageStatusCache && this._nodesVersion === this.nodes.length) {
+        return this._stageStatusCache
+      }
+
+      const status = []
+      const stages = new Set(this.nodes.map(n => n.stagename).filter(s => s != null && s !== ''))
+
+      stages.forEach(stage => {
+        const stageNodes = this.nodes.filter(n => n.stagename === stage)
+        const allExecuted = stageNodes.length > 0 && stageNodes.every(n => n.ifexec === 'Y')
+        status.push({
+          stage: stage,
+          ifexec: allExecuted ? 'Y' : 'N'
+        })
+      })
+
+      // 更新缓存
+      this._stageStatusCache = status
+      return status
+    },
+
+    // 当前用户所在阶段
+    currentUserStage() {
+      if (!this.existStage || this.stageUsers.length === 0) return null
+
+      const found = this.stageUsers.find(s => {
+        if (!s.user) return false
+        const users = s.user.split(',').map(u => u.trim()).filter(u => u)
+        return users.includes(this.currentUserId) || users.includes(this.currentUsername)
+      })
+
+      return found ? found.stage : null
+    },
+
+    // 当前用户是否是某阶段的第一处理人
+    isStageLeader() {
+      return this.currentUserStage != null
+    },
+
+    // 当前阶段是否已结束
+    isCurrentStageFinished() {
+      if (!this.existStage || !this.currentUserStage) return false
+
+      const status = this.stageExecutionStatus.find(s => s.stage === this.currentUserStage)
+      return status ? status.ifexec === 'Y' : false
     }
   },
   watch: {
@@ -378,6 +472,13 @@ export default {
     }
   },
   methods: {
+    // 🔧 优化2：提取处理人检查逻辑，避免重复代码
+    isCurrentUserNode(node) {
+      if (!node || !node.userid) return false
+      const userids = node.userid.split(',').map(u => u.trim()).filter(u => u)
+      return userids.includes(this.currentUserId) || userids.includes(this.currentUsername)
+    },
+
     // P3-1: 钩子命名兼容（同时支持kebab-case和驼峰命名）
     // 旧系统使用驼峰命名（parent.beforeInsertnode），新系统使用kebab-case（@before-insert-node）
     emitCompat(kebabName, camelName, payload) {
@@ -425,6 +526,10 @@ export default {
 
     handleNodesLoaded(nodes) {
       this.nodes = nodes || []
+      // 🔧 优化1：节点变化时清空缓存
+      this._nodesVersion = this.nodes.length
+      this._stageUsersCache = null
+      this._stageStatusCache = null
     },
 
     // 新增节点（转调子表）
@@ -439,8 +544,16 @@ export default {
         this.$message.warning('请选择一个要删除的节点')
         return
       }
-      // 直接调用子表的 deleteRow，该方法包含完整的校验逻辑
-      this.$refs.dtlTable && this.$refs.dtlTable.deleteRow(this.selectedNode)
+
+      // 🟠 I1修复：删除确认文案优化，包含警告和节点名称（对齐旧系统 Line 1020）
+      this.$confirm({
+        title: '提示',
+        content: `删除的数据不能恢复，确定删除节点【${this.selectedNode.nodename || ''}】？`,
+        onOk: () => {
+          // 调用子表的 deleteRow，该方法包含完整的校验逻辑
+          this.$refs.dtlTable && this.$refs.dtlTable.deleteRow(this.selectedNode)
+        }
+      })
     },
 
     // 保存节点（还原旧 savenode）
@@ -489,10 +602,8 @@ export default {
       }
 
       // ✅ P1-2: 检查处理人为自己（对齐旧系统 Line 1369-1373）
-      const userid = this.selectedNode.userid || ''
-      const userids = userid.split(',').map(u => u.trim()).filter(u => u)
-      const isMyNode = userids.includes(this.currentUserId) || userids.includes(this.currentUsername)
-      if (!isMyNode) {
+      // 🔧 优化2：使用提取的方法
+      if (!this.isCurrentUserNode(this.selectedNode)) {
         this.$message.warning('请选择一个处理人为自己的节点！')
         return
       }
@@ -538,9 +649,8 @@ export default {
       }
 
       // P2修复：检查是否为自己处理的节点
-      const userids = (this.selectedNode.userid || '').split(',')
-      const isMyNode = userids.includes(this.currentUserId) || userids.includes(this.currentUsername)
-      if (!isMyNode) {
+      // 🔧 优化2：使用提取的方法
+      if (!this.isCurrentUserNode(this.selectedNode)) {
         this.$message.warning('只能拿回自己处理的节点！')
         return
       }
@@ -765,7 +875,9 @@ export default {
   background: #fff;
 }
 
-/* center：工具栏 + 节点表 */
+/* ═══════════════════════════════════════════════════════════════
+   center：工具栏 + 节点表
+   ═══════════════════════════════════════════════════════════════ */
 .center-region {
   flex: 1;
   display: flex;
@@ -773,39 +885,82 @@ export default {
   overflow: hidden;
 }
 
+/* 工具栏 - 三段式布局 */
 .wf-toolbar {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 6px 12px;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 16px;
   background: #fafafa;
   border-bottom: 1px solid #e8e8e8;
+  min-height: 40px;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-left {
+  flex-shrink: 0;
+}
+
+.toolbar-center {
+  flex: 1;
+  justify-content: center;
+}
+
+.toolbar-right {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .wf-legend {
   font-weight: bold;
-  color: #2d75cd;
-  margin-right: 8px;
+  color: #1890ff;
+  font-size: 14px;
 }
 
-.wf-urgent,
-.wf-addopinion {
+.wf-urgent {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+}
+
+.urgent-label {
+  font-size: 13px;
+  color: #666;
+}
+
+/* 追加意见独立栏 */
+.wf-addopinion-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: #fffbe6;
+  border-bottom: 1px solid #ffe58f;
+}
+
+.opinion-label {
+  font-size: 13px;
+  color: #666;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* 🔧 Issue-1修复: 分阶段规则独立说明栏样式 */
 .wf-stage-tip {
-  padding: 6px 12px;
+  padding: 8px 16px;
   background: #e6f7ff;
   border-bottom: 1px solid #91d5ff;
   color: #0050b3;
   font-size: 12px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .wf-table-wrap {
@@ -813,39 +968,103 @@ export default {
   overflow: auto;
 }
 
-/* south：常驻处理表单（还原旧 execform，height:90px 量级） */
+/* ═══════════════════════════════════════════════════════════════
+   south：常驻处理表单（还原旧 execform）
+   ═══════════════════════════════════════════════════════════════ */
 .south-region {
-  border-top: 1px solid #e8e8e8;
-  background: #fff;
-  padding: 6px 12px;
+  border-top: 2px solid #1890ff;
+  background: #f5f5f5;
+  padding: 12px 16px;
+}
+
+.exec-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #d9d9d9;
 }
 
 .exec-legend {
   font-weight: bold;
-  color: #2d75cd;
-  margin-bottom: 4px;
+  color: #1890ff;
+  font-size: 14px;
+}
+
+.last-node-note {
+  color: #ff4d4f;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .exec-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 12px;
 }
 
 .exec-row {
   display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.exec-options-row {
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+}
+
+.exec-submit-row {
+  align-items: flex-start;
 }
 
 .exec-label {
-  font-weight: bold;
-  text-align: right;
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 70px;
+  line-height: 32px;
 }
 
-.last-node-note {
-  color: red;
-  font-size: 12px;
+.exec-radio-group {
+  display: flex;
+  gap: 16px;
+}
+
+.exec-textarea {
+  flex: 1;
+  max-width: 600px;
+}
+
+.exec-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 响应式优化 */
+@media (max-width: 1200px) {
+  .toolbar-center {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .wf-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-section {
+    justify-content: flex-start;
+  }
+
+  .toolbar-right {
+    margin-left: 0;
+  }
 }
 </style>

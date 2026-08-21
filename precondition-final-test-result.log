@@ -1,4 +1,0 @@
-
-Running 4 tests using 1 worker
-
-  x  1 [chromium] › tests\e2e\precondition-final-verification.spec.js:18:3 › 前置条件修复 - 最终UI验证 › P0: 完整签出流程 - 验证工作流前置条件 (14.2s)
