@@ -18,8 +18,10 @@
           <a-button type="link" size="small" icon="save" @click="handleSaveNodes">保存</a-button>
         </template>
 
-        <!-- 右侧控制 -->
-        <div class="toolbar-right">
+        <!-- 紧急程度和拿回按钮 -->
+        <template v-if="instance || hasGetbackNode">
+          <a-divider type="vertical" />
+
           <a-select
             v-if="instance"
             :value="urgent"
@@ -41,7 +43,7 @@
             :disabled="!canTakeBackSelected"
             @click="handleTakeBack"
           >拿回</a-button>
-        </div>
+        </template>
       </div>
 
       <!-- 追加意见 -->
@@ -55,12 +57,6 @@
           show-count
         />
         <a-button type="primary" size="small" @click="handleAddOpinion">保存</a-button>
-      </div>
-
-      <!-- 分阶段提示 -->
-      <div class="wf-stage-tip" v-if="existStage">
-        <a-icon type="info-circle" />
-        分阶段规则：各阶段第一人可维护本阶段节点、编辑下阶段第一节点、下阶段无节点时可增加节点
       </div>
 
       <!-- 节点表 -->
@@ -864,6 +860,7 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0; /* 允许flex子元素正确收缩 */
 }
 
 /* 工具栏 - 简洁单行布局 */
@@ -875,6 +872,7 @@ export default {
   background: #fafafa;
   border-bottom: 1px solid #e8e8e8;
   min-height: 36px;
+  flex-shrink: 0; /* 工具栏不收缩 */
 }
 
 .wf-legend {
@@ -898,6 +896,7 @@ export default {
   padding: 6px 12px;
   background: #fffbe6;
   border-bottom: 1px solid #ffe58f;
+  flex-shrink: 0; /* 追加意见栏不收缩 */
 }
 
 /* 分阶段提示 - 简化文案 */
@@ -910,11 +909,13 @@ export default {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0; /* 提示栏不收缩 */
 }
 
 .wf-table-wrap {
   flex: 1;
   overflow: auto;
+  min-height: 500px; /* 增大最小高度，确保列表完全展示 */
 }
 
 /* ═══ 处理表单 ═══ */
@@ -922,6 +923,8 @@ export default {
   border-top: 1px solid #d9d9d9;
   background: #fafafa;
   padding: 8px 12px;
+  flex-shrink: 0; /* 处理表单不收缩 */
+  max-height: 150px; /* 限制处理表单最大高度，给列表更多空间 */
 }
 
 .exec-header {
