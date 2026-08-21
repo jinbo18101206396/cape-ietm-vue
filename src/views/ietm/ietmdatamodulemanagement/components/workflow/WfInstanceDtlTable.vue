@@ -21,8 +21,13 @@
     >
       <!-- 处理人（编辑态用 JSelectUserByDep） -->
       <template #useridname="text, record">
+        <!-- 🔧 新增节点：显示当前用户，不可修改 -->
+        <span v-if="isEditing(record) && record._isNew" class="new-node-user">
+          {{ record.useridname || '当前用户' }}
+        </span>
+        <!-- 编辑已有节点：正常选择器 -->
         <j-select-user-by-dep
-          v-if="isEditing(record)"
+          v-else-if="isEditing(record)"
           :value="record.userid"
           :multi="true"
           placeholder="选择处理人"
@@ -303,6 +308,17 @@ export default {
         this.$message.warning('请先确定或取消当前编辑的节点')
         return
       }
+
+      // 🔧 新需求：新增节点时自动填充当前用户
+      const userInfo = this.$store.getters.userInfo
+      const currentUserId = userInfo ? userInfo.id : ''
+      const currentUsername = userInfo ? (userInfo.realname || userInfo.username) : ''
+
+      if (!currentUserId) {
+        this.$message.error('无法获取当前用户信息')
+        return
+      }
+
       const nextSeq = this.dataSource.length > 0
         ? Math.max(...this.dataSource.map(r => Number(r.seqno) || 0)) + 1
         : 0
@@ -312,8 +328,8 @@ export default {
         seqno: nextSeq,
         nodename: '',
         nodetype: '1',
-        userid: '',
-        useridname: '',
+        userid: currentUserId,        // 🔧 自动填充当前用户ID
+        useridname: currentUsername,  // 🔧 自动填充当前用户名
         ifexec: 'N',
         // 🟠 遗漏16修复：补充新增节点的默认字段
         ifgetback: '', // 默认不限制跳转
@@ -714,5 +730,11 @@ export default {
 /* 待办行高亮（还原旧 msgBg2 效果） */
 ::v-deep .wf-row-todo > td {
   background: #fffbe6;
+}
+
+/* 🔧 新增节点的当前用户显示样式 */
+.new-node-user {
+  color: #1890ff;
+  font-weight: 500;
 }
 </style>
