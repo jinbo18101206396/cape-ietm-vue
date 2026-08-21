@@ -15,7 +15,7 @@
       :row-class-name="rowClassName"
       :pagination="false"
       :loading="loading"
-      :scroll="{ x: 1200 }"
+      :scroll="{ x: 'max-content' }"
       size="small"
       bordered
       @row-dblclick="handleRowDblClick"
@@ -62,24 +62,6 @@
         <span v-else>{{ record.seqno }}</span>
       </template>
 
-      <!-- 阶段（从主表 stagenames 提取） -->
-      <!-- 🔴 B1修复: 编辑态支持阶段选择（对齐旧系统 Line 704-733） -->
-      <template #stagename="text, record">
-        <a-select
-          v-if="isEditing(record) && existStage && isStageLeader"
-          v-model="record.stagename"
-          size="small"
-          style="width: 100px"
-        >
-          <a-select-option
-            v-for="option in getStageOptions()"
-            :key="option.value"
-            :value="option.value"
-          >{{ option.text }}</a-select-option>
-        </a-select>
-        <span v-else>{{ formatStagename(text) }}</span>
-      </template>
-
       <!-- 处理方式（编辑态用 a-select，否则字典文本） -->
       <template #nodetype="text, record">
         <a-select
@@ -95,7 +77,43 @@
         <span v-else>{{ getNodetypeText(text) }}</span>
       </template>
 
-      <!-- 操作列（编辑模式：编辑/删除 或 保存/取消） -->
+      <!-- 🔴 问题2修复：阶段（编辑态用 a-select） -->
+      <template #stagename="text, record">
+        <a-select
+          v-if="isEditing(record) && existStage"
+          v-model="record.stagename"
+          size="small"
+          style="width: 100%"
+        >
+          <a-select-option v-for="opt in getStageOptions()" :key="opt.value" :value="opt.value">
+            {{ opt.text }}
+          </a-select-option>
+        </a-select>
+        <span v-else>{{ formatStagename(text) }}</span>
+      </template>
+
+      <!-- 🔴 问题5.2修复：可跳转节点（编辑态用 a-select 多选，使用特殊标记） -->
+      <template #ifgetback="text, record">
+        <a-select
+          v-if="isEditing(record)"
+          :value="parseIfgetback(record.ifgetback)"
+          size="small"
+          mode="multiple"
+          style="width: 100%"
+          placeholder="选择可跳转节点"
+          @change="onIfgetbackChange(record, $event)"
+        >
+          <a-select-option value="__UNLIMITED__">《不限制》</a-select-option>
+          <a-select-option value="__NO_JUMP__">《不可跳转》</a-select-option>
+          <a-select-option value="0">《创建》</a-select-option>
+          <a-select-option v-for="node in getJumpableNodes(record)" :key="node.id" :value="node.id">
+            {{ node.nodename }}
+          </a-select-option>
+        </a-select>
+        <span v-else>{{ formatGetback(text) }}</span>
+      </template>
+
+      <!-- 操作列（编辑模式：确定/取消 或 编辑；🔴 问题3修复：去除行内删除按钮，与旧系统一致） -->
       <template #action="text, record">
         <template v-if="isEditing(record)">
           <a @click="commitRow(record)">确定</a>
@@ -104,14 +122,7 @@
         </template>
         <template v-else>
           <a :class="{ 'link-disabled': !canRowEdit(record) }" @click="startEditRow(record)">编辑</a>
-          <a-divider type="vertical" />
-          <a :class="{ 'link-disabled': !canRowEdit(record) }" @click="deleteRow(record)">删除</a>
         </template>
-      </template>
-
-      <!-- 可跳转节点 -->
-      <template #ifgetback="text">
-        {{ formatGetback(text) }}
       </template>
 
       <!-- 已处理 -->
@@ -123,20 +134,6 @@
       <template #exec="text, record">
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div class="exec-cell" v-html="renderExec(record.id)"></div>
-      </template>
-
-      <!-- 文件（附件下载链接，还原旧 filename 列） -->
-      <template #filename="text, record">
-        <span v-if="fileLinks(record.id).length === 0">-</span>
-        <template v-else>
-          <a
-            v-for="f in fileLinks(record.id)"
-            :key="f.id"
-            class="file-link"
-            :title="f.filename"
-            @click="downloadAttachment(f.id, f.filename)"
-          >{{ f.filename }}</a>
-        </template>
       </template>
     </a-table>
   </div>
@@ -218,29 +215,107 @@ export default {
     },
     columns() {
       const cols = [
-        // 🟠 遗漏3修复：添加序号列
-        { title: '序号', key: 'index', width: 60, align: 'center', customRender: (text, record, index) => index + 1 },
-        { title: '处理人', dataIndex: 'useridname', key: 'useridname', width: 140, align: 'center', scopedSlots: { customRender: 'useridname' } },
-        { title: '阶段', dataIndex: 'stagename', key: 'stagename', width: 80, align: 'center', scopedSlots: { customRender: 'stagename' } },
-        { title: '节点名称', dataIndex: 'nodename', key: 'nodename', width: 130, align: 'center', ellipsis: true },
-        { title: '顺序号', dataIndex: 'seqno', key: 'seqno', width: 60, align: 'center' },
-        { title: '处理方式', dataIndex: 'nodetype', key: 'nodetype', width: 90, align: 'center', scopedSlots: { customRender: 'nodetype' } },
-        { title: '可跳转节点', dataIndex: 'ifgetback', key: 'ifgetback', width: 110, align: 'center', scopedSlots: { customRender: 'ifgetback' } },
-        { title: '已处理', dataIndex: 'ifexec', key: 'ifexec', width: 60, align: 'center', scopedSlots: { customRender: 'ifexec' } },
-        { title: '处理情况', dataIndex: 'exec', key: 'exec', width: 320, align: 'left', scopedSlots: { customRender: 'exec' } },
-        { title: '文件', dataIndex: 'filename', key: 'filename', width: 120, align: 'center', scopedSlots: { customRender: 'filename' } }
+        // 序号
+        {
+          title: '序号',
+          key: 'index',
+          width: 60,
+          align: 'center',
+          customRender: (text, record, index) => index + 1
+        },
+        // 处理人
+        {
+          title: '处理人',
+          dataIndex: 'useridname',
+          key: 'useridname',
+          width: 130,
+          align: 'center',
+          ellipsis: true,
+          scopedSlots: { customRender: 'useridname' }
+        },
+        // 节点名称
+        {
+          title: '节点名称',
+          dataIndex: 'nodename',
+          key: 'nodename',
+          width: 140,
+          align: 'center',
+          ellipsis: true,
+          scopedSlots: { customRender: 'nodename' }
+        },
+        // 顺序
+        {
+          title: '顺序',
+          dataIndex: 'seqno',
+          key: 'seqno',
+          width: 70,
+          align: 'center',
+          scopedSlots: { customRender: 'seqno' }
+        }
       ]
-      // 操作列仅可编辑时显示
-      if (this.canEditNodes) {
-        cols.push({ title: '操作', key: 'action', width: 120, align: 'center', fixed: 'right', scopedSlots: { customRender: 'action' } })
+
+      // P2-UI-02修复：阶段列动态显隐（仅分阶段时显示）
+      if (this.existStage) {
+        cols.push({
+          title: '阶段',
+          dataIndex: 'stagename',
+          key: 'stagename',
+          width: 80,
+          align: 'center',
+          scopedSlots: { customRender: 'stagename' }
+        })
       }
-      // 节点名称/顺序号/处理方式改用编辑态插槽
-      cols.forEach(c => {
-        if (c.key === 'nodename') c.scopedSlots = { customRender: 'nodename' }
-        if (c.key === 'seqno') c.scopedSlots = { customRender: 'seqno' }
-      })
-      // 阶段列仅分阶段时显示（还原旧 showColumn/hideColumn stagename）
-      return this.existStage ? cols : cols.filter(c => c.key !== 'stagename')
+
+      // 继续添加后续列
+      cols.push(
+        // 处理方式
+        {
+          title: '处理方式',
+          dataIndex: 'nodetype',
+          key: 'nodetype',
+          width: 100,
+          align: 'center',
+          scopedSlots: { customRender: 'nodetype' }
+        },
+        // 可跳转节点
+        {
+          title: '可跳转节点',
+          dataIndex: 'ifgetback',
+          key: 'ifgetback',
+          width: 130,
+          align: 'center',
+          ellipsis: true,
+          scopedSlots: { customRender: 'ifgetback' }
+        },
+        // 状态
+        {
+          title: '状态',
+          dataIndex: 'ifexec',
+          key: 'ifexec',
+          width: 80,
+          align: 'center',
+          scopedSlots: { customRender: 'ifexec' }
+        },
+        // 处理情况（🔴 问题1修复：内容左对齐，表头居中）
+        {
+          title: '处理情况',
+          dataIndex: 'exec',
+          key: 'exec',
+          minWidth: 300,
+          align: 'left',
+          scopedSlots: { customRender: 'exec' }
+        },
+        // 操作列
+        {
+          title: '操作',
+          key: 'action',
+          width: 110,
+          align: 'center',
+          scopedSlots: { customRender: 'action' }
+        }
+      )
+
+      return cols
     },
     rowSelection() {
       return {
@@ -266,6 +341,22 @@ export default {
           this.selectedRowKeys = []
         }
       }
+    }
+  },
+  mounted() {
+    // P2-UI-01修复：绑定附件下载事件
+    this.bindDownloadEvents()
+  },
+  updated() {
+    // P2-UI-01修复：数据更新后重新绑定附件下载事件
+    this.$nextTick(() => {
+      this.bindDownloadEvents()
+    })
+  },
+  beforeDestroy() {
+    // 清理事件监听器
+    if (this.$el) {
+      this.$el.removeEventListener('click', this.handleDownloadClick)
     }
   },
   methods: {
@@ -387,8 +478,8 @@ export default {
         seqno: nextSeq,
         nodename: '',
         nodetype: '1',
-        userid: currentUserId,        // 🔧 自动填充当前用户ID
-        useridname: currentUsername,  // 🔧 自动填充当前用户名
+        userid: currentUserId, // 🔧 自动填充当前用户ID
+        useridname: currentUsername, // 🔧 自动填充当前用户名
         ifexec: 'N',
         // 🟠 遗漏16修复：补充新增节点的默认字段
         ifgetback: '', // 默认不限制跳转
@@ -453,6 +544,50 @@ export default {
       if (Array.isArray(info)) {
         record.useridname = info.map(i => i.text).join(',')
       }
+    },
+
+    // 🔴 问题5.2修复：可跳转节点变更处理
+    onIfgetbackChange(record, value) {
+      if (!Array.isArray(value) || value.length === 0) {
+        record.ifgetback = ''
+        return
+      }
+
+      // 特殊值处理
+      const UNLIMITED = '__UNLIMITED__'
+      const NO_JUMP = '__NO_JUMP__'
+
+      if (value.includes(UNLIMITED)) {
+        record.ifgetback = ''
+      } else if (value.includes(NO_JUMP)) {
+        record.ifgetback = '-1'
+      } else {
+        // 过滤掉特殊标记，只保留实际节点ID
+        const nodeIds = value.filter(v => v !== UNLIMITED && v !== NO_JUMP)
+        record.ifgetback = nodeIds.join(',')
+      }
+    },
+
+    // 🔴 问题5.2修复：解析ifgetback字符串为数组（供a-select多选显示）
+    parseIfgetback(value) {
+      const UNLIMITED = '__UNLIMITED__'
+      const NO_JUMP = '__NO_JUMP__'
+
+      // 空字符串或null表示"不限制"
+      if (!value || value === '') {
+        return [UNLIMITED]
+      }
+      // "-1"表示"不可跳转"
+      if (value === '-1') {
+        return [NO_JUMP]
+      }
+      // 其他情况：逗号分隔的节点ID列表
+      return value.split(',').map(v => v.trim()).filter(v => v)
+    },
+
+    // 🔴 问题2修复：获取可跳转的节点列表（排除当前编辑节点自身）
+    getJumpableNodes(record) {
+      return this.dataSource.filter(n => n.id !== record.id && !n._isNew)
     },
 
     // 🟠 遗漏22修复：检查顺序号唯一性（还原旧系统 Line 1055-1070）
@@ -662,7 +797,44 @@ export default {
           ? '<span style="color:red">' + line + '</span>'
           : line
       })
+
+      // P2-UI-01修复：渲染附件链接（使用data属性存储下载信息）
+      const files = this.fileLinks(dtlid)
+      if (files.length > 0) {
+        const fileHtml = files.map(f => {
+          // 使用data属性存储ID和文件名，避免XSS风险
+          const escapedFilename = this.escapeHtml(f.filename)
+          return `<a class="file-link wf-download-link"
+                     href="javascript:void(0)"
+                     data-file-id="${this.escapeHtml(f.id)}"
+                     data-filename="${escapedFilename}"
+                     title="点击下载：${escapedFilename}">${escapedFilename}</a>`
+        }).join(' ')
+        parts.push('<br/>📎 附件：' + fileHtml)
+      }
+
       return parts.join('<br/>')
+    },
+
+    // P2-UI-01修复：绑定附件下载事件（使用事件委托）
+    bindDownloadEvents() {
+      // 移除旧监听器（避免重复绑定）
+      this.$el.removeEventListener('click', this.handleDownloadClick)
+      // 使用事件委托绑定点击事件
+      this.$el.addEventListener('click', this.handleDownloadClick)
+    },
+
+    handleDownloadClick(e) {
+      const target = e.target
+      if (target.classList.contains('wf-download-link')) {
+        e.preventDefault()
+        e.stopPropagation()
+        const fileId = target.getAttribute('data-file-id')
+        const filename = target.getAttribute('data-filename')
+        if (fileId && filename) {
+          this.downloadAttachment(fileId, filename)
+        }
+      }
     },
 
     // 退回前缀 '>'（还原旧 jumpstr）
@@ -713,7 +885,7 @@ export default {
       return stagename
     },
 
-    // 🔴 B1修复: 获取阶段选项（对齐旧系统 Line 704-733）
+    // 🔴 问题5.1修复: 获取阶段选项（对齐旧系统 Line 704-733）
     // 🔧 优化3：简化逻辑，提升可读性
     getStageOptions() {
       if (!this.existStage || !this.instance || !this.instance.stagenames) return []
@@ -729,13 +901,14 @@ export default {
       })
 
       // 构建选项：当前阶段 + 下阶段（如果下阶段无节点且存在）
+      // ⚠️ 修复：确保value为字符串类型，与数据库存储一致
       const options = [
-        { value: String(currentStage), text: stages[currentStage] || String(currentStage) }
+        { value: currentStage.toString(), text: stages[currentStage] || String(currentStage) }
       ]
 
       if (!hasNextStageNodes && currentStage + 1 < stages.length) {
         options.push({
-          value: String(currentStage + 1),
+          value: (currentStage + 1).toString(),  // ✅ 确保字符串类型
           text: stages[currentStage + 1] || String(currentStage + 1)
         })
       }
@@ -843,10 +1016,16 @@ export default {
 </script>
 
 <style scoped>
+/* ═══════════════════════════════════════════════════════════════
+   流程节点表格 - 紧凑清晰布局
+   ═══════════════════════════════════════════════════════════════ */
+
 .wf-instance-dtl-table {
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  background: #fff;
 }
 
 .empty-tip {
@@ -854,70 +1033,282 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
+  background: #fafafa;
 }
 
-.exec-cell {
-  font-size: 12px;
-  line-height: 1.5;
-  white-space: normal;
-  word-break: break-all;
+/* ═══ 表格容器 ═══ */
+::v-deep .ant-table-wrapper {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-.file-link {
-  display: block;
-  color: #1890ff;
+::v-deep .ant-spin-nested-loading {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+::v-deep .ant-spin-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+::v-deep .ant-table {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+::v-deep .ant-table-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+::v-deep .ant-table-header {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+::v-deep .ant-table-body {
+  flex: 1;
+  overflow: auto !important;
+}
+
+/* ═══ 表格边框 ═══ */
+::v-deep .ant-table-bordered .ant-table-container {
+  border: 1px solid #d9d9d9;
+}
+
+::v-deep .ant-table-bordered .ant-table-content {
+  border-right: 0;
+}
+
+/* 确保最后一行有下边框 */
+::v-deep .ant-table-tbody > tr:last-child > td {
+  border-bottom: 1px solid #d9d9d9 !important;
+}
+
+/* ═══ 表头样式 - 紧凑清晰 ═══ */
+::v-deep .ant-table-thead > tr > th {
+  padding: 10px 12px;
+  background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
+  font-weight: 600;
+  font-size: 13px;
+  color: #262626;
+  border-right: 1px solid #d9d9d9;
+  border-bottom: 2px solid #d9d9d9;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* 固定列样式 */
+::v-deep .ant-table-thead > tr > th.ant-table-cell-fix-left,
+::v-deep .ant-table-tbody > tr > td.ant-table-cell-fix-left {
+  background: #fafafa;
+  z-index: 3;
+}
+
+::v-deep .ant-table-thead > tr > th.ant-table-cell-fix-left::after,
+::v-deep .ant-table-tbody > tr > td.ant-table-cell-fix-left::after {
+  box-shadow: inset -10px 0 8px -8px rgba(0, 0, 0, 0.1);
+}
+
+::v-deep .ant-table-thead > tr > th.ant-table-cell-fix-right,
+::v-deep .ant-table-tbody > tr > td.ant-table-cell-fix-right {
+  background: #fafafa;
+  z-index: 3;
+}
+
+::v-deep .ant-table-thead > tr > th.ant-table-cell-fix-right::after,
+::v-deep .ant-table-tbody > tr > td.ant-table-cell-fix-right::after {
+  box-shadow: inset 10px 0 8px -8px rgba(0, 0, 0, 0.1);
+}
+
+/* ═══ 单元格样式 - 紧凑 ═══ */
+::v-deep .ant-table-tbody > tr > td {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #262626;
+  border-right: 1px solid #d9d9d9;
+  border-bottom: 1px solid #d9d9d9;
+  vertical-align: middle;
+}
+
+/* ═══ 行样式 - 清晰区分 ═══ */
+
+/* 普通行 */
+::v-deep .ant-table-tbody > tr:not(.wf-row-done):not(.wf-row-todo) > td {
+  background: #ffffff;
+}
+
+/* 已处理行 */
+::v-deep .wf-row-done > td {
+  background: #e6f7ff !important;
+}
+
+::v-deep .wf-row-done > td.ant-table-cell-fix-left {
+  background: #bae7ff !important;
+}
+
+::v-deep .wf-row-done > td:nth-child(2) {
+  border-left: 3px solid #1890ff;
+  position: relative;
+  padding-left: 24px;
+}
+
+::v-deep .wf-row-done > td:nth-child(2)::before {
+  content: '✓';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #52c41a;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+/* 待办行 */
+::v-deep .wf-row-todo > td {
+  background: #fffbe6 !important;
+  font-weight: 500;
+}
+
+::v-deep .wf-row-todo > td.ant-table-cell-fix-left {
+  background: #fff1b8 !important;
+}
+
+::v-deep .wf-row-todo > td:nth-child(2) {
+  border-left: 3px solid #faad14;
+}
+
+/* ═══ 悬停效果 ═══ */
+::v-deep .ant-table-tbody > tr:hover:not(.wf-row-done):not(.wf-row-todo) > td {
+  background: #fafafa !important;
   cursor: pointer;
 }
 
+::v-deep .wf-row-done:hover > td {
+  background: #91d5ff !important;
+  cursor: pointer;
+}
+
+::v-deep .wf-row-done:hover > td.ant-table-cell-fix-left {
+  background: #69c0ff !important;
+}
+
+::v-deep .wf-row-todo:hover > td {
+  background: #ffe58f !important;
+  cursor: pointer;
+}
+
+::v-deep .wf-row-todo:hover > td.ant-table-cell-fix-left {
+  background: #ffd666 !important;
+}
+
+/* ═══ 内容样式 ═══ */
+
+/* 处理情况列 */
+.exec-cell {
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: normal;
+  word-break: break-word;
+  color: #595959;
+}
+
+/* 文件链接 */
+.file-link {
+  display: inline-block;
+  color: #1890ff;
+  cursor: pointer;
+  margin: 2px 4px 2px 0;
+  padding: 2px 8px;
+  font-size: 12px;
+  background: #e6f7ff;
+  border-radius: 2px;
+  border: 1px solid #91d5ff;
+  transition: all 0.2s;
+}
+
 .file-link:hover {
-  text-decoration: underline;
+  color: #fff;
+  background: #1890ff;
+  border-color: #1890ff;
 }
 
 .link-disabled {
   color: #bfbfbf !important;
   cursor: not-allowed;
   pointer-events: none;
+  opacity: 0.5;
 }
 
-/* 表格样式 */
-::v-deep .ant-table {
-  flex: 1;
-}
-
-::v-deep .ant-table-tbody > tr > td {
-  padding: 4px 8px;
-  vertical-align: top;
-}
-
-::v-deep .ant-table-thead > tr > th {
-  padding: 4px 8px;
-  background: #f5f5f5;
-  font-weight: bold;
-}
-
-/* 已处理行绿底（还原旧 tick 效果） */
-::v-deep .wf-row-done > td {
-  background: #f6ffed;
-}
-
-/* P2-1: 已处理节点添加绿色对勾图标（对齐旧系统样式） */
-::v-deep .wf-row-done > td:first-child::before {
-  content: '✓';
-  color: #52c41a;
-  font-weight: bold;
-  font-size: 14px;
-  margin-right: 6px;
-}
-
-/* 待办行高亮（还原旧 msgBg2 效果） */
-::v-deep .wf-row-todo > td {
-  background: #fffbe6;
-}
-
-/* 🔧 新增节点的当前用户显示样式 */
 .new-node-user {
   color: #1890ff;
   font-weight: 500;
+}
+
+/* ═══ 单选框 ═══ */
+::v-deep .ant-table-selection-column {
+  width: 50px !important;
+  padding: 8px 12px !important;
+}
+
+/* ═══ 操作链接 ═══ */
+::v-deep .ant-table-tbody > tr > td a {
+  color: #1890ff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+::v-deep .ant-table-tbody > tr > td a:hover {
+  color: #40a9ff;
+}
+
+::v-deep .ant-divider-vertical {
+  margin: 0 6px;
+  background: #d9d9d9;
+  height: 12px;
+}
+
+/* ═══ 表单控件 ═══ */
+::v-deep .ant-input,
+::v-deep .ant-input-number,
+::v-deep .ant-select-selection {
+  font-size: 13px;
+}
+
+/* ═══ 空状态 ═══ */
+::v-deep .ant-table-placeholder {
+  padding: 40px 16px;
+  background: #fafafa;
+}
+
+::v-deep .ant-empty-description {
+  color: #8c8c8c;
+  font-size: 13px;
+}
+
+/* ═══ 滚动条 ═══ */
+::v-deep .ant-table-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::v-deep .ant-table-body::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 4px;
+}
+
+::v-deep .ant-table-body::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
+::v-deep .ant-table-body::-webkit-scrollbar-track {
+  background: #f5f5f5;
 }
 </style>

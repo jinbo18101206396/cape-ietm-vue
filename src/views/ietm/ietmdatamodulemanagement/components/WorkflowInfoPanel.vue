@@ -1,146 +1,156 @@
 <template>
   <div class="workflow-info-panel">
-    <!-- ═══ center：工具栏 + 节点表 ═══ -->
-    <div class="center-region">
-      <!-- 工具栏 - 简洁布局 -->
-      <div class="wf-toolbar">
-        <!-- 图例 -->
-        <span class="wf-legend">{{ legend }}</span>
-
-        <!-- 基础操作 -->
-        <a-button type="link" size="small" icon="reload" @click="refreshAll">刷新</a-button>
-
-        <!-- 节点操作 -->
-        <template v-if="canEditNodes">
-          <a-divider type="vertical" />
-          <a-button type="link" size="small" icon="plus" @click="handleInsertNode">新增</a-button>
-          <a-button type="link" size="small" icon="delete" :disabled="!canDeleteSelectedNode" @click="handleDeleteNode">删除</a-button>
-          <a-button type="link" size="small" icon="save" @click="handleSaveNodes">保存</a-button>
-        </template>
-
-        <!-- 紧急程度和拿回按钮 -->
-        <template v-if="instance || hasGetbackNode">
-          <a-divider type="vertical" />
-
-          <a-select
-            v-if="instance"
-            :value="urgent"
-            size="small"
-            style="width: 88px"
-            :disabled="instOver"
-            @change="handleUrgentChange"
-          >
-            <a-select-option value="1">一般</a-select-option>
-            <a-select-option value="2">紧急</a-select-option>
-            <a-select-option value="3">特急</a-select-option>
-          </a-select>
-
-          <a-button
-            v-if="hasGetbackNode"
-            type="link"
-            size="small"
-            icon="rollback"
-            :disabled="!canTakeBackSelected"
-            @click="handleTakeBack"
-          >拿回</a-button>
-        </template>
+    <!-- 工具栏 - 左对齐均匀分布 -->
+    <div class="wf-toolbar">
+      <div class="toolbar-left">
+        <span class="wf-title">{{ legend }}</span>
       </div>
 
-      <!-- 追加意见 -->
-      <div class="wf-addopinion-bar" v-if="hasAddOpinionableNode">
-        <a-textarea
-          v-model="addOpinionText"
+      <div class="toolbar-center">
+        <a-button-group size="small">
+          <a-button icon="reload" @click="refreshAll">刷新</a-button>
+
+          <template v-if="canEditNodes">
+            <a-button icon="plus" @click="handleInsertNode">新增</a-button>
+            <a-button icon="delete" :disabled="!canDeleteSelectedNode" @click="handleDeleteNode">删除</a-button>
+            <a-button icon="save" :disabled="!canSaveNodes" @click="handleSaveNodes">保存</a-button>
+          </template>
+        </a-button-group>
+
+        <a-button-group v-if="hasGetbackNode || hasAddOpinionableNode" size="small">
+          <a-button v-if="hasGetbackNode" icon="rollback" :disabled="!canTakeBackSelected" @click="handleTakeBack">拿回</a-button>
+          <a-button v-if="hasAddOpinionableNode" icon="edit" @click="showAddOpinionModal">追加意见</a-button>
+        </a-button-group>
+      </div>
+
+      <div v-if="instance" class="toolbar-right">
+        <span class="urgent-label">紧急：</span>
+        <a-select
+          :value="urgent"
           size="small"
-          placeholder="追加意见（选中已处理节点，最多500字）"
-          :rows="1"
-          :maxLength="500"
-          show-count
-        />
-        <a-button type="primary" size="small" @click="handleAddOpinion">保存</a-button>
-      </div>
-
-      <!-- 节点表 -->
-      <div class="wf-table-wrap">
-        <wf-instance-dtl-table
-          ref="dtlTable"
-          :instance-id="instanceId"
-          :instance="instance"
-          :todo-dtl-id="todoDtlId"
-          :readonly="readonly"
-          :can-edit-nodes="canEditNodes"
-          :stage-users="stageUsers"
-          :stage-execution-status="stageExecutionStatus"
-          :current-user-stage="currentUserStage"
-          :is-stage-leader="isStageLeader"
-          @select="handleNodeSelect"
-          @nodes-loaded="handleNodesLoaded"
-          @before-insert-node="(e) => $emit('before-insert-node', e)"
-          @before-delete-node="(e) => $emit('before-delete-node', e)"
-          @before-save-node="(e) => $emit('before-save-node', e)"
-        />
+          style="width: 90px"
+          :disabled="instOver"
+          @change="handleUrgentChange"
+        >
+          <a-select-option value="1">一般</a-select-option>
+          <a-select-option value="2">★紧急</a-select-option>
+          <a-select-option value="3">★★特急</a-select-option>
+        </a-select>
       </div>
     </div>
 
-    <!-- 处理表单 -->
-    <div class="south-region" v-if="showExecForm">
-      <div class="exec-header">
-        <span class="exec-legend">{{ execLegend }}</span>
-        <span v-if="isLastTodo" class="last-node-note">
-          <a-icon type="warning" />
-          最后节点，提交后流程结束
-        </span>
+    <!-- 节点列表 -->
+    <div class="wf-table">
+      <wf-instance-dtl-table
+        ref="dtlTable"
+        :instance-id="instanceId"
+        :instance="instance"
+        :todo-dtl-id="todoDtlId"
+        :readonly="readonly"
+        :can-edit-nodes="canEditNodes"
+        :stage-users="stageUsers"
+        :stage-execution-status="stageExecutionStatus"
+        :current-user-stage="currentUserStage"
+        :is-stage-leader="isStageLeader"
+        @select="handleNodeSelect"
+        @nodes-loaded="handleNodesLoaded"
+        @before-insert-node="(e) => $emit('before-insert-node', e)"
+        @before-delete-node="(e) => $emit('before-delete-node', e)"
+        @before-save-node="(e) => $emit('before-save-node', e)"
+      />
+    </div>
+
+    <!-- 处理表单 - 紧凑布局 -->
+    <div class="wf-form" v-if="showExecForm">
+      <div class="form-header">
+        <span class="form-title">{{ execLegend }}</span>
+        <a-tag v-if="isLastTodo" color="red" size="small">
+          <a-icon type="warning" /> 最后节点
+        </a-tag>
       </div>
 
-      <div class="exec-body">
-        <!-- 处理选项 -->
-        <div class="exec-row">
-          <a-radio-group v-model="form.ifpass" @change="onIfpassChange">
+      <div class="form-content">
+        <div class="form-row">
+          <span class="form-label">处理方式</span>
+          <a-radio-group v-model="form.ifpass" size="small" @change="onIfpassChange">
             <a-radio value="1">通过</a-radio>
             <a-radio value="2">不同意</a-radio>
             <a-radio value="9">终止</a-radio>
             <a-radio value="3">跳转</a-radio>
           </a-radio-group>
           <a-select
+            v-if="form.ifpass === '3'"
             :value="form.targetDtlid"
             size="small"
-            style="width: 180px"
-            placeholder="选择跳转节点"
-            :disabled="form.ifpass !== '3'"
+            style="width: 140px"
+            placeholder="选择节点"
             @change="v => form.targetDtlid = v"
           >
-            <a-select-option
-              v-for="n in jumpTargets"
-              :key="n.id"
-              :value="n.id"
-            >{{ n.nodename }}</a-select-option>
+            <a-select-option v-for="n in jumpTargets" :key="n.id" :value="n.id">
+              {{ n.nodename }}
+            </a-select-option>
           </a-select>
         </div>
 
-        <!-- 意见 + 操作 -->
-        <div class="exec-row">
+        <div class="form-row">
+          <span class="form-label">处理意见</span>
           <a-textarea
             v-model="form.opinion"
-            placeholder="处理意见（最多500字）"
+            placeholder="请填写处理意见（最多500字）"
             :rows="2"
             :maxLength="500"
             show-count
-          />
-          <a-upload
-            :file-list="fileList"
-            :before-upload="beforeUpload"
-            @remove="handleFileRemove"
-          >
-            <a-button size="small" icon="upload">附件</a-button>
-          </a-upload>
-          <a-button
-            type="primary"
             size="small"
-            :loading="submitting"
-            @click="handleSubmit"
-          >提交</a-button>
+          />
+          <div class="form-actions">
+            <!-- 🔴 问题11修复：临时隐藏附件按钮 -->
+            <a-upload
+              v-if="false"
+              :file-list="fileList"
+              :before-upload="beforeUpload"
+              @remove="handleFileRemove"
+            >
+              <a-button size="small" icon="paper-clip">附件</a-button>
+            </a-upload>
+            <a-button
+              type="primary"
+              size="small"
+              :loading="submitting"
+              @click="handleSubmit"
+            >
+              提交
+            </a-button>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- 追加意见弹窗 -->
+    <a-modal
+      v-model="addOpinionModalVisible"
+      title="追加意见"
+      :width="600"
+      @ok="handleAddOpinionSubmit"
+      @cancel="handleAddOpinionCancel"
+    >
+      <a-form-model layout="vertical">
+        <a-form-model-item label="选中节点">
+          <a-input
+            :value="selectedNode ? selectedNode.nodename : '未选中'"
+            disabled
+          />
+        </a-form-model-item>
+        <a-form-model-item label="追加意见">
+          <a-textarea
+            v-model="addOpinionText"
+            placeholder="请填写追加意见（最多500字）"
+            :rows="4"
+            :maxLength="500"
+            show-count
+          />
+        </a-form-model-item>
+      </a-form-model>
+    </a-modal>
   </div>
 </template>
 
@@ -180,6 +190,7 @@ export default {
       nodes: [], // 全部节点（跳转目标候选 + 最后节点判断）
       selectedNode: null, // 当前选中的节点（追加意见/拿回作用对象）
       addOpinionText: '', // 追加意见输入
+      addOpinionModalVisible: false, // 🔧 方案A：追加意见弹窗显示状态
 
       // 处理表单
       form: {
@@ -336,6 +347,11 @@ export default {
         if (hasProcessedAfter) return false
       }
       return true
+    },
+    // 🔴 问题5修复: 是否有未保存的节点编辑（工具栏"保存"按钮禁用状态）
+    canSaveNodes() {
+      // 检查子表是否有编辑中的行
+      return this.$refs.dtlTable && this.$refs.dtlTable.hasUnsavedChanges()
     },
     // 🔧 优化2：使用提取的方法简化判断
     canTakeBackSelected() {
@@ -495,6 +511,7 @@ export default {
     refreshAll() {
       this.loadInstance()
       this.$refs.dtlTable && this.$refs.dtlTable.refresh()
+      this.selectedNode = null // P1-4修复：刷新后清空选中状态
     },
 
     handleNodeSelect(record) {
@@ -563,7 +580,60 @@ export default {
         this.$message.error('更新失败：' + e.message)
       }
     },
+
+    // 🔧 方案A：显示追加意见弹窗
+    showAddOpinionModal() {
+      if (!this.selectedNode) {
+        this.$message.warning('请先选择一个节点')
+        return
+      }
+      if (this.selectedNode.ifexec !== 'Y') {
+        this.$message.warning('只能对已处理的节点追加意见')
+        return
+      }
+      if (this.selectedNode.seqno === 0 || this.selectedNode.seqno === '0') {
+        this.$message.warning('创建节点不能追加意见！')
+        return
+      }
+      if (!this.isCurrentUserNode(this.selectedNode)) {
+        this.$message.warning('请选择一个处理人为自己的节点！')
+        return
+      }
+      this.addOpinionText = ''
+      this.addOpinionModalVisible = true
+    },
+
+    // 🔧 方案A：提交追加意见
+    async handleAddOpinionSubmit() {
+      const opinion = (this.addOpinionText || '').trim()
+      if (!opinion) {
+        this.$message.warning('请填写追加意见')
+        return
+      }
+      try {
+        const url = `/ietm/workflow/execute/addOpinion?instdtlid=${encodeURIComponent(this.selectedNode.id)}&opinion=${encodeURIComponent(opinion)}`
+        const res = await postAction(url)
+        if (res.success) {
+          this.$message.success('追加意见成功')
+          this.addOpinionModalVisible = false
+          this.addOpinionText = ''
+          this.refreshAll()
+        } else {
+          this.$message.error(res.message || '追加意见失败')
+        }
+      } catch (e) {
+        this.$message.error('追加意见失败：' + e.message)
+      }
+    },
+
+    // 🔧 方案A：取消追加意见
+    handleAddOpinionCancel() {
+      this.addOpinionText = ''
+      this.addOpinionModalVisible = false
+    },
+
     // 追加意见（还原旧 saveAddopinion）：选中已处理节点
+    // 🔧 方案A：此方法已被弹窗替代，保留用于兼容
     async handleAddOpinion() {
       if (!this.selectedNode) {
         this.$message.warning('请选择一个要追加意见的节点')
@@ -788,6 +858,7 @@ export default {
         const res = await uploadAction('/ietm/workflow/execute/submit', fd)
         if (res.success) {
           this.$message.success('成功处理！')
+          this.resetForm() // P0-1修复：提交成功后清空表单和附件
           this.refreshAll()
 
           // P3-1: 提交成功后钩子（兼容旧系统 parent.afterSubmitSuccess 和新系统 @after-submit-success）
@@ -846,131 +917,245 @@ export default {
 </script>
 
 <style scoped>
+/* ═══════════════════════════════════════════════════════════════
+   流程信息面板 - 紧凑清晰布局
+   ═══════════════════════════════════════════════════════════════ */
+
 .workflow-info-panel {
   height: 100%;
-  width: 100%;
   display: flex;
   flex-direction: column;
   background: #fff;
 }
 
-/* ═══ 中心区域 ═══ */
-.center-region {
+/* ═══ 工具栏：单行紧凑布局 ═══ */
+.wf-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #fafafa;
+  border-bottom: 1px solid #e8e8e8;
+  min-height: 42px;
+  gap: 16px;
+}
+
+.toolbar-left {
+  flex-shrink: 0;
+}
+
+.wf-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1890ff;
+}
+
+.toolbar-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.toolbar-right {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.urgent-label {
+  font-size: 12px;
+  color: #595959;
+  white-space: nowrap;
+}
+
+/* ═══ 表格区域 ═══ */
+.wf-table {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-height: 0; /* 允许flex子元素正确收缩 */
+  min-height: 0;
 }
 
-/* 工具栏 - 简洁单行布局 */
-.wf-toolbar {
+::v-deep .wf-instance-dtl-table {
+  height: 100%;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 6px 12px;
-  background: #fafafa;
-  border-bottom: 1px solid #e8e8e8;
-  min-height: 36px;
-  flex-shrink: 0; /* 工具栏不收缩 */
+  flex-direction: column;
 }
 
-.wf-legend {
-  font-weight: 600;
-  color: #1890ff;
-  font-size: 14px;
-}
-
-.toolbar-right {
-  margin-left: auto;
+::v-deep .ant-table-wrapper {
+  flex: 1;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
 }
 
-/* 追加意见栏 - 紧凑布局 */
-.wf-addopinion-bar {
+::v-deep .ant-spin-nested-loading,
+::v-deep .ant-spin-container,
+::v-deep .ant-table {
+  height: 100%;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: #fffbe6;
-  border-bottom: 1px solid #ffe58f;
-  flex-shrink: 0; /* 追加意见栏不收缩 */
+  flex-direction: column;
 }
 
-/* 分阶段提示 - 简化文案 */
-.wf-stage-tip {
-  padding: 6px 12px;
-  background: #e6f7ff;
-  border-bottom: 1px solid #91d5ff;
-  color: #0050b3;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0; /* 提示栏不收缩 */
-}
-
-.wf-table-wrap {
+::v-deep .ant-table-content {
   flex: 1;
   overflow: auto;
-  min-height: 500px; /* 增大最小高度，确保列表完全展示 */
 }
 
-/* ═══ 处理表单 ═══ */
-.south-region {
-  border-top: 1px solid #d9d9d9;
+/* ═══ 处理表单：紧凑布局 ═══ */
+.wf-form {
+  flex-shrink: 0;
   background: #fafafa;
-  padding: 8px 12px;
-  flex-shrink: 0; /* 处理表单不收缩 */
-  max-height: 150px; /* 限制处理表单最大高度，给列表更多空间 */
+  border-top: 1px solid #e8e8e8;
 }
 
-.exec-header {
+.form-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #e8e8e8;
+  padding: 6px 12px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+  min-height: 32px;
 }
 
-.exec-legend {
-  font-weight: 600;
-  color: #1890ff;
+.form-title {
   font-size: 13px;
+  font-weight: 600;
+  color: #262626;
 }
 
-.last-node-note {
-  color: #ff4d4f;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.exec-body {
+.form-content {
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.exec-row {
+.form-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.form-label {
+  flex-shrink: 0;
+  width: 70px;
+  font-size: 13px;
+  color: #595959;
+  padding-top: 5px;
+  text-align: right;
+}
+
+.form-row:first-child {
+  align-items: center;
+}
+
+.form-row:first-child .form-label {
+  padding-top: 0;
+}
+
+.form-row:last-child .form-label {
+  padding-top: 0;
+  align-self: flex-start;
+  padding-top: 5px;
+}
+
+::v-deep .ant-textarea {
+  flex: 1;
+}
+
+.form-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-left: auto;
 }
 
-.exec-row .ant-textarea {
-  flex: 1;
-  max-width: 500px;
+/* ═══ 按钮组样式 ═══ */
+::v-deep .ant-btn-group {
+  display: flex;
+  gap: 1px;
 }
 
-/* 响应式 */
-@media (max-width: 1200px) {
+::v-deep .ant-btn-group > .ant-btn {
+  border-radius: 4px;
+  margin-right: 8px;
+}
+
+::v-deep .ant-btn-group > .ant-btn:last-child {
+  margin-right: 0;
+}
+
+::v-deep .ant-btn-sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+::v-deep .ant-btn-primary {
+  font-weight: 500;
+}
+
+::v-deep .ant-select-sm {
+  font-size: 13px;
+}
+
+::v-deep .ant-radio-group {
+  display: flex;
+  gap: 8px;
+}
+
+::v-deep .ant-radio-wrapper {
+  font-size: 13px;
+  margin-right: 0;
+}
+
+::v-deep .ant-tag-small {
+  font-size: 12px;
+  padding: 0 6px;
+  line-height: 20px;
+}
+
+/* ═══ 响应式布局 ═══ */
+@media (max-width: 1400px) {
   .wf-toolbar {
     flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .toolbar-actions {
+    flex-basis: 100%;
+    order: 3;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .wf-toolbar {
+    padding: 6px 10px;
+  }
+
+  .form-content {
+    padding: 8px 10px;
+  }
+
+  .form-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-label {
+    width: auto;
+    text-align: left;
+    padding-top: 0;
+  }
+
+  .form-actions {
+    margin-left: 0;
+    width: 100%;
   }
 }
 </style>

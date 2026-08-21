@@ -157,6 +157,7 @@
           :formid="id"
           :readonly="readonly"
           @workflow-change="onWorkflowChange"
+          @workflow-complete="onWorkflowComplete"
         />
       </div>
     </div>
@@ -1636,6 +1637,32 @@ export default {
         // this.mode = 'browse'
         // this.$router.replace({ query: { ...this.$route.query, mode: 'browse' } })
       }
+    },
+
+    /**
+     * P1-SYNC-01修复：流程完成回调
+     * 当流程审核通过或终止时，通知父组件刷新DM列表状态
+     * @param {Object} payload - {instid, formid, status: 'approved'/'terminated'}
+     */
+    onWorkflowComplete(payload) {
+      console.log('[流程信息] 流程已完成:', payload)
+
+      // 发射事件到父组件（DM列表页）
+      this.$emit('workflow-complete', payload)
+
+      // 根据流程结果状态提示用户
+      if (payload.status === 'approved') {
+        this.$message.success('流程审核通过！')
+      } else if (payload.status === 'terminated') {
+        this.$message.warning('流程已终止')
+      }
+
+      // 流程完成后可能需要切换为只读模式（根据业务需求）
+      // 例如：最后节点通过后，自动切换为浏览模式
+      // if (payload.status === 'approved') {
+      //   this.mode = 'browse'
+      //   this.$router.replace({ query: { ...this.$route.query, mode: 'browse' } })
+      // }
     },
 
     // ── 南区流程信息：折叠/拖高（还原旧 region south split+collapsed）──
