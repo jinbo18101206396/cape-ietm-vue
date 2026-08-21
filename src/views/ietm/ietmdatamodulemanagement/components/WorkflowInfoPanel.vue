@@ -52,7 +52,7 @@
 
         <!-- ✅ P1-4: 阶段说明（还原旧 tdStagenote，对齐旧系统 Line 48） -->
         <span class="wf-stage-note" v-if="existStage">
-          【当流程分阶段时，每个阶段的第一个人可维护本阶段节点、编辑下阶段第一个节点、下阶段无节点时可增加下阶段节点】
+          【分阶段流程规则：各阶段首位处理人可维护本阶段节点、编辑下阶段首节点、增加下阶段节点】
         </span>
 
         <!-- 追加意见（还原旧 tdAddopinion）：选中已处理节点可追加，流程未结束时可用 -->
@@ -438,7 +438,7 @@ export default {
         return
       }
       if (this.selectedNode.ifexec !== 'Y') {
-        this.$message.warning('已处理的才能追加意见')
+        this.$message.warning('只能对已处理的节点追加意见')
         return
       }
 
@@ -590,7 +590,7 @@ export default {
       } else if (ifpass === '9') {
         this.$confirm({
           title: '提示',
-          content: '真的确定要终止流程？真的确定？',
+          content: '流程终止后将无法恢复，确定要终止流程？',
           onOk: () => this.doSubmit()
         })
       } else {
