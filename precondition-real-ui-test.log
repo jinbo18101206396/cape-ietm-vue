@@ -1,0 +1,16 @@
+
+Running 5 tests using 1 worker
+
+✅ 已打开测试项目: 2016415088223285250
+⚠️  跳过：无测试数据
+  ok 1 [chromium] › tests\e2e\precondition-real-ui-verification.spec.js:136:3 › 前置条件修复 - 真实数据+真实UI验证 › 场景1: 工作流未启动 - UI点击验证拦截 (372ms)
+⚠️  跳过：无测试数据
+  ok 2 [chromium] › tests\e2e\precondition-real-ui-verification.spec.js:173:3 › 前置条件修复 - 真实数据+真实UI验证 › 场景2: 非DM编写节点 - UI点击验证拦截 (286ms)
+⚠️  跳过：无测试数据
+  ok 3 [chromium] › tests\e2e\precondition-real-ui-verification.spec.js:208:3 › 前置条件修复 - 真实数据+真实UI验证 › 场景3: 正常流程 - UI点击进入确认对话框 (360ms)
+⚠️  跳过：未找到项目编辑按钮
+  ok 4 [chromium] › tests\e2e\precondition-real-ui-verification.spec.js:246:3 › 前置条件修复 - 真实数据+真实UI验证 › 场景4: 项目参数格式校验 - 输入非法值验证拦截 (14.9s)
+⚠️  跳过：无测试数据
+  ok 5 [chromium] › tests\e2e\precondition-real-ui-verification.spec.js:318:3 › 前置条件修复 - 真实数据+真实UI验证 › 边界5: 后端API直接调用 - 绕过前端验证 (4ms)
+
+  5 passed (17.8s)

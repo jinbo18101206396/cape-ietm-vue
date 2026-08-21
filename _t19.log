@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+[1/1] [chromium] › tests\e2e\dm-reference-rowkey.spec.js:78:3 › #19 DmReferenceModal 循环引用 rowKey 回归 › 循环引用(重复dmId) → 详情表全部行渲染，无重复 key 告警
+[chromium] › tests\e2e\dm-reference-rowkey.spec.js:78:3 › #19 DmReferenceModal 循环引用 rowKey 回归 › 循环引用(重复dmId) → 详情表全部行渲染，无重复 key 告警
+✅ #19: 循环引用 3 行全渲染（DMC-A×2），无重复 key 告警
+
+  1 passed (21.4s)

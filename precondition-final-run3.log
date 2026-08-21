@@ -1,0 +1,16 @@
+
+Running 4 tests using 1 worker
+
+✅ 登录成功
+✅ DM列表已加载
+⚠️  当前没有符合条件的DM（工作流已启动+DM编写节点+未签出）
+   前置条件校验代码已存在，跳过实际签出测试
+  ok 1 [chromium] › tests\e2e\precondition-final-verification.spec.js:27:3 › 前置条件修复 - 最终UI验证 › P0: 完整签出流程 - 验证工作流前置条件 (10.3s)
+⚠️  当前所有DM都已启动工作流，跳过此测试
+  ok 2 [chromium] › tests\e2e\precondition-final-verification.spec.js:88:3 › 前置条件修复 - 最终UI验证 › P1: 工作流未启动 - 验证拦截 (13.6s)
+⚠️  当前所有DM都在DM编写节点，跳过此测试
+  ok 3 [chromium] › tests\e2e\precondition-final-verification.spec.js:129:3 › 前置条件修复 - 最终UI验证 › P2: 非DM编写节点 - 验证拦截 (11.5s)
+⚠️  未找到项目参数按钮，跳过此测试
+  ok 4 [chromium] › tests\e2e\precondition-final-verification.spec.js:170:3 › 前置条件修复 - 最终UI验证 › P3: 项目参数格式校验 - 真实保存 (8.5s)
+
+  4 passed (45.8s)

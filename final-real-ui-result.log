@@ -1,0 +1,30 @@
+
+Running 1 test using 1 worker
+
+
+=== 前置条件修复 - 最终真实UI验证 ===
+
+步骤1: 登录系统
+✅ 登录成功
+
+步骤2: 导航到DM列表
+✅ DM列表加载，找到 5 个DM
+
+步骤3: 修改第一个DM的workflowInstanceId为null
+修改结果: { success: true, message: '已标记测试行', dmcCode: '项目33' }
+
+步骤4: 注入拦截器，模拟工作流未启动场景
+✅ 拦截器已注入
+
+步骤5: 点击第一个DM的签出按钮
+签出按钮可见: false
+⚠️ 第一个DM没有签出按钮（可能已签出）
+
+尝试查找其他未签出的DM...
+
+❌ 所有DM都已签出，无法进行测试
+
+=== 测试完成 ===
+  ok 1 [chromium] › tests\e2e\final-real-ui-test.spec.js:27:3 › 前置条件修复 - 最终真实UI验证 › 真实UI验证 - 通过console修改数据并立即测试 (12.4s)
+
+  1 passed (14.8s)

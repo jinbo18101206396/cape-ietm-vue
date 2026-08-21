@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IETM 登录页原型 v3 — JeecgBoot 风格</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   "PingFang SC", "Microsoft YaHei", sans-serif;
+      height: 100vh; overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── 整体布局 ── */
+    .layout { display: flex; height: 100vh; }
+
+    /* ══════════════════════════════════
+       左侧品牌区  （JeecgBoot 主色蓝渐变）
+    ══════════════════════════════════ */
+    .brand {
+      flex: 0 0 60%;
+      position: relative;
+      background: linear-gradient(135deg, #1890ff 0%, #096dd9 55%, #0050b3 100%);
+      display: flex; flex-direction: column;
+      justify-content: space-between;
+      padding: 48px 56px 40px;
+      overflow: hidden;
+    }
+
+    /* 装饰圆——浅色半透明 */
+    .deco-circle {
+      position: absolute; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.15);
+      pointer-events: none;
+    }
+    .deco-circle-1 { width: 420px; height: 420px; right: -100px; bottom: -100px; }
+    .deco-circle-2 { width: 260px; height: 260px; right:  40px;  bottom:  60px;  border-color: rgba(255,255,255,0.1); }
+    .deco-circle-3 { width: 160px; height: 160px; left: -40px; top: -40px; }
+
+    /* 网格点 */
+    .brand::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: radial-gradient(rgba(255,255,255,0.12) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+    }
+
+    /* 所有内容浮于装饰之上 */
+    .brand-header, .brand-body, .brand-foot { position: relative; z-index: 1; }
+
+    /* Logo 行 */
+    .brand-header { display: flex; align-items: center; gap: 14px; }
+    .brand-logo {
+      width: 42px; height: 42px; border-radius: 8px;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.35);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 800; color: #fff; flex-shrink: 0;
+    }
+    .brand-sys-name { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: 1px; }
+
+    /* 主文案 */
+    .brand-body { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .brand-slogan {
+      font-size: 30px; font-weight: 800;
+      line-height: 1.5; color: #fff; margin-bottom: 14px;
+    }
+    .brand-desc {
+      font-size: 14px; color: rgba(255,255,255,0.75);
+      line-height: 1.9; max-width: 400px; margin-bottom: 44px;
+    }
+
+    /* 特性列表 */
+    .features { display: flex; flex-direction: column; gap: 14px; }
+    .feat {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+    .feat:hover { background: rgba(255,255,255,0.15); }
+    .feat-icon {
+      width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0;
+      background: rgba(255,255,255,0.18);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+    .feat-text { font-size: 14px; color: #fff; font-weight: 500; }
+
+    /* 底部版权 */
+    .brand-divider { height: 1px; background: rgba(255,255,255,0.15); margin: 24px 0 18px; }
+    .brand-copyright { font-size: 12px; color: rgba(255,255,255,0.6); }
+
+    /* ══════════════════════════════════
+       右侧登录区（浅灰背景 + 白卡片）
+    ══════════════════════════════════ */
+    .login-panel {
+      flex: 1;
+      background: #f0f2f5;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 40px 48px; position: relative;
+    }
+
+    .login-card {
+      width: 100%; max-width: 368px;
+      background: #fff;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+      padding: 40px 36px;
+    }
+
+    /* 卡片头部 */
+    .login-heading { text-align: center; margin-bottom: 32px; }
+    .login-heading h2 {
+      font-size: 24px; font-weight: 700;
+      color: rgba(0,0,0,0.85); margin-bottom: 8px;
+    }
+    .login-heading p { font-size: 13px; color: rgba(0,0,0,0.45); }
+
+    /* 表单 */
+    .form-item { margin-bottom: 20px; }
+    .form-label {
+      display: block; font-size: 14px; font-weight: 500;
+      color: rgba(0,0,0,0.85); margin-bottom: 8px;
+    }
+    .input-wrap { position: relative; }
+    .input-icon {
+      position: absolute; left: 12px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px; color: rgba(0,0,0,0.25); pointer-events: none;
+    }
+    .form-input {
+      width: 100%; height: 40px;
+      padding: 0 12px 0 36px;
+      background: #fff;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      font-size: 14px; color: rgba(0,0,0,0.85);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input::placeholder { color: rgba(0,0,0,0.25); }
+    .form-input:hover { border-color: #40a9ff; }
+    .form-input:focus {
+      border-color: #1890ff;
+      box-shadow: 0 0 0 2px rgba(24,144,255,0.2);
+    }
+
+    /* 登录按钮 */
+    .login-btn {
+      width: 100%; height: 40px; margin-top: 12px;
+      background: #1890ff;
+      color: #fff; border: none; border-radius: 4px;
+      font-size: 16px; font-weight: 500; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .login-btn:hover { background: #40a9ff; }
+    .login-btn:active { background: #096dd9; }
+
+    /* 底部版权 */
+    .login-footer {
+      position: absolute; bottom: 24px;
+      font-size: 12px; color: rgba(0,0,0,0.45); text-align: center;
+    }
+    .login-footer a { color: #1890ff; text-decoration: none; }
+    .login-footer a:hover { text-decoration: underline; }
+
+    /* ── 响应式 ── */
+    @media (max-width: 900px) {
+      .layout { flex-direction: column; }
+      .brand { flex: none; height: 35vh; padding: 24px; }
+      .login-panel { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+
+    <!-- ══════════ 左侧品牌区 ══════════ -->
+    <div class="brand">
+      <div class="deco-circle deco-circle-1"></div>
+      <div class="deco-circle deco-circle-2"></div>
+      <div class="deco-circle deco-circle-3"></div>
+
+      <!-- Logo + 系统名 -->
+      <div class="brand-header">
+        <div class="brand-logo">📘</div>
+        <div class="brand-sys-name">IETM 研发平台</div>
+      </div>
+
+      <!-- 主文案 -->
+      <div class="brand-body">
+        <div class="brand-slogan">
+          武器装备<br/>交互式电子技术手册<br/>研发管理系统
+        </div>
+        <div class="brand-desc">
+          为装备研制提供数字化技术文档全生命周期管理，支持多标准 IETM 编制、角色权限精细管控、构型版本管理、全流程在线协作。
+        </div>
+
+        <!-- 特性列表 -->
+        <div class="features">
+          <div class="feat">
+            <div class="feat-icon">📁</div>
+            <div class="feat-text">全流程文档管理</div>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">📋</div>
+            <div class="feat-text">多标准 IETM 支持</div>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">🔐</div>
+            <div class="feat-text">角色权限精细管控</div>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">🔄</div>
+            <div class="feat-text">构型版本管理</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部版权 -->
+      <div class="brand-foot">
+        <div class="brand-divider"></div>
+        <div class="brand-copyright">
+          © 2026 中国航空综合技术研究所 | 版权所有
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 右侧登录区 ══════════ -->
+    <div class="login-panel">
+      <div class="login-card">
+        <!-- 卡片标题 -->
+        <div class="login-heading">
+          <h2>用户登录</h2>
+          <p>欢迎使用 IETM 研发管理系统</p>
+        </div>
+
+        <!-- 表单 -->
+        <form>
+          <div class="form-item">
+            <label class="form-label">账户名</label>
+            <div class="input-wrap">
+              <span class="input-icon">👤</span>
+              <input
+                type="text"
+                class="form-input"
+                placeholder="请输入账户名 / admin"
+                value="admin"
+              />
+            </div>
+          </div>
+
+          <div class="form-item">
+            <label class="form-label">密码</label>
+            <div class="input-wrap">
+              <span class="input-icon">🔒</span>
+              <input
+                type="password"
+                class="form-input"
+                placeholder="请输入密码 / 123456"
+                value="123456"
+              />
+            </div>
+          </div>
+
+          <button type="button" class="login-btn">确定</button>
+        </form>
+      </div>
+
+      <!-- 底部版权 -->
+      <div class="login-footer">
+        Copyright © 2026 <a href="#">中国航空综合技术研究所</a>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

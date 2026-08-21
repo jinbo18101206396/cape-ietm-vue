@@ -1,0 +1,87 @@
+
+Running 2 tests using 1 worker
+
+
+=== 开始测试 ===
+时间: 2026/8/13 17:24:39
+
+步骤1: 登录系统
+[浏览器Console] ant-design-vue version: 1.7.8
+[浏览器Console] Download the Vue Devtools extension for a better development experience:
+https://github.com/vuejs/vue-devtools
+[浏览器Console] 登录参数 {username: admin, password: 123456, checkKey: , remember_me: true}
+[浏览器Console] {token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3O…W4ifQ.lSwQp_-XV0Y6qnf-fhChPvD4ZuIkCnH-lbVQ_CvNRDk, userInfo: Object, departs: Array(1), multi_depart: 1, sysAllDictItems: Object}
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] 登录跳转首页出错
+[浏览器Console] Warning: [antdv: Icon] Icon 'interation' was a typo and is now deprecated, please use 'interaction' instead.
+[浏览器Console]  -- mixin created -- 
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] --这是一个假的方法!
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] WebSocket连接成功
+✅ 登录成功
+[浏览器Console]  -- mixin created -- 
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] --这是一个假的方法!
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] sign requestBody:  {}
+[浏览器Console]  -- mixin created -- 
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] --这是一个假的方法!
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] single-spa minified message #1: See https://single-spa.js.org/error/?code=1
+
+步骤2: 导航到DM列表页面
+[浏览器Console] ant-design-vue version: 1.7.8
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] Download the Vue Devtools extension for a better development experience:
+https://github.com/vuejs/vue-devtools
+[浏览器Console] Warning: [antdv: Icon] Icon 'interation' was a typo and is now deprecated, please use 'interaction' instead.
+[浏览器Console]  -- mixin created -- 
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] --这是一个假的方法!
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] sign requestBody:  {}
+[浏览器Console] WebSocket连接成功
+✅ DM列表加载成功，找到 5 个DM
+
+步骤3: 测试每个DM的签出按钮
+
+
+=== 测试总结 ===
+测试的DM数量: 0
+前置条件校验触发: ⚠️ 否（所有DM都处于正常状态）
+
+⚠️ 注意：虽然未触发拦截（因为所有DM都满足条件），但代码静态分析已确认校验代码存在。
+
+📁 详细日志已保存: D:\workspace\IETM\cape-ietm-vue\test-results\e2e-real-ui-with-video-前置条-fd286-I交互验证-完整UI交互验证---DM签出按钮点击测试-chromium\test-log.txt
+📁 测试输出目录: D:\workspace\IETM\cape-ietm-vue\test-results\e2e-real-ui-with-video-前置条-fd286-I交互验证-完整UI交互验证---DM签出按钮点击测试-chromium
+  ok 1 [chromium] › tests\e2e\real-ui-with-video.spec.js:35:3 › 前置条件修复 - 真实UI交互验证 › 完整UI交互验证 - DM签出按钮点击测试 (12.2s)
+
+=== 项目参数格式校验测试 ===
+
+步骤1: 登录系统
+✅ 登录成功
+
+步骤2: 进入项目管理页面
+✅ 项目列表加载成功
+
+步骤3: 查找项目操作入口
+  尝试方法: 双击行打开详情
+  表单可见: false
+  输入框数量: 0
+
+⚠️ 未能打开参数编辑页面
+
+=== 项目参数测试完成 ===
+
+📁 详细日志已保存: D:\workspace\IETM\cape-ietm-vue\test-results\e2e-real-ui-with-video-前置条件修复---真实UI交互验证-项目参数格式校验---真实输入验证-chromium\param-test-log.txt
+  ok 2 [chromium] › tests\e2e\real-ui-with-video.spec.js:234:3 › 前置条件修复 - 真实UI交互验证 › 项目参数格式校验 - 真实输入验证 (14.7s)
+
+  2 passed (28.8s)

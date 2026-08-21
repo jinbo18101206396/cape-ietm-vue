@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>重建Refs测试</title>
+</head>
+<body>
+  <h1>§16.4 重建 refs 与 DOCTYPE 测试</h1>
+  <p>请在 DM 编辑器页面打开此文件，然后点击按钮运行测试</p>
+  <button onclick="runTests()" style="padding: 10px 20px; font-size: 16px;">运行测试</button>
+  <div id="output"></div>
+
+  <script>
+    async function runTests() {
+      const output = document.getElementById('output');
+      output.innerHTML = '<p>测试运行中...</p>';
+
+      const results = [];
+      let passCount = 0;
+      let failCount = 0;
+
+      function findEditorComponent() {
+        const app = window.opener.document.querySelector('#app').__vue__;
+        function findEditor(vm) {
+          if (vm.$refs && vm.$refs.editor && vm.$refs.editor.getLinenoOffset) return vm;
+          if (vm.$children) {
+            for (let child of vm.$children) {
+              let result = findEditor(child);
+              if (result) return result;
+            }
+          }
+          return null;
+        }
+        return findEditor(app);
+      }
+
+      function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      function clickRegenRefsButton() {
+        const button = window.opener.document.querySelector('button[title*="重建"]');
+        if (!button) throw new Error('未找到"重建Refs"按钮');
+        button.click();
+      }
+
+      async function confirmDialog() {
+        await sleep(300);
+        const confirmBtn = window.opener.document.querySelector('.ant-modal-confirm .ant-btn-primary');
+        if (!confirmBtn) throw new Error('未找到确认按钮');
+        confirmBtn.click();
+      }
+
+      function validateXmlStructure(xml) {
+        const errors = [];
+        if (!xml.includes('<?xml version="1.0" encoding="UTF-8"?>')) errors.push('缺少 XML 声明');
+        if (!xml.includes('<!DOCTYPE dmodule')) errors.push('缺少 DOCTYPE 声明');
+        if (!xml.includes('<dmodule xmlns:dc=')) errors.push('缺少 <dmodule> 根元素');
+        return errors;
+      }
+
+      function recordResult(testId, testName, passed, details) {
+        results.push({ testId, testName, passed, details });
+        if (passed) {
+          passCount++;
+          output.innerHTML += `<p style="color: green;">✅ ${testId}: ${testName}</p>`;
+        } else {
+          failCount++;
+          output.innerHTML += `<p style="color: red;">❌ ${testId}: ${testName}</p>`;
+          if (details) output.innerHTML += `<pre>${JSON.stringify(details, null, 2)}</pre>`;
+        }
+      }
+
+      try {
+        const editor = findEditorComponent();
+        if (!editor) {
+          output.innerHTML = '<p style="color: red;">❌ 未找到编辑器组件</p>';
+          return;
+        }
+
+        window.opener.__testEditor = editor;
+
+        // TC-01
+        output.innerHTML += '<h3>TC-01: 无DOCTYPE无图形</h3>';
+        try {
+          let content = editor.content;
+          content = content.replace(/<!DOCTYPE[^>]*\[[^\]]*\]>/g, '');
+          content = content.replace(/<graphic[^>]*\/>/g, '');
+          content = content.replace(/<multimediaObject[^>]*>[\s\S]*?<\/multimediaObject>/g, '');
+          editor.content = content;
+          editor.$refs.editor.getEditor().setValue(content);
+          await sleep(500);
+
+          clickRegenRefsButton();
+          await confirmDialog();
+          await sleep(1500);
+
+          const afterXml = editor.$refs.editor.getEditor().getValue();
+          const errors = validateXmlStructure(afterXml);
+          const hasEmptyDoctype = afterXml.match(/<!DOCTYPE dmodule\[\s*\]>/);
+
+          if (errors.length === 0 && hasEmptyDoctype) {
+            recordResult('TC-01', '无DOCTYPE无图形', true, '生成了空 DOCTYPE');
+          } else {
+            recordResult('TC-01', '无DOCTYPE无图形', false, { errors, hasEmptyDoctype: !!hasEmptyDoctype });
+          }
+        } catch (err) {
+          recordResult('TC-01', '无DOCTYPE无图形', false, err.message);
+        }
+
+        // TC-02
+        output.innerHTML += '<h3>TC-02: 有DOCTYPE有图形</h3>';
+        try {
+          let content = editor.content;
+          if (!content.includes('<!DOCTYPE')) {
+            const dmoduleIndex = content.indexOf('<dmodule');
+            const before = content.substring(0, dmoduleIndex);
+            const after = content.substring(dmoduleIndex);
+            content = before + '<!DOCTYPE dmodule[\n<!NOTATION cgm PUBLIC "image/cgm">\n<!ENTITY ICN-TEST SYSTEM "ICN-TEST.cgm" NDATA cgm>\n]>\n' + after;
+          }
+          if (!content.includes('infoEntityIdent="ICN-TEST"')) {
+            content = content.replace(/(<description>)/, '<graphic infoEntityIdent="ICN-TEST"/>\n    $1');
+          }
+          editor.icnlist = ['ICN-TEST.cgm'];
+          editor.content = content;
+          editor.$refs.editor.getEditor().setValue(content);
+          editor.$refs.editor.formateDM();
+          editor.refreshTree();
+          await sleep(500);
+
+          clickRegenRefsButton();
+          await confirmDialog();
+          await sleep(1500);
+
+          const afterXml = editor.$refs.editor.getEditor().getValue();
+          const errors = validateXmlStructure(afterXml);
+          const hasNotation = afterXml.includes('<!NOTATION cgm PUBLIC');
+          const hasEntity = afterXml.match(/<!ENTITY ICN-TEST SYSTEM "ICN-TEST\.cgm" NDATA cgm>/);
+
+          if (errors.length === 0 && hasNotation && hasEntity) {
+            recordResult('TC-02', '有DOCTYPE有图形', true, { hasNotation, hasEntity: !!hasEntity });
+          } else {
+            recordResult('TC-02', '有DOCTYPE有图形', false, { errors, hasNotation, hasEntity: !!hasEntity });
+          }
+        } catch (err) {
+          recordResult('TC-02', '有DOCTYPE有图形', false, err.message);
+        }
+
+      } catch (err) {
+        output.innerHTML += `<p style="color: red;">❌ 测试执行失败: ${err.message}</p>`;
+      }
+
+      // 报告
+      output.innerHTML += '<hr><h2>测试报告</h2>';
+      output.innerHTML += `<p>总计: ${results.length} 个测试</p>`;
+      output.innerHTML += `<p style="color: green;">✅ 通过: ${passCount}</p>`;
+      output.innerHTML += `<p style="color: red;">❌ 失败: ${failCount}</p>`;
+      const passRate = Math.round((passCount / results.length) * 100);
+      output.innerHTML += `<p>通过率: ${passRate}%</p>`;
+    }
+  </script>
+</body>
+</html>

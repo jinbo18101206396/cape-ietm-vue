@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IETM系统登录</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Chinese Quote", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: rgba(0, 0, 0, 0.85);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #userLayout {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(135deg, #1a3a52 0%, #2c5364 50%, #1a5276 100%);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 简洁背景装饰 */
+    .bg-decoration {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      opacity: 0.08;
+    }
+
+    .bg-circle {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .bg-circle:nth-child(1) {
+      width: 500px;
+      height: 500px;
+      top: -200px;
+      left: -150px;
+    }
+
+    .bg-circle:nth-child(2) {
+      width: 350px;
+      height: 350px;
+      bottom: -100px;
+      right: -80px;
+    }
+
+    /* 军工元素装饰 */
+    .military-decoration {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .corner-mark {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .corner-mark.tl {
+      top: 20px;
+      left: 20px;
+      border-right: none;
+      border-bottom: none;
+    }
+
+    .corner-mark.tr {
+      top: 20px;
+      right: 20px;
+      border-left: none;
+      border-bottom: none;
+    }
+
+    .corner-mark.bl {
+      bottom: 20px;
+      left: 20px;
+      border-right: none;
+      border-top: none;
+    }
+
+    .corner-mark.br {
+      bottom: 20px;
+      right: 20px;
+      border-left: none;
+      border-top: none;
+    }
+
+    .shield-icon {
+      position: absolute;
+      opacity: 0.05;
+      width: 200px;
+      height: 200px;
+    }
+
+    .shield-icon.left {
+      left: 8%;
+      top: 25%;
+    }
+
+    .shield-icon.right {
+      right: 8%;
+      bottom: 20%;
+    }
+
+    /* 军事装备轮廓 */
+    .military-silhouette {
+      position: absolute;
+      opacity: 0.08;
+      fill: white;
+    }
+
+    .aircraft {
+      width: 180px;
+      height: 80px;
+      right: 12%;
+      top: 15%;
+      animation: flyAcross 25s linear infinite;
+    }
+
+    @keyframes flyAcross {
+      0% { transform: translateX(-100px); }
+      100% { transform: translateX(100px); }
+    }
+
+    .carrier {
+      width: 220px;
+      height: 100px;
+      left: 10%;
+      bottom: 25%;
+    }
+
+    .satellite {
+      width: 100px;
+      height: 100px;
+      right: 15%;
+      top: 35%;
+      animation: orbit 30s linear infinite;
+    }
+
+    @keyframes orbit {
+      0% { transform: rotate(0deg) translateX(20px) rotate(0deg); }
+      100% { transform: rotate(360deg) translateX(20px) rotate(-360deg); }
+    }
+
+    .tank {
+      width: 160px;
+      height: 80px;
+      left: 8%;
+      top: 45%;
+    }
+
+    .rocket {
+      width: 60px;
+      height: 140px;
+      right: 10%;
+      bottom: 30%;
+    }
+
+    .helicopter {
+      width: 140px;
+      height: 70px;
+      left: 15%;
+      top: 20%;
+      animation: hover 6s ease-in-out infinite;
+    }
+
+    @keyframes hover {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-15px); }
+    }
+
+    .container {
+      width: 100%;
+      min-height: 100vh;
+      padding: 110px 0 100px;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* 顶部Logo区域 */
+    .top {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .header {
+      height: 44px;
+      line-height: 44px;
+      margin-bottom: 16px;
+    }
+
+    .header a {
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo {
+      height: 44px;
+      vertical-align: top;
+    }
+
+    .title {
+      font-size: 33px;
+      color: #ffffff;
+      font-weight: 600;
+      position: relative;
+      top: 2px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .desc {
+      font-size: 20px;
+      color: rgba(255, 255, 255, 0.95);
+      margin-top: 12px;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-top: 8px;
+      letter-spacing: 1px;
+    }
+
+    /* 主登录区域 */
+    .main {
+      min-width: 260px;
+      width: 400px;
+      max-width: 90%;
+    }
+
+    .user-layout-login {
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .login-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: rgba(0, 0, 0, 0.85);
+      margin-bottom: 8px;
+    }
+
+    .login-subtitle {
+      font-size: 14px;
+      color: rgba(0, 0, 0, 0.45);
+    }
+
+    /* 表单样式 */
+    .form-item {
+      margin-bottom: 24px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 14px;
+      color: rgba(0, 0, 0, 0.85);
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-prefix {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(0, 0, 0, 0.25);
+      font-size: 16px;
+      z-index: 1;
+    }
+
+    .form-input {
+      width: 100%;
+      height: 40px;
+      padding: 4px 11px 4px 40px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: rgba(0, 0, 0, 0.85);
+      background-color: #fff;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      transition: all 0.3s;
+      outline: none;
+    }
+
+    .form-input:hover {
+      border-color: #40a9ff;
+    }
+
+    .form-input:focus {
+      border-color: #40a9ff;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+    }
+
+    .form-input::placeholder {
+      color: rgba(0, 0, 0, 0.25);
+    }
+
+    /* 选项 */
+    .form-options {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .checkbox {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: #1890FF;
+    }
+
+    .checkbox-label {
+      font-size: 14px;
+      color: rgba(0, 0, 0, 0.65);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .forgot-link {
+      font-size: 14px;
+      color: #1890FF;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .forgot-link:hover {
+      color: #40a9ff;
+    }
+
+    /* 登录按钮 */
+    .login-button {
+      width: 100%;
+      height: 40px;
+      font-size: 16px;
+      font-weight: 500;
+      color: #fff;
+      background-color: #1890FF;
+      border: 1px solid #1890FF;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+      padding: 0;
+    }
+
+    .login-button:hover {
+      background-color: #40a9ff;
+      border-color: #40a9ff;
+    }
+
+    .login-button:active {
+      background-color: #096dd9;
+      border-color: #096dd9;
+    }
+
+    .login-button:disabled {
+      background-color: #f5f5f5;
+      border-color: #d9d9d9;
+      color: rgba(0, 0, 0, 0.25);
+      cursor: not-allowed;
+    }
+
+    /* IETM特性标签 */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .feature-tag {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #f0f9ff;
+      border: 1px solid #bae7ff;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #1890FF;
+      transition: all 0.3s;
+    }
+
+    .feature-tag:hover {
+      background: #e6f7ff;
+      box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    /* 底部 */
+    .footer {
+      position: absolute;
+      width: 100%;
+      bottom: 0;
+      padding: 24px 16px;
+      text-align: center;
+      z-index: 1;
+    }
+
+    .links {
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .links a {
+      color: rgba(255, 255, 255, 0.9);
+      text-decoration: none;
+      transition: all 0.3s;
+    }
+
+    .links a:not(:last-child) {
+      margin-right: 40px;
+    }
+
+    .links a:hover {
+      color: #ffffff;
+    }
+
+    .copyright {
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 14px;
+    }
+
+    .copyright a {
+      color: rgba(255, 255, 255, 0.75);
+      text-decoration: none;
+    }
+
+    .copyright a:hover {
+      color: #ffffff;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .container {
+        padding: 60px 16px 100px;
+      }
+
+      .main {
+        width: 98%;
+        max-width: 400px;
+      }
+
+      .desc {
+        font-size: 16px;
+      }
+
+      .user-layout-login {
+        padding: 32px 24px;
+      }
+
+      .features {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="userLayout">
+    <div class="bg-decoration">
+      <div class="bg-circle"></div>
+      <div class="bg-circle"></div>
+    </div>
+
+    <!-- 军工元素装饰 -->
+    <div class="military-decoration">
+      <div class="corner-mark tl"></div>
+      <div class="corner-mark tr"></div>
+      <div class="corner-mark bl"></div>
+      <div class="corner-mark br"></div>
+
+      <!-- 盾牌图标 -->
+      <svg class="shield-icon left" viewBox="0 0 24 24" fill="white">
+        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+      </svg>
+      <svg class="shield-icon right" viewBox="0 0 24 24" fill="white">
+        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+      </svg>
+
+      <!-- 战斗机轮廓 -->
+      <svg class="military-silhouette aircraft" viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10,40 L40,35 L60,20 L80,15 L100,10 L120,15 L140,20 L160,25 L180,30 L190,35 L180,40 L160,43 L140,45 L120,46 L100,47 L80,46 L60,45 L40,43 L20,40 Z"/>
+        <path d="M100,10 L95,25 L100,47 L105,25 Z"/>
+        <path d="M60,20 L50,35 L60,45"/>
+        <path d="M140,20 L150,35 L140,45"/>
+      </svg>
+
+      <!-- 航空母舰轮廓 -->
+      <svg class="military-silhouette carrier" viewBox="0 0 220 100" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10,70 L20,60 L200,60 L210,70 L200,80 L20,80 Z"/>
+        <rect x="40" y="45" width="8" height="15"/>
+        <rect x="70" y="35" width="12" height="25"/>
+        <rect x="110" y="40" width="10" height="20"/>
+        <rect x="150" y="45" width="8" height="15"/>
+        <path d="M15,70 L15,85 L205,85 L205,70"/>
+        <line x1="30" y1="60" x2="35" y2="50" stroke="white" stroke-width="1"/>
+        <line x1="180" y1="60" x2="185" y2="50" stroke="white" stroke-width="1"/>
+      </svg>
+
+      <!-- 卫星轮廓 -->
+      <svg class="military-silhouette satellite" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <rect x="35" y="35" width="30" height="30" rx="2"/>
+        <rect x="20" y="47" width="15" height="6"/>
+        <rect x="65" y="47" width="15" height="6"/>
+        <line x1="15" y1="50" x2="5" y2="50" stroke="white" stroke-width="1"/>
+        <line x1="15" y1="50" x2="10" y2="45" stroke="white" stroke-width="1"/>
+        <line x1="15" y1="50" x2="10" y2="55" stroke="white" stroke-width="1"/>
+        <line x1="85" y1="50" x2="95" y2="50" stroke="white" stroke-width="1"/>
+        <line x1="85" y1="50" x2="90" y2="45" stroke="white" stroke-width="1"/>
+        <line x1="85" y1="50" x2="90" y2="55" stroke="white" stroke-width="1"/>
+        <circle cx="50" cy="50" r="8"/>
+      </svg>
+
+      <!-- 坦克轮廓 -->
+      <svg class="military-silhouette tank" viewBox="0 0 160 80" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="80" cy="60" rx="70" ry="15"/>
+        <rect x="30" y="35" width="100" height="25" rx="3"/>
+        <rect x="50" y="20" width="50" height="15" rx="2"/>
+        <line x1="100" y1="27" x2="140" y2="27" stroke="white" stroke-width="3"/>
+        <circle cx="30" cy="60" r="8"/>
+        <circle cx="50" cy="60" r="8"/>
+        <circle cx="70" cy="60" r="8"/>
+        <circle cx="90" cy="60" r="8"/>
+        <circle cx="110" cy="60" r="8"/>
+        <circle cx="130" cy="60" r="8"/>
+      </svg>
+
+      <!-- 火箭轮廓 -->
+      <svg class="military-silhouette rocket" viewBox="0 0 60 140" xmlns="http://www.w3.org/2000/svg">
+        <path d="M30,5 L35,15 L35,100 L30,105 L25,100 L25,15 Z"/>
+        <path d="M30,5 L25,15 L35,15 Z"/>
+        <rect x="15" y="70" width="10" height="25"/>
+        <rect x="35" y="70" width="10" height="25"/>
+        <path d="M20,95 L15,110 L25,95 Z"/>
+        <path d="M40,95 L35,110 L45,95 Z"/>
+        <path d="M28,105 L25,125 L30,120 L35,125 L32,105 Z"/>
+        <line x1="27" y1="20" x2="33" y2="20" stroke="white" stroke-width="1"/>
+        <line x1="27" y1="30" x2="33" y2="30" stroke="white" stroke-width="1"/>
+        <line x1="27" y1="40" x2="33" y2="40" stroke="white" stroke-width="1"/>
+      </svg>
+
+      <!-- 直升机轮廓 -->
+      <svg class="military-silhouette helicopter" viewBox="0 0 140 70" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="70" cy="35" rx="35" ry="15"/>
+        <rect x="50" y="25" width="40" height="20" rx="3"/>
+        <line x1="30" y1="15" x2="110" y2="15" stroke="white" stroke-width="2"/>
+        <line x1="70" y1="5" x2="70" y2="25" stroke="white" stroke-width="2"/>
+        <path d="M90,35 L120,45 L125,40 L95,30 Z"/>
+        <rect x="65" y="50" width="3" height="15"/>
+        <rect x="72" y="50" width="3" height="15"/>
+        <path d="M60,65 L50,65 L55,68 Z"/>
+        <path d="M80,65 L90,65 L85,68 Z"/>
+      </svg>
+    </div>
+
+    <div class="container">
+      <div class="top">
+        <div class="header">
+          <a href="/">
+            <svg class="logo" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="militaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#1890FF;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:#0050b3;stop-opacity:1" />
+                </linearGradient>
+              </defs>
+              <rect width="44" height="44" rx="4" fill="url(#militaryGrad)"/>
+              <rect x="8" y="8" width="28" height="28" fill="none" stroke="#fff" stroke-width="2"/>
+              <rect x="12" y="18" width="20" height="18" fill="#fff"/>
+              <circle cx="22" cy="14" r="3" fill="#fff"/>
+              <path d="M22 2 L26 6 L22 10 L18 6 Z" fill="#ffd700"/>
+            </svg>
+            <span class="title">IETM</span>
+          </a>
+        </div>
+        <div class="desc">武器装备交互式电子技术手册研发平台</div>
+        <div class="subtitle">中国航空综合技术研究所</div>
+      </div>
+
+      <div class="main">
+        <form class="user-layout-login" onsubmit="event.preventDefault(); handleLogin();">
+          <div class="login-header">
+            <h2 class="login-title">用户登录</h2>
+            <p class="login-subtitle">欢迎使用IETM系统</p>
+          </div>
+
+          <div class="form-item">
+            <label class="form-label">账号</label>
+            <div class="input-wrapper">
+              <svg class="input-prefix" viewBox="64 64 896 896" width="1em" height="1em" fill="currentColor">
+                <path d="M858.5 763.6a374 374 0 00-80.6-119.5 375.63 375.63 0 00-119.5-80.6c-.4-.2-.8-.3-1.2-.5C719.5 518 760 444.7 760 362c0-137-111-248-248-248S264 225 264 362c0 82.7 40.5 156 102.8 201.1-.4.2-.8.3-1.2.5-44.8 18.9-85 46-119.5 80.6a375.63 375.63 0 00-80.6 119.5A371.7 371.7 0 00136 901.8a8 8 0 008 8.2h60c4.4 0 7.9-3.5 8-7.8 2-77.2 33-149.5 87.8-204.3 56.7-56.7 132-87.9 212.2-87.9s155.5 31.2 212.2 87.9C779 752.7 810 825 812 902.2c.1 4.4 3.6 7.8 8 7.8h60a8 8 0 008-8.2c-1-47.8-10.9-94.3-29.5-138.2zM512 534c-45.9 0-89.1-17.9-121.6-50.4S340 407.9 340 362c0-45.9 17.9-89.1 50.4-121.6S466.1 190 512 190s89.1 17.9 121.6 50.4S684 316.1 684 362c0 45.9-17.9 89.1-50.4 121.6S557.9 534 512 534z"></path>
+              </svg>
+              <input type="text" class="form-input" placeholder="请输入账号 / admin" value="admin" id="username" />
+            </div>
+          </div>
+
+          <div class="form-item">
+            <label class="form-label">密码</label>
+            <div class="input-wrapper">
+              <svg class="input-prefix" viewBox="64 64 896 896" width="1em" height="1em" fill="currentColor">
+                <path d="M832 464h-68V240c0-70.7-57.3-128-128-128H388c-70.7 0-128 57.3-128 128v224h-68c-17.7 0-32 14.3-32 32v384c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V496c0-17.7-14.3-32-32-32zM332 240c0-30.9 25.1-56 56-56h248c30.9 0 56 25.1 56 56v224H332V240zm460 600H232V536h560v304zM484 701v53c0 4.4 3.6 8 8 8h40c4.4 0 8-3.6 8-8v-53a48.01 48.01 0 10-56 0z"></path>
+              </svg>
+              <input type="password" class="form-input" placeholder="请输入密码 / 123456" value="123456" id="password" />
+            </div>
+          </div>
+
+          <div class="form-options">
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="remember" class="checkbox" checked />
+              <label for="remember" class="checkbox-label">记住我</label>
+            </div>
+            <a href="#" class="forgot-link" onclick="event.preventDefault(); alert('忘记密码功能');">忘记密码?</a>
+          </div>
+
+          <button type="submit" class="login-button" id="loginBtn">确定</button>
+
+          <div class="features">
+            <div class="feature-tag">
+              <svg class="feature-icon" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+              </svg>
+              <span>军工级保密</span>
+            </div>
+            <div class="feature-tag">
+              <svg class="feature-icon" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18-.21 0-.41-.06-.57-.18l-7.9-4.44C3.21 17.21 3 16.88 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18.21 0 .41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9z"/>
+              </svg>
+              <span>装备3D模型</span>
+            </div>
+            <div class="feature-tag">
+              <svg class="feature-icon" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+              </svg>
+              <span>技术手册</span>
+            </div>
+            <div class="feature-tag">
+              <svg class="feature-icon" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              <span>权威认证</span>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="footer">
+        <div class="links">
+          <a href="#" onclick="event.preventDefault();">帮助</a>
+          <a href="#" onclick="event.preventDefault();">隐私</a>
+          <a href="#" onclick="event.preventDefault();">条款</a>
+        </div>
+        <div class="copyright">
+          Copyright &copy; 2026 <a href="#" onclick="event.preventDefault();">中国航空综合技术研究所 | 版权所有</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function handleLogin() {
+      const btn = document.getElementById('loginBtn');
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      if (!username) {
+        alert('请输入账号');
+        return;
+      }
+
+      if (!password) {
+        alert('请输入密码');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '登录中...';
+
+      setTimeout(() => {
+        alert('登录成功！即将跳转到系统主页...');
+        btn.disabled = false;
+        btn.textContent = '确定';
+      }, 1000);
+    }
+
+    document.addEventListener('keyup', function(e) {
+      if (e.key === 'Enter') {
+        handleLogin();
+      }
+    });
+  </script>
+</body>
+</html>

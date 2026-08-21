@@ -1,0 +1,44 @@
+
+Running 3 tests using 1 worker
+
+📋 等待页面加载完成...
+📋 找到 5 个DM
+
+🧪 测试场景1: 模拟工作流未启动...
+📋 场景1结果: {
+  "triggered": true,
+  "message": "该DM还未启动流程，不能签出",
+  "passed": false
+}
+  ✅ 工作流未启动校验 已触发
+
+🧪 测试场景2: 模拟非DM编写节点...
+📋 场景2结果: {
+  "triggered": true,
+  "message": "当前流程节点不是\"DM编写\"，不能签出",
+  "passed": false
+}
+  ✅ 非DM编写节点校验 已触发
+
+🧪 测试场景3: 模拟正常流程...
+📋 场景3结果: {
+  "triggered": true,
+  "passed": true,
+  "message": "校验通过"
+}
+  ✅ 正常流程 通过校验
+
+📊 验证总结:
+  ✅ 工作流未启动校验逻辑: 正确
+  ✅ 非DM编写节点校验逻辑: 正确
+  ✅ 正常流程通过校验: 正确
+  ok 1 [chromium] › tests\e2e\precondition-ultimate-validation.spec.js:23:3 › 前置条件修复 - 终极UI验证 › 【终极验证】通过浏览器console模拟触发前置条件校验 (12.0s)
+
+📋 测试真实DM的签出按钮点击行为（前3个）...
+  ok 2 [chromium] › tests\e2e\precondition-ultimate-validation.spec.js:133:3 › 前置条件修复 - 终极UI验证 › 【真实点击】在实际DM上点击签出按钮观察行为 (13.7s)
+
+🔍 进入项目管理页面...
+⚠️  未能打开项目编辑页面
+  ok 3 [chromium] › tests\e2e\precondition-ultimate-validation.spec.js:220:3 › 前置条件修复 - 终极UI验证 › 【项目参数】真实输入并保存测试格式校验 (12.2s)
+
+  3 passed (39.4s)

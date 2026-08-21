@@ -1,0 +1,94 @@
+
+Running 4 tests using 1 worker
+
+✅ 登录成功
+  x  1 [chromium] › tests\e2e\precondition-final-verification.spec.js:27:3 › 前置条件修复 - 最终UI验证 › P0: 完整签出流程 - 验证工作流前置条件 (21.0s)
+  x  2 [chromium] › tests\e2e\precondition-final-verification.spec.js:98:3 › 前置条件修复 - 最终UI验证 › P1: 工作流未启动 - 验证拦截 (16.3s)
+  x  3 [chromium] › tests\e2e\precondition-final-verification.spec.js:146:3 › 前置条件修复 - 最终UI验证 › P2: 非DM编写节点 - 验证拦截 (18.7s)
+⚠️  未找到项目参数按钮，跳过此测试
+  ok 4 [chromium] › tests\e2e\precondition-final-verification.spec.js:193:3 › 前置条件修复 - 最终UI验证 › P3: 项目参数格式校验 - 真实保存 (10.4s)
+
+
+  1) [chromium] › tests\e2e\precondition-final-verification.spec.js:27:3 › 前置条件修复 - 最终UI验证 › P0: 完整签出流程 - 验证工作流前置条件 
+
+    TimeoutError: page.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('text=请选择项目')
+
+
+      31 |
+      32 |     // 2. 打开项目选择弹窗
+    > 33 |     await page.click('text=请选择项目');
+         |                ^
+      34 |     await page.waitForSelector('.ant-modal:has-text("选择项目")', { timeout: 5000 });
+      35 |
+      36 |     // 选择第一个项目
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\precondition-final-verification.spec.js:33:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-precondition-final-ver-7ebe1-终UI验证-P0-完整签出流程---验证工作流前置条件-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-precondition-final-ver-7ebe1-终UI验证-P0-完整签出流程---验证工作流前置条件-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-precondition-final-ver-7ebe1-终UI验证-P0-完整签出流程---验证工作流前置条件-chromium\error-context.md
+
+  2) [chromium] › tests\e2e\precondition-final-verification.spec.js:98:3 › 前置条件修复 - 最终UI验证 › P1: 工作流未启动 - 验证拦截 
+
+    TimeoutError: page.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('text=请选择项目')
+
+
+      100 |
+      101 |     // 打开项目
+    > 102 |     await page.click('text=请选择项目');
+          |                ^
+      103 |     await page.waitForSelector('.ant-modal:has-text("选择项目")');
+      104 |     await page.click('.ant-table-tbody tr:first-child');
+      105 |     await page.click('button:has-text("确定")');
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\precondition-final-verification.spec.js:102:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-precondition-final-ver-4aea1-复---最终UI验证-P1-工作流未启动---验证拦截-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-precondition-final-ver-4aea1-复---最终UI验证-P1-工作流未启动---验证拦截-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-precondition-final-ver-4aea1-复---最终UI验证-P1-工作流未启动---验证拦截-chromium\error-context.md
+
+  3) [chromium] › tests\e2e\precondition-final-verification.spec.js:146:3 › 前置条件修复 - 最终UI验证 › P2: 非DM编写节点 - 验证拦截 
+
+    TimeoutError: page.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('text=请选择项目')
+
+
+      147 |     await login(page);
+      148 |
+    > 149 |     await page.click('text=请选择项目');
+          |                ^
+      150 |     await page.waitForSelector('.ant-modal:has-text("选择项目")');
+      151 |     await page.click('.ant-table-tbody tr:first-child');
+      152 |     await page.click('button:has-text("确定")');
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\precondition-final-verification.spec.js:149:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-precondition-final-ver-93cf5----最终UI验证-P2-非DM编写节点---验证拦截-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-precondition-final-ver-93cf5----最终UI验证-P2-非DM编写节点---验证拦截-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-precondition-final-ver-93cf5----最终UI验证-P2-非DM编写节点---验证拦截-chromium\error-context.md
+
+  3 failed
+    [chromium] › tests\e2e\precondition-final-verification.spec.js:27:3 › 前置条件修复 - 最终UI验证 › P0: 完整签出流程 - 验证工作流前置条件 
+    [chromium] › tests\e2e\precondition-final-verification.spec.js:98:3 › 前置条件修复 - 最终UI验证 › P1: 工作流未启动 - 验证拦截 
+    [chromium] › tests\e2e\precondition-final-verification.spec.js:146:3 › 前置条件修复 - 最终UI验证 › P2: 非DM编写节点 - 验证拦截 
+  1 passed (1.2m)

@@ -1,0 +1,77 @@
+
+Running 6 tests using 1 worker
+
+✅ 登录成功，获取到token
+✅ 已打开项目: 项目33
+  x  1 [chromium] › tests\e2e\real-data-comprehensive.spec.js:73:3 › 前置条件综合测试 - 真实数据验证 › 综合测试1: 查询真实DM数据并验证工作流字段 (3.9s)
+✅ 登录成功，获取到token
+✅ 已打开项目: 项目33
+  x  2 [chromium] › tests\e2e\real-data-comprehensive.spec.js:104:3 › 前置条件综合测试 - 真实数据验证 › 综合测试2: 前端列表页加载并验证工作流列显示 (16.6s)
+✅ 登录成功，获取到token
+✅ 已打开项目: 项目33
+⚠️ 没有找到符合条件的DM（工作流已启动、DM编写节点、未签出）
+📋 跳过签出测试，但前置条件校验代码已验证
+  ok 3 [chromium] › tests\e2e\real-data-comprehensive.spec.js:129:3 › 前置条件综合测试 - 真实数据验证 › 综合测试3: 真实DM签出 - 完整流程验证 (4.9s)
+⚠️ 没有找到测试用的异常状态DM
+  ok 4 [chromium] › tests\e2e\real-data-comprehensive.spec.js:203:3 › 前置条件综合测试 - 真实数据验证 › 综合测试4: 边界条件 - 后端API直接调用验证 (4.8s)
+⚠️ 没有找到测试项目
+  ok 5 [chromium] › tests\e2e\real-data-comprehensive.spec.js:258:3 › 前置条件综合测试 - 真实数据验证 › 综合测试5: 项目参数格式校验 - 真实保存验证 (5.7s)
+⚠️ 无法获取DM列表
+  ok 6 [chromium] › tests\e2e\real-data-comprehensive.spec.js:282:3 › 前置条件综合测试 - 真实数据验证 › 综合测试6: 统计当前系统DM状态分布 (4.8s)
+
+
+  1) [chromium] › tests\e2e\real-data-comprehensive.spec.js:73:3 › 前置条件综合测试 - 真实数据验证 › 综合测试1: 查询真实DM数据并验证工作流字段 
+
+    Error: expect(received).toBeTruthy()
+
+    Received: false
+
+      79 |
+      80 |     const listData = await listResp.json();
+    > 81 |     expect(listData.success).toBeTruthy();
+         |                              ^
+      82 |
+      83 |     console.log('✅ 查询到DM记录数:', listData.result.total);
+      84 |
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\real-data-comprehensive.spec.js:81:30
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-real-data-comprehensiv-8920f-数据验证-综合测试1-查询真实DM数据并验证工作流字段-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-real-data-comprehensiv-8920f-数据验证-综合测试1-查询真实DM数据并验证工作流字段-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-real-data-comprehensiv-8920f-数据验证-综合测试1-查询真实DM数据并验证工作流字段-chromium\error-context.md
+
+  2) [chromium] › tests\e2e\real-data-comprehensive.spec.js:104:3 › 前置条件综合测试 - 真实数据验证 › 综合测试2: 前端列表页加载并验证工作流列显示 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('.ant-table-tbody tr') to be visible
+
+
+      106 |
+      107 |     // 等待列表加载
+    > 108 |     await page.waitForSelector('.ant-table-tbody tr', { timeout: 10000 });
+          |                ^
+      109 |
+      110 |     // 检查表头是否包含工作流相关列
+      111 |     const headers = await page.$$eval('.ant-table-thead th', ths =>
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\real-data-comprehensive.spec.js:108:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-real-data-comprehensiv-8572e-数据验证-综合测试2-前端列表页加载并验证工作流列显示-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-real-data-comprehensiv-8572e-数据验证-综合测试2-前端列表页加载并验证工作流列显示-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-real-data-comprehensiv-8572e-数据验证-综合测试2-前端列表页加载并验证工作流列显示-chromium\error-context.md
+
+  2 failed
+    [chromium] › tests\e2e\real-data-comprehensive.spec.js:73:3 › 前置条件综合测试 - 真实数据验证 › 综合测试1: 查询真实DM数据并验证工作流字段 
+    [chromium] › tests\e2e\real-data-comprehensive.spec.js:104:3 › 前置条件综合测试 - 真实数据验证 › 综合测试2: 前端列表页加载并验证工作流列显示 
+  4 passed (46.4s)

@@ -1,0 +1,36 @@
+
+Running 6 tests using 1 worker
+
+❌ 登录失败: {
+  success: false,
+  message: '用户名或密码错误',
+  code: 500,
+  result: null,
+  timestamp: 1786608946444
+}
+  x  1 [chromium] › tests\e2e\real-data-comprehensive.spec.js:47:3 › 前置条件综合测试 - 真实数据验证 › 综合测试1: 查询真实DM数据并验证工作流字段 (0ms)
+  -  2 [chromium] › tests\e2e\real-data-comprehensive.spec.js:78:3 › 前置条件综合测试 - 真实数据验证 › 综合测试2: 前端列表页加载并验证工作流列显示
+  -  3 [chromium] › tests\e2e\real-data-comprehensive.spec.js:103:3 › 前置条件综合测试 - 真实数据验证 › 综合测试3: 真实DM签出 - 完整流程验证
+  -  4 [chromium] › tests\e2e\real-data-comprehensive.spec.js:177:3 › 前置条件综合测试 - 真实数据验证 › 综合测试4: 边界条件 - 后端API直接调用验证
+  -  5 [chromium] › tests\e2e\real-data-comprehensive.spec.js:232:3 › 前置条件综合测试 - 真实数据验证 › 综合测试5: 项目参数格式校验 - 真实保存验证
+  -  6 [chromium] › tests\e2e\real-data-comprehensive.spec.js:256:3 › 前置条件综合测试 - 真实数据验证 › 综合测试6: 统计当前系统DM状态分布
+
+
+  1) [chromium] › tests\e2e\real-data-comprehensive.spec.js:47:3 › 前置条件综合测试 - 真实数据验证 › 综合测试1: 查询真实DM数据并验证工作流字段 
+
+    Error: 无法获取token
+
+      32 |     } else {
+      33 |       console.error('❌ 登录失败:', loginData);
+    > 34 |       throw new Error('无法获取token');
+         |             ^
+      35 |     }
+      36 |   });
+      37 |
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\real-data-comprehensive.spec.js:34:13
+
+    Error Context: test-results\e2e-real-data-comprehensiv-8920f-数据验证-综合测试1-查询真实DM数据并验证工作流字段-chromium\error-context.md
+
+  1 failed
+    [chromium] › tests\e2e\real-data-comprehensive.spec.js:47:3 › 前置条件综合测试 - 真实数据验证 › 综合测试1: 查询真实DM数据并验证工作流字段 
+  5 did not run
