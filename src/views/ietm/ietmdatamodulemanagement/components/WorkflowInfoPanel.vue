@@ -417,6 +417,13 @@ export default {
 
     // 紧急程度即时更新（还原旧 ifurgent combobox）
     async handleUrgentChange(val) {
+      // P3修复：流程已结束时拦截
+      if (this.instOver) {
+        this.$message.warning('流程已结束，不能修改紧急程度')
+        this.urgent = this.instance.ifurgent  // 恢复原值
+        return
+      }
+
       this.urgent = val
       try {
         const url = `/ietm/workflow/instance/updateUrgent?id=${encodeURIComponent(this.instance.id)}&ifurgent=${encodeURIComponent(val)}`
@@ -494,6 +501,14 @@ export default {
 
       if (this.selectedNode.ifexec !== 'Y') {
         this.$message.warning('只能拿回已处理的节点')
+        return
+      }
+
+      // P2修复：检查是否为自己处理的节点
+      const userids = (this.selectedNode.userid || '').split(',')
+      const isMyNode = userids.includes(this.currentUserId) || userids.includes(this.currentUsername)
+      if (!isMyNode) {
+        this.$message.warning('只能拿回自己处理的节点！')
         return
       }
       this.$confirm({
