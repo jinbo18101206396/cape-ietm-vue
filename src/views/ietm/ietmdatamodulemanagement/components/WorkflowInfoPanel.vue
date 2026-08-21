@@ -18,11 +18,13 @@
         >新增节点</a-button>
 
         <!-- 删除节点（还原旧"刪除节点"） -->
+        <!-- 🔧 Issue-3修复: 添加禁用状态，未选中或选中节点不可删时禁用 -->
         <a-button
           v-if="canEditNodes"
           type="link"
           size="small"
           icon="delete"
+          :disabled="!canDeleteSelectedNode"
           @click="handleDeleteNode"
         >删除节点</a-button>
 
@@ -50,13 +52,9 @@
           </a-select>
         </span>
 
-        <!-- ✅ P1-4: 阶段说明（还原旧 tdStagenote，对齐旧系统 Line 48） -->
-        <span class="wf-stage-note" v-if="existStage">
-          【分阶段流程规则：各阶段首位处理人可维护本阶段节点、编辑下阶段首节点、增加下阶段节点】
-        </span>
-
         <!-- 追加意见（还原旧 tdAddopinion）：选中已处理节点可追加，流程未结束时可用 -->
-        <span class="wf-addopinion" v-if="instance && !instOver">
+        <!-- 🔧 Issue-4修复: 改用 hasAddOpinionableNode 条件，只有存在可追加意见的节点时才显示 -->
+        <span class="wf-addopinion" v-if="hasAddOpinionableNode">
           <a-input
             v-model="addOpinionText"
             size="small"
@@ -69,13 +67,21 @@
 
         <!-- 拿回（还原旧 tdGetback）：选中自己已通过的节点，流程未结束时可用 -->
         <!-- P2-3: 动态检测是否有可拿回的节点 -->
+        <!-- 🔧 Issue-4优化: 添加禁用状态，未选中或选中节点不可拿回时禁用 -->
         <a-button
           v-if="hasGetbackNode"
           type="link"
           size="small"
           icon="rollback"
+          :disabled="!canTakeBackSelected"
           @click="handleTakeBack"
         >拿回</a-button>
+      </div>
+
+      <!-- 🔧 Issue-1修复: 分阶段规则说明（独立一行，增强视觉分离） -->
+      <div class="wf-stage-tip" v-if="existStage">
+        <a-icon type="info-circle" />
+        分阶段流程规则：各阶段首位处理人可维护本阶段节点、编辑下阶段首节点、增加下阶段节点
       </div>
 
       <!-- 节点表 -->
@@ -312,6 +318,50 @@ export default {
         const userids = (node.userid || '').split(',')
         return userids.includes(currentUserId) || userids.includes(currentUsername)
       })
+    },
+    // 🔧 Issue-4修复: 是否有可追加意见的节点
+    // 只有存在【已处理】且【非创建节点】且【处理人为自己】的节点时才显示"保存意见"按钮
+    hasAddOpinionableNode() {
+      if (!this.instance || this.instOver) return false
+      if (!this.nodes || this.nodes.length === 0) return false
+
+      const userInfo = this.$store.getters.userInfo
+      const currentUserId = userInfo ? userInfo.id : ''
+      const currentUsername = userInfo ? userInfo.username : ''
+
+      return this.nodes.some(node => {
+        // 必须已处理
+        if (node.ifexec !== 'Y') return false
+        // 不能是创建节点
+        if (node.seqno === 0 || node.seqno === '0') return false
+        // 必须是自己处理的
+        const userids = (node.userid || '').split(',')
+        return userids.includes(currentUserId) || userids.includes(currentUsername)
+      })
+    },
+    // 🔧 Issue-3修复: 当前选中节点是否可删除（工具栏按钮禁用状态）
+    canDeleteSelectedNode() {
+      if (!this.selectedNode) return false
+      // 已处理/跳过节点不能删
+      if (this.selectedNode.ifexec === 'Y' || this.selectedNode.ifexec === 'J') return false
+      // 待办节点不能删
+      if (this.todoNode && this.todoNode.id === this.selectedNode.id) return false
+      // 后续有已处理节点不能删
+      const idx = this.nodes.findIndex(n => n.id === this.selectedNode.id)
+      if (idx !== -1) {
+        const hasProcessedAfter = this.nodes
+          .slice(idx + 1)
+          .some(n => n.ifexec === 'Y' || n.ifexec === 'J')
+        if (hasProcessedAfter) return false
+      }
+      return true
+    },
+    // 🔧 Issue-4优化: 当前选中节点是否可拿回（拿回按钮禁用状态）
+    canTakeBackSelected() {
+      if (!this.selectedNode) return false
+      if (this.selectedNode.ifexec !== 'Y') return false
+      const userids = (this.selectedNode.userid || '').split(',')
+      return userids.includes(this.currentUserId) || userids.includes(this.currentUsername)
     }
   },
   watch: {
@@ -383,31 +433,14 @@ export default {
     },
 
     // 删除节点（还原旧 delnode）
+    // 🔧 Issue-3修复: 直接调用子表 deleteRow 方法，复用完整校验逻辑（包括后续节点已处理检查）
     handleDeleteNode() {
       if (!this.selectedNode) {
         this.$message.warning('请选择一个要删除的节点')
         return
       }
-      if (this.selectedNode.ifexec === 'Y' || this.selectedNode.ifexec === 'J') {
-        this.$message.warning('已处理节点不能删除！')
-        return
-      }
-      if (this.todoNode && this.todoNode.id === this.selectedNode.id) {
-        this.$message.warning('当前正在处理的节点不能删除！')
-        return
-      }
-
-      // P3-1: 触发钩子（兼容旧系统 parent.beforeDeletenode 和新系统 @before-delete-node）
-      const canDelete = this.emitCompat('before-delete-node', 'beforeDeletenode') !== false
-      if (!canDelete) return
-
-      this.$confirm({
-        title: '提示',
-        content: `删除的数据不能恢复，确定删除节点【${this.selectedNode.nodename}】？`,
-        onOk: () => {
-          this.$refs.dtlTable && this.$refs.dtlTable.deleteRow(this.selectedNode)
-        }
-      })
+      // 直接调用子表的 deleteRow，该方法包含完整的校验逻辑
+      this.$refs.dtlTable && this.$refs.dtlTable.deleteRow(this.selectedNode)
     },
 
     // 保存节点（还原旧 savenode）
@@ -763,13 +796,16 @@ export default {
   gap: 4px;
 }
 
-/* P1-4: 阶段说明样式（还原旧 tdStagenote） */
-.wf-stage-note {
-  color: #666;
+/* 🔧 Issue-1修复: 分阶段规则独立说明栏样式 */
+.wf-stage-tip {
+  padding: 6px 12px;
+  background: #e6f7ff;
+  border-bottom: 1px solid #91d5ff;
+  color: #0050b3;
   font-size: 12px;
-  margin-left: 12px;
-  max-width: 400px;
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .wf-table-wrap {
