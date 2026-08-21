@@ -2,45 +2,37 @@
   <div class="workflow-info-panel">
     <!-- ═══ center：工具栏 + 节点表 ═══ -->
     <div class="center-region">
-      <!-- 工具栏（还原旧 toolbarWfInstance） - 优化布局 -->
+      <!-- 工具栏 - 简洁布局 -->
       <div class="wf-toolbar">
-        <!-- 左侧：图例 + 刷新 -->
-        <div class="toolbar-section toolbar-left">
-          <span class="wf-legend">{{ legend }}</span>
-          <a-button type="link" size="small" icon="reload" @click="refreshAll">刷新</a-button>
-        </div>
+        <!-- 图例 -->
+        <span class="wf-legend">{{ legend }}</span>
 
-        <!-- 中间：节点操作按钮组 -->
-        <div class="toolbar-section toolbar-center" v-if="canEditNodes">
-          <a-button-group size="small">
-            <a-button type="link" icon="plus" @click="handleInsertNode">新增节点</a-button>
-            <!-- 🔧 Issue-3修复: 添加禁用状态，未选中或选中节点不可删时禁用 -->
-            <a-button type="link" icon="delete" :disabled="!canDeleteSelectedNode" @click="handleDeleteNode">删除节点</a-button>
-            <a-button type="link" icon="save" @click="handleSaveNodes">保存节点</a-button>
-          </a-button-group>
-        </div>
+        <!-- 基础操作 -->
+        <a-button type="link" size="small" icon="reload" @click="refreshAll">刷新</a-button>
 
-        <!-- 右侧：状态控制 -->
-        <div class="toolbar-section toolbar-right">
-          <!-- 紧急程度（还原旧 ifurgent 下拉，即时 updateUrgent） -->
-          <span class="wf-urgent" v-if="instance">
-            <label class="urgent-label">紧急程度：</label>
-            <a-select
-              :value="urgent"
-              size="small"
-              style="width: 96px"
-              :disabled="instOver"
-              @change="handleUrgentChange"
-            >
-              <a-select-option value="1">一般</a-select-option>
-              <a-select-option value="2">★紧急</a-select-option>
-              <a-select-option value="3">★★特急</a-select-option>
-            </a-select>
-          </span>
+        <!-- 节点操作 -->
+        <template v-if="canEditNodes">
+          <a-divider type="vertical" />
+          <a-button type="link" size="small" icon="plus" @click="handleInsertNode">新增</a-button>
+          <a-button type="link" size="small" icon="delete" :disabled="!canDeleteSelectedNode" @click="handleDeleteNode">删除</a-button>
+          <a-button type="link" size="small" icon="save" @click="handleSaveNodes">保存</a-button>
+        </template>
 
-          <!-- 拿回（还原旧 tdGetback）：选中自己已通过的节点，流程未结束时可用 -->
-          <!-- P2-3: 动态检测是否有可拿回的节点 -->
-          <!-- 🔧 Issue-4优化: 添加禁用状态，未选中或选中节点不可拿回时禁用 -->
+        <!-- 右侧控制 -->
+        <div class="toolbar-right">
+          <a-select
+            v-if="instance"
+            :value="urgent"
+            size="small"
+            style="width: 88px"
+            :disabled="instOver"
+            @change="handleUrgentChange"
+          >
+            <a-select-option value="1">一般</a-select-option>
+            <a-select-option value="2">紧急</a-select-option>
+            <a-select-option value="3">特急</a-select-option>
+          </a-select>
+
           <a-button
             v-if="hasGetbackNode"
             type="link"
@@ -52,27 +44,23 @@
         </div>
       </div>
 
-      <!-- 追加意见独立行（还原旧 tdAddopinion）：选中已处理节点可追加，流程未结束时可用 -->
-      <!-- 🔧 Issue-4修复: 改用 hasAddOpinionableNode 条件，只有存在可追加意见的节点时才显示 -->
+      <!-- 追加意见 -->
       <div class="wf-addopinion-bar" v-if="hasAddOpinionableNode">
-        <label class="opinion-label">追加意见：</label>
         <a-textarea
           v-model="addOpinionText"
           size="small"
-          placeholder="选中已处理节点后，可在此追加意见（最多500字）"
+          placeholder="追加意见（选中已处理节点，最多500字）"
           :rows="1"
-          style="flex: 1; max-width: 600px"
           :maxLength="500"
           show-count
         />
-        <a-button type="primary" size="small" icon="save" @click="handleAddOpinion">保存意见</a-button>
+        <a-button type="primary" size="small" @click="handleAddOpinion">保存</a-button>
       </div>
 
-      <!-- 🔧 Issue-1修复: 分阶段规则说明（独立一行，增强视觉分离） -->
-      <!-- 🟡 L2修复: 文案优化，补充"下阶段无节点时"限定（对齐旧系统 Line 48） -->
+      <!-- 分阶段提示 -->
       <div class="wf-stage-tip" v-if="existStage">
         <a-icon type="info-circle" />
-        分阶段流程规则：当流程分阶段时，每个阶段的第一个人可维护本阶段节点、编辑下阶段第一个节点、下阶段无节点时可增加下阶段节点
+        分阶段规则：各阶段第一人可维护本阶段节点、编辑下阶段第一节点、下阶段无节点时可增加节点
       </div>
 
       <!-- 节点表 -->
@@ -97,31 +85,30 @@
       </div>
     </div>
 
-    <!-- ═══ south：常驻处理表单（还原旧 execform）═══ -->
+    <!-- 处理表单 -->
     <div class="south-region" v-if="showExecForm">
       <div class="exec-header">
-        <div class="exec-legend">{{ execLegend }}</div>
+        <span class="exec-legend">{{ execLegend }}</span>
         <span v-if="isLastTodo" class="last-node-note">
           <a-icon type="warning" />
-          当前处理节点是最后一个节点。提交处理后本流程将结束，并且不能修改。
+          最后节点，提交后流程结束
         </span>
       </div>
 
       <div class="exec-body">
-        <!-- 第一行：处理选项 -->
-        <div class="exec-row exec-options-row">
-          <label class="exec-label">处理选项：</label>
-          <a-radio-group v-model="form.ifpass" @change="onIfpassChange" class="exec-radio-group">
+        <!-- 处理选项 -->
+        <div class="exec-row">
+          <a-radio-group v-model="form.ifpass" @change="onIfpassChange">
             <a-radio value="1">通过</a-radio>
-            <a-radio value="2">发表不同意见</a-radio>
-            <a-radio value="9">流程终止</a-radio>
-            <a-radio value="3">跳转至</a-radio>
+            <a-radio value="2">不同意</a-radio>
+            <a-radio value="9">终止</a-radio>
+            <a-radio value="3">跳转</a-radio>
           </a-radio-group>
           <a-select
             :value="form.targetDtlid"
             size="small"
-            style="width: 200px"
-            placeholder="请选择要跳转的节点"
+            style="width: 180px"
+            placeholder="选择跳转节点"
             :disabled="form.ifpass !== '3'"
             @change="v => form.targetDtlid = v"
           >
@@ -133,32 +120,28 @@
           </a-select>
         </div>
 
-        <!-- 第二行：意见 + 附件 + 提交 -->
-        <div class="exec-row exec-submit-row">
-          <label class="exec-label">处理意见：</label>
+        <!-- 意见 + 操作 -->
+        <div class="exec-row">
           <a-textarea
             v-model="form.opinion"
-            placeholder="请填写处理意见（最多500字）"
+            placeholder="处理意见（最多500字）"
             :rows="2"
             :maxLength="500"
             show-count
-            class="exec-textarea"
           />
-          <div class="exec-actions">
-            <a-upload
-              :file-list="fileList"
-              :before-upload="beforeUpload"
-              @remove="handleFileRemove"
-            >
-              <a-button size="small" icon="upload">附件</a-button>
-            </a-upload>
-            <a-button
-              type="primary"
-              size="small"
-              :loading="submitting"
-              @click="handleSubmit"
-            >提交处理</a-button>
-          </div>
+          <a-upload
+            :file-list="fileList"
+            :before-upload="beforeUpload"
+            @remove="handleFileRemove"
+          >
+            <a-button size="small" icon="upload">附件</a-button>
+          </a-upload>
+          <a-button
+            type="primary"
+            size="small"
+            :loading="submitting"
+            @click="handleSubmit"
+          >提交</a-button>
         </div>
       </div>
     </div>
@@ -875,9 +858,7 @@ export default {
   background: #fff;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   center：工具栏 + 节点表
-   ═══════════════════════════════════════════════════════════════ */
+/* ═══ 中心区域 ═══ */
 .center-region {
   flex: 1;
   display: flex;
@@ -885,82 +866,50 @@ export default {
   overflow: hidden;
 }
 
-/* 工具栏 - 三段式布局 */
+/* 工具栏 - 简洁单行布局 */
 .wf-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 8px 16px;
+  gap: 12px;
+  padding: 6px 12px;
   background: #fafafa;
   border-bottom: 1px solid #e8e8e8;
-  min-height: 40px;
+  min-height: 36px;
 }
 
-.toolbar-section {
+.wf-legend {
+  font-weight: 600;
+  color: #1890ff;
+  font-size: 14px;
+}
+
+.toolbar-right {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.toolbar-left {
-  flex-shrink: 0;
-}
-
-.toolbar-center {
-  flex: 1;
-  justify-content: center;
-}
-
-.toolbar-right {
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-.wf-legend {
-  font-weight: bold;
-  color: #1890ff;
-  font-size: 14px;
-}
-
-.wf-urgent {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.urgent-label {
-  font-size: 13px;
-  color: #666;
-}
-
-/* 追加意见独立栏 */
+/* 追加意见栏 - 紧凑布局 */
 .wf-addopinion-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
+  gap: 8px;
+  padding: 6px 12px;
   background: #fffbe6;
   border-bottom: 1px solid #ffe58f;
 }
 
-.opinion-label {
-  font-size: 13px;
-  color: #666;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* 🔧 Issue-1修复: 分阶段规则独立说明栏样式 */
+/* 分阶段提示 - 简化文案 */
 .wf-stage-tip {
-  padding: 8px 16px;
+  padding: 6px 12px;
   background: #e6f7ff;
   border-bottom: 1px solid #91d5ff;
   color: #0050b3;
   font-size: 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .wf-table-wrap {
@@ -968,28 +917,26 @@ export default {
   overflow: auto;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   south：常驻处理表单（还原旧 execform）
-   ═══════════════════════════════════════════════════════════════ */
+/* ═══ 处理表单 ═══ */
 .south-region {
-  border-top: 2px solid #1890ff;
-  background: #f5f5f5;
-  padding: 12px 16px;
+  border-top: 1px solid #d9d9d9;
+  background: #fafafa;
+  padding: 8px 12px;
 }
 
 .exec-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #d9d9d9;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e8e8e8;
 }
 
 .exec-legend {
-  font-weight: bold;
+  font-weight: 600;
   color: #1890ff;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .last-node-note {
@@ -1003,68 +950,24 @@ export default {
 .exec-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .exec-row {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.exec-options-row {
   align-items: center;
-}
-
-.exec-submit-row {
-  align-items: flex-start;
-}
-
-.exec-label {
-  font-weight: 500;
-  color: #333;
-  white-space: nowrap;
-  flex-shrink: 0;
-  min-width: 70px;
-  line-height: 32px;
-}
-
-.exec-radio-group {
-  display: flex;
-  gap: 16px;
-}
-
-.exec-textarea {
-  flex: 1;
-  max-width: 600px;
-}
-
-.exec-actions {
-  display: flex;
-  flex-direction: column;
   gap: 8px;
-  flex-shrink: 0;
 }
 
-/* 响应式优化 */
+.exec-row .ant-textarea {
+  flex: 1;
+  max-width: 500px;
+}
+
+/* 响应式 */
 @media (max-width: 1200px) {
-  .toolbar-center {
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 768px) {
   .wf-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .toolbar-section {
-    justify-content: flex-start;
-  }
-
-  .toolbar-right {
-    margin-left: 0;
+    flex-wrap: wrap;
   }
 }
 </style>
