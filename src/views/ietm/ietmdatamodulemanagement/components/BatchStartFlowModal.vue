@@ -305,7 +305,24 @@ export default {
   props: {
     selectedRecords: {
       type: Array,
-      default: () => []
+      default: () => [],
+      // 🔧 P2优化：添加validator确保数组元素包含必需的id字段
+      validator: (value) => {
+        // 1. 允许空数组
+        if (value.length === 0) return true
+
+        // 2. 检查每个元素必须有id字段
+        const hasId = value.every(record =>
+          record && typeof record === 'object' && 'id' in record
+        )
+
+        if (!hasId) {
+          console.error('[BatchStartFlowModal] selectedRecords中的记录必须包含id字段')
+          return false
+        }
+
+        return true
+      }
     },
     // 默认模板名称（从URL参数传入，如'DM'）
     defaultTemplate: {
@@ -315,7 +332,16 @@ export default {
     // 是否检查所有节点（1=全部检查，0=只检查下一节点）
     checkAllNode: {
       type: String,
-      default: '1'
+      default: '1',
+      // 🔧 P2优化：添加validator确保只接受合法的枚举值
+      validator: (value) => {
+        const validValues = ['0', '1']
+        if (!validValues.includes(value)) {
+          console.error(`[BatchStartFlowModal] checkAllNode必须是'0'或'1'，收到: ${value}`)
+          return false
+        }
+        return true
+      }
     },
     // 不可编辑的节点名称（逗号分隔，如'DM编写'）
     notEditNode: {
