@@ -26,7 +26,7 @@
               <div class="info-item">
                 <a-icon type="calendar" class="info-icon" />
                 <span class="info-label">创建时间：</span>
-                <span class="info-value">{{ currentDate }}</span>
+                <span class="info-value">{{ openDate }}</span>
               </div>
             </a-col>
             <a-col :span="8">
@@ -253,7 +253,7 @@
           <!-- 阶段（分阶段流程时显示）-->
           <template v-if="isStageWorkflow" slot="stagename" slot-scope="text, record">
             <a-select v-model="record.stagename" placeholder="请选择阶段" style="width: 100%">
-              <a-select-option v-for="(stage, idx) in stageOptions" :key="idx" :value="String(idx)">
+              <a-select-option v-for="(stage, idx) in stageOptions" :key="`stage_${idx}_${stage}`" :value="String(idx)">
                 {{ stage }}
               </a-select-option>
             </a-select>
@@ -363,6 +363,7 @@ export default {
       internalSelectedRecords: [], // 内部存储完整的记录信息（不与prop冲突）
       selectedNodeKeys: [], // 节点表格选中的行
       currentSelectingNode: null, // 当前正在选择处理人的节点
+      openDate: '', // 🎯 P3-1优化：打开弹窗的日期（替代currentDate computed）
       templateList: [], // 流程模板列表
       authorizedUsers: [], // 授权用户列表（authtype=1/2时使用）
       nodetypeOptions: [], // 处理方式字典选项（从WF_TEMPLATE_DTL_NODETYPE加载）
@@ -384,14 +385,6 @@ export default {
   computed: {
     selectedDmCount() {
       return this.selectedDmIds.length
-    },
-    // 当前日期
-    currentDate() {
-      return new Date().toLocaleDateString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      })
     },
     // 当前用户名（从Vuex Store获取）
     currentUserName() {
@@ -495,6 +488,13 @@ export default {
       this.model.batchId = generateUUID()
       this.selectedNodeKeys = []
 
+      // 🎯 P3-1优化：记录打开弹窗的时间
+      this.openDate = new Date().toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      })
+
       // 从props初始化参数
       this.noteditNode = this.notEditNode
       this.notdelNode = this.notDelNode
@@ -537,7 +537,7 @@ export default {
 
     /**
      * 加载Mock模板数据
-     * 🔧 临时Mock数据（后端接口可用后删除此方法）
+     * 🔧 MOCK: 临时数据，后端就绪后删除
      * @returns {Promise<Array>} Mock模板列表
      */
     loadMockTemplates() {
@@ -729,84 +729,80 @@ export default {
     },
 
     // 加载模板节点配置
+    /**
+     * 加载模板节点配置
+     * 🎯 P2-1优化：方法拆分，提升可维护性
+     * @param {String} templateId - 模板ID
+     */
     loadTemplateNodes(templateId) {
       if (!templateId) return
 
       this.confirmLoading = true
 
-      // 🔧 临时Mock数据（后端接口可用后删除此段）
-      const useMockData = false // 设置为false启用真实接口
+      // 🔧 MOCK: 临时数据，后端就绪后删除
+      const useMockData = false
 
       if (useMockData) {
-        // 根据不同模板ID返回不同的节点配置
-        const mockNodesByTemplate = {
-          'mock_template_dm_001': [
-            { seqno: 1, nodename: 'DM编写', nodetype: '0', stagename: '编写', ifgetback: '' },
-            { seqno: 2, nodename: 'DM审核', nodetype: '1', stagename: '审核', ifgetback: '1' },
-            { seqno: 3, nodename: 'DM签批', nodetype: '2', stagename: '签批', ifgetback: '1,2' }
-          ],
-          'mock_template_pm_001': [
-            { seqno: 1, nodename: 'PM创建', nodetype: '0', stagename: '创建', ifgetback: '' },
-            { seqno: 2, nodename: 'PM审批', nodetype: '1', stagename: '审批', ifgetback: '1' },
-            { seqno: 3, nodename: 'PM发布', nodetype: '2', stagename: '发布', ifgetback: '' }
-          ],
-          'mock_template_cm_001': [
-            { seqno: 1, nodename: '配置管理', nodetype: '0', stagename: '', ifgetback: '' },
-            { seqno: 2, nodename: '变更审核', nodetype: '1', stagename: '', ifgetback: '1' }
-          ]
-        }
+        this.loadMockTemplateNodes(templateId)
+      } else {
+        this.loadRealTemplateNodes(templateId)
+      }
+    },
 
-        const mockNodes = mockNodesByTemplate[templateId] || []
-
-        const timer = setTimeout(() => {
-          if (mockNodes.length > 0) {
-            // 保留创建节点，加载其他节点
-            const createNode = this.model.nodes.find(n => n.seqno === 0)
-            const templateNodes = mockNodes.map(node => ({
-              _rid: generateUUID(),
-              seqno: node.seqno,
-              nodename: node.nodename,
-              nodetype: node.nodetype,
-              userid: '',
-              useridname: '',
-              stagename: node.stagename || '',
-              ifgetback: node.ifgetback || ''
-            }))
-
-            this.model.nodes = [createNode, ...templateNodes]
-            this.$message.success('模板节点加载成功')
-          } else {
-            this.$message.warning('模板无节点配置')
-          }
-          this.confirmLoading = false
-        }, 300)
-        this.timers.push(timer) // 🔧 P1修复：存储定时器引用
-
-        return
+    /**
+     * 加载Mock模板节点（开发测试用）
+     * 🔧 MOCK: 临时方法，后端就绪后删除
+     * @param {String} templateId - 模板ID
+     */
+    loadMockTemplateNodes(templateId) {
+      // 根据不同模板ID返回不同的节点配置
+      const mockNodesByTemplate = {
+        'mock_template_dm_001': [
+          { seqno: 1, nodename: 'DM编写', nodetype: '0', stagename: '编写', ifgetback: '' },
+          { seqno: 2, nodename: 'DM审核', nodetype: '1', stagename: '审核', ifgetback: '1' },
+          { seqno: 3, nodename: 'DM签批', nodetype: '2', stagename: '签批', ifgetback: '1,2' }
+        ],
+        'mock_template_pm_001': [
+          { seqno: 1, nodename: 'PM创建', nodetype: '0', stagename: '创建', ifgetback: '' },
+          { seqno: 2, nodename: 'PM审批', nodetype: '1', stagename: '审批', ifgetback: '1' },
+          { seqno: 3, nodename: 'PM发布', nodetype: '2', stagename: '发布', ifgetback: '' }
+        ],
+        'mock_template_cm_001': [
+          { seqno: 1, nodename: '配置管理', nodetype: '0', stagename: '', ifgetback: '' },
+          { seqno: 2, nodename: '变更审核', nodetype: '1', stagename: '', ifgetback: '1' }
+        ]
       }
 
-      // 真实接口调用
+      const mockNodes = mockNodesByTemplate[templateId] || []
+
+      const timer = setTimeout(() => {
+        this.applyTemplateNodes(mockNodes)
+        this.confirmLoading = false
+      }, 300)
+      this.timers.push(timer)
+    },
+
+    /**
+     * 加载真实模板节点（生产环境）
+     * @param {String} templateId - 模板ID
+     */
+    loadRealTemplateNodes(templateId) {
       getAction(`/ietm/workflow/template/getTemplateDtl/${templateId}`)
         .then(res => {
           if (res.success && res.result && res.result.length > 0) {
-            // 保留创建节点，加载其他节点
-            const createNode = this.model.nodes.find(n => n.seqno === 0)
-            const templateNodes = res.result.map(node => ({
-              _rid: generateUUID(),
+            // 标准化节点数据格式
+            const normalizedNodes = res.result.map(node => ({
               seqno: node.seqno,
               nodename: node.nodename,
               // normalizeNodetype：历史数据可能存的是中文文本，统一转为数值编码
               nodetype: this.normalizeNodetype(node.nodetype),
-              userid: '',
-              useridname: '',
               stagename: node.stagename || '',
               // 🔧 修复：从模板加载的ifgetback可能是后端格式（空字符串/-1），无需转换
               // parseIfgetback只在UI显示时使用，存储时保持后端格式
               ifgetback: node.ifgetback || ''
             }))
 
-            this.model.nodes = [createNode, ...templateNodes.filter(n => n.seqno !== 0)]
-            this.$message.success('模板节点加载成功')
+            this.applyTemplateNodes(normalizedNodes)
           } else {
             this.$message.warning('模板无节点配置')
           }
@@ -818,6 +814,36 @@ export default {
         .finally(() => {
           this.confirmLoading = false
         })
+    },
+
+    /**
+     * 应用模板节点到当前配置
+     * 🎯 P2-1优化：提取公共逻辑，减少重复代码
+     * @param {Array} templateNodes - 模板节点列表
+     */
+    applyTemplateNodes(templateNodes) {
+      if (!templateNodes || templateNodes.length === 0) {
+        this.$message.warning('模板无节点配置')
+        return
+      }
+
+      // 保留创建节点，加载其他节点
+      const createNode = this.model.nodes.find(n => n.seqno === 0)
+      const formattedNodes = templateNodes
+        .filter(n => n.seqno !== 0) // 过滤掉创建节点（如果模板中包含）
+        .map(node => ({
+          _rid: generateUUID(),
+          seqno: node.seqno,
+          nodename: node.nodename,
+          nodetype: node.nodetype,
+          userid: '',
+          useridname: '',
+          stagename: node.stagename || '',
+          ifgetback: node.ifgetback || ''
+        }))
+
+      this.model.nodes = [createNode, ...formattedNodes]
+      this.$message.success('模板节点加载成功')
     },
 
     // 模板变化事件
@@ -1420,7 +1446,10 @@ export default {
     this.selectedDmIds = []
     this.internalSelectedRecords = []
 
-    console.log('[BatchStartFlowModal] 组件销毁，资源已清理')
+    // 🎯 P3-2优化：开发环境日志
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[BatchStartFlowModal] 组件销毁，资源已清理')
+    }
   }
 }
 </script>
