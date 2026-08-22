@@ -907,18 +907,17 @@ export default {
       const id = this.selectedRowKeys[0]
       const record = this.selectedRows[0]
 
-      // TODO: 临时注释前置校验，方便测试
       // 前置校验：工作流已启动
-      // if (!record.workflowInstanceId) {
-      //   this.$message.warning('该DM还未启动流程，不能签出')
-      //   return
-      // }
+      if (!record.workflowInstanceId) {
+        this.$message.warning('该DM还未启动流程，不能签出')
+        return
+      }
 
       // 前置校验：当前节点为DM编写
-      // if (record.workflowStep !== 'DM编写') {
-      //   this.$message.warning('当前流程节点不是"DM编写"，不能签出')
-      //   return
-      // }
+      if (record.workflowStep !== 'DM编写') {
+        this.$message.warning('当前流程节点不是"DM编写"，不能签出')
+        return
+      }
 
       const currentVer = `${record.issueNo || '001'}-${record.inWork || '00'}`
       const nextInWork = String(parseInt(record.inWork || '00') + 1).padStart(2, '0')
@@ -958,20 +957,19 @@ export default {
                 return
               }
 
-              // TODO: 临时注释工作流校验，方便测试
               // 校验最新状态：工作流已启动
-              // if (!latestRecord.workflowInstanceId) {
-              //   this.$message.error('该DM还未启动流程')
-              //   this.loadData()
-              //   return
-              // }
+              if (!latestRecord.workflowInstanceId) {
+                this.$message.error('该DM还未启动流程')
+                this.loadData()
+                return
+              }
 
               // 校验最新状态：当前节点为DM编写
-              // if (latestRecord.workflowStep !== 'DM编写') {
-              //   this.$message.error('当前流程节点不是"DM编写"')
-              //   this.loadData()
-              //   return
-              // }
+              if (latestRecord.workflowStep !== 'DM编写') {
+                this.$message.error('当前流程节点不是"DM编写"')
+                this.loadData()
+                return
+              }
 
               // 第二阶段：执行签出
               postAction(`${this.url.checkOut}?id=${id}`)

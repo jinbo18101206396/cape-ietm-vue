@@ -1,0 +1,849 @@
+<template>
+  <div class="workflow-info-panel">
+    <a-collapse v-model="activeKey" :bordered="false">
+      <a-collapse-panel key="1" header="流程信息">
+        <template #extra>
+          <a-badge :status="getStatusBadge()" :text="getStatusText()" />
+        </template>
+
+        <!-- 流程实例信息 -->
+        <a-descriptions v-if="instance" bordered :column="3" size="small" class="instance-info">
+          <a-descriptions-item label="流程标题" :span="2">
+            {{ instance.title || instance.titleparam || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item label="流程状态">
+            <a-badge :status="getStatusBadge()" :text="getStatusText()" />
+          </a-descriptions-item>
+          <a-descriptions-item label="紧急程度">
+            <a-tag :color="getUrgentColor()">{{ getUrgentText() }}</a-tag>
+            <a-button v-if="canModifyUrgent" type="link" size="small" @click="showModifyUrgent">
+              <a-icon type="edit" />修改
+            </a-button>
+          </a-descriptions-item>
+          <a-descriptions-item label="创建人">
+            {{ instance.createBy || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item label="创建时间">
+            {{ instance.createTime || '-' }}
+          </a-descriptions-item>
+        </a-descriptions>
+
+        <!-- 待办提示 -->
+        <a-alert
+          v-if="hasTodo"
+          type="info"
+          :message="todoMessage"
+          banner
+          closable
+          style="margin-top: 16px;"
+        />
+
+        <!-- 工具栏 -->
+        <div class="toolbar" style="margin-top: 16px;">
+          <a-space>
+            <a-button size="small" @click="refreshData">
+              <a-icon type="reload" />刷新
+            </a-button>
+            <a-button v-if="canEdit" size="small" type="primary" @click="addNode">
+              <a-icon type="plus" />增加节点
+            </a-button>
+            <a-button v-if="canEdit" size="small" type="primary" @click="saveNodes" :loading="saving">
+              <a-icon type="save" />保存
+            </a-button>
+          </a-space>
+        </div>
+
+        <!-- 节点列表表格 -->
+        <a-table
+          :columns="columns"
+          :data-source="nodes"
+          :pagination="false"
+          :loading="loading"
+          row-key="id"
+          size="small"
+          :scroll="{ x: 1200 }"
+          style="margin-top: 16px;"
+        >
+          <!-- 顺序号列（可编辑） -->
+          <template #seqno="text, record">
+            <a-input-number
+              v-if="isEditing(record)"
+              v-model="record.seqno"
+              :min="0"
+              size="small"
+              style="width: 60px;"
+            />
+            <span v-else>{{ text }}</span>
+          </template>
+
+          <!-- 节点名称列（可编辑） -->
+          <template #nodename="text, record">
+            <a-input
+              v-if="isEditing(record)"
+              v-model="record.nodename"
+              size="small"
+              placeholder="请输入节点名称"
+            />
+            <span v-else>{{ text }}</span>
+          </template>
+
+          <!-- 处理人列（可编辑） -->
+          <template #useridname="text, record">
+            <div v-if="isEditing(record)">
+              <a-input
+                v-model="record.userid"
+                size="small"
+                placeholder="点击选择"
+                read-only
+                @click="selectUser(record)"
+              >
+                <a-icon slot="suffix" type="team" style="cursor: pointer;" />
+              </a-input>
+              <div v-if="record.useridname" style="color: #999; font-size: 12px; margin-top: 4px;">
+                已选择: {{ record.useridname }}
+              </div>
+            </div>
+            <span v-else>{{ text || formatUserName(record.userid) }}</span>
+          </template>
+
+          <!-- 节点类型列（可编辑） -->
+          <template #nodetype="text, record">
+            <a-select
+              v-if="isEditing(record)"
+              v-model="record.nodetype"
+              size="small"
+              style="width: 120px;"
+            >
+              <a-select-option value="0">所有人必完成</a-select-option>
+              <a-select-option value="1">任意一人完成</a-select-option>
+              <a-select-option value="2">按顺序完成</a-select-option>
+            </a-select>
+            <span v-else>{{ getNodeTypeName(text) }}</span>
+          </template>
+
+          <!-- 阶段列（可编辑） -->
+          <template #stagename="text, record">
+            <a-input
+              v-if="isEditing(record)"
+              v-model="record.stagename"
+              size="small"
+              placeholder="阶段编号"
+            />
+            <span v-else>{{ text || '-' }}</span>
+          </template>
+
+          <!-- 状态列 -->
+          <template #ifexec="text">
+            <a-tag :color="getExecStatusColor(text)">{{ getExecStatusText(text) }}</a-tag>
+          </template>
+
+          <!-- 处理情况列 -->
+          <template #execinfo="text, record">
+            <a-tooltip>
+              <template #title>
+                <div v-for="exec in record.execList" :key="exec.id">
+                  <p><strong>{{ getIfpassText(exec.ifpass) }}</strong></p>
+                  <p>处理人：{{ exec.createBy }}</p>
+                  <p>处理时间：{{ exec.createTime }}</p>
+                  <p v-if="exec.opinion">意见：{{ exec.opinion }}</p>
+                  <a-divider style="margin: 8px 0;" />
+                </div>
+              </template>
+              <a-button size="small" type="link">查看详情</a-button>
+            </a-tooltip>
+          </template>
+
+          <!-- 操作列 -->
+          <template #action="text, record">
+            <a-space size="small">
+              <a-button v-if="canEditNode(record)" size="small" type="link" @click="editNode(record)">
+                编辑
+              </a-button>
+              <a-button v-if="canDeleteNode(record)" size="small" type="link" danger @click="deleteNode(record)">
+                删除
+              </a-button>
+              <a-button v-if="canAddOpinion(record)" size="small" type="link" @click="showAddOpinion(record)">
+                追加意见
+              </a-button>
+              <a-button v-if="canTakeBack(record)" size="small" type="link" @click="takeBack(record)">
+                拿回
+              </a-button>
+            </a-space>
+          </template>
+        </a-table>
+
+        <!-- 执行表单区域（待办任务时显示） -->
+        <div v-if="currentTodoNode" class="execute-form" style="margin-top: 24px;">
+          <a-divider>提交处理</a-divider>
+          <a-form-model ref="executeForm" :model="executeForm" :label-col="{ span: 4 }" :wrapper-col="{ span: 20 }">
+            <!-- 处理结果 -->
+            <a-form-model-item label="处理结果">
+              <a-radio-group v-model="executeForm.ifpass" @change="onIfpassChange">
+                <a-radio value="1">通过</a-radio>
+                <a-radio value="2">不同意</a-radio>
+                <a-radio value="3">跳转</a-radio>
+                <a-radio value="9">终止</a-radio>
+              </a-radio-group>
+            </a-form-model-item>
+
+            <!-- 目标节点（跳转时显示） -->
+            <a-form-model-item v-if="executeForm.ifpass === '3'" label="跳转到">
+              <a-select v-model="executeForm.targetDtlid" placeholder="请选择目标节点" style="width: 300px;">
+                <a-select-option v-for="node in jumpableNodes" :key="node.id" :value="node.id">
+                  {{ node.seqno }}. {{ node.nodename }}
+                </a-select-option>
+              </a-select>
+            </a-form-model-item>
+
+            <!-- 处理意见 -->
+            <a-form-model-item label="处理意见" :required="requireOpinion">
+              <a-textarea
+                v-model="executeForm.opinion"
+                :rows="4"
+                :placeholder="getOpinionPlaceholder()"
+                :maxLength="500"
+              />
+              <div style="text-align: right; color: #999; font-size: 12px; margin-top: 4px;">
+                {{ executeForm.opinion ? executeForm.opinion.length : 0 }} / 500
+              </div>
+            </a-form-model-item>
+
+            <!-- 附件上传 -->
+            <a-form-model-item label="上传附件">
+              <a-upload
+                :file-list="fileList"
+                :before-upload="beforeUpload"
+                :remove="removeFile"
+                accept="*"
+              >
+                <a-button size="small">
+                  <a-icon type="upload" />选择文件
+                </a-button>
+              </a-upload>
+            </a-form-model-item>
+
+            <!-- 提交按钮 -->
+            <a-form-model-item :wrapper-col="{ span: 20, offset: 4 }">
+              <a-button type="primary" @click="submitExecute" :loading="submitting">
+                <a-icon type="check" />提交处理
+              </a-button>
+            </a-form-model-item>
+          </a-form-model>
+        </div>
+      </a-collapse-panel>
+    </a-collapse>
+
+    <!-- 用户选择器弹窗 -->
+    <user-selector
+      ref="userSelector"
+      :visible="userSelectorVisible"
+      :multiple="true"
+      @ok="handleUserSelected"
+      @cancel="userSelectorVisible = false"
+    />
+
+    <!-- 修改紧急程度弹窗 -->
+    <a-modal
+      title="修改紧急程度"
+      :visible="urgentModalVisible"
+      @ok="handleModifyUrgent"
+      @cancel="urgentModalVisible = false"
+    >
+      <a-form-model :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }">
+        <a-form-model-item label="紧急程度">
+          <a-select v-model="newUrgent" style="width: 200px;">
+            <a-select-option value="">普通</a-select-option>
+            <a-select-option value="1">一般</a-select-option>
+            <a-select-option value="2">★紧急</a-select-option>
+            <a-select-option value="3">★★特急</a-select-option>
+          </a-select>
+        </a-form-model-item>
+      </a-form-model>
+    </a-modal>
+
+    <!-- 追加意见弹窗 -->
+    <a-modal
+      title="追加意见"
+      :visible="addOpinionVisible"
+      @ok="handleAddOpinion"
+      @cancel="addOpinionVisible = false"
+    >
+      <a-form-model :label-col="{ span: 4 }" :wrapper-col="{ span: 20 }">
+        <a-form-model-item label="意见">
+          <a-textarea v-model="addOpinionText" :rows="4" placeholder="请输入追加的意见" :maxLength="500" />
+        </a-form-model-item>
+      </a-form-model>
+    </a-modal>
+  </div>
+</template>
+
+<script>
+import { getAction, postAction } from '@/api/manage'
+import UserSelector from './UserSelector.vue'
+
+export default {
+  name: 'WorkflowInfoPanel',
+  components: {
+    UserSelector
+  },
+  props: {
+    formid: {
+      type: String,
+      required: true
+    },
+    readonly: {
+      type: Boolean,
+      default: false
+    }
+  },
+  data() {
+    return {
+      activeKey: ['1'],
+      loading: false,
+      saving: false,
+      submitting: false,
+      instance: null,
+      nodes: [],
+      editingNodeId: null,
+      currentTodoNode: null,
+      currentUser: null,
+
+      // 执行表单
+      executeForm: {
+        ifpass: '1',
+        targetDtlid: null,
+        opinion: '',
+        file: null
+      },
+      fileList: [],
+
+      // 弹窗状态
+      userSelectorVisible: false,
+      urgentModalVisible: false,
+      addOpinionVisible: false,
+
+      // 临时数据
+      selectingNode: null,
+      newUrgent: '',
+      addOpinionText: '',
+      addOpinionNodeId: null,
+
+      // 表格列定义
+      columns: [
+        {
+          title: '顺序',
+          dataIndex: 'seqno',
+          key: 'seqno',
+          width: 80,
+          scopedSlots: { customRender: 'seqno' }
+        },
+        {
+          title: '节点名称',
+          dataIndex: 'nodename',
+          key: 'nodename',
+          width: 150,
+          scopedSlots: { customRender: 'nodename' }
+        },
+        {
+          title: '处理人',
+          dataIndex: 'useridname',
+          key: 'useridname',
+          width: 150,
+          scopedSlots: { customRender: 'useridname' }
+        },
+        {
+          title: '节点类型',
+          dataIndex: 'nodetype',
+          key: 'nodetype',
+          width: 120,
+          scopedSlots: { customRender: 'nodetype' }
+        },
+        {
+          title: '阶段',
+          dataIndex: 'stagename',
+          key: 'stagename',
+          width: 80,
+          scopedSlots: { customRender: 'stagename' }
+        },
+        {
+          title: '状态',
+          dataIndex: 'ifexec',
+          key: 'ifexec',
+          width: 100,
+          scopedSlots: { customRender: 'ifexec' }
+        },
+        {
+          title: '处理情况',
+          key: 'execinfo',
+          width: 120,
+          scopedSlots: { customRender: 'execinfo' }
+        },
+        {
+          title: '操作',
+          key: 'action',
+          width: 200,
+          fixed: 'right',
+          scopedSlots: { customRender: 'action' }
+        }
+      ]
+    }
+  },
+  computed: {
+    hasTodo() {
+      return this.currentTodoNode != null
+    },
+    todoMessage() {
+      if (!this.currentTodoNode) return ''
+      return `您有待办任务：${this.currentTodoNode.nodename}`
+    },
+    canEdit() {
+      if (!this.instance) return false
+      // 流程创建人在流程未开始时可编辑
+      if (this.instance.status === '0' && this.instance.createBy === this.currentUser) {
+        return true
+      }
+      // TODO: 分阶段第一处理人判定
+      return false
+    },
+    canModifyUrgent() {
+      return this.canEdit
+    },
+    jumpableNodes() {
+      if (!this.currentTodoNode) return []
+      // 可跳转节点：当前节点之前的节点 + 当前节点之后的节点
+      return this.nodes.filter(n => n.id !== this.currentTodoNode.id)
+    },
+    requireOpinion() {
+      return this.executeForm.ifpass === '2' || this.executeForm.ifpass === '9'
+    }
+  },
+  mounted() {
+    // 获取当前用户
+    this.currentUser = this.getCurrentUserName()
+    this.loadData()
+  },
+  methods: {
+    // 获取当前用户名
+    getCurrentUserName() {
+      // 方案1: 从Vuex store获取
+      if (this.$store && this.$store.getters && this.$store.getters.userInfo) {
+        return this.$store.getters.userInfo.username
+      }
+
+      // 方案2: 从localStorage获取
+      try {
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+        return userInfo.username || null
+      } catch (e) {
+        console.error('获取当前用户失败', e)
+        return null
+      }
+    },
+
+    async loadData() {
+      this.loading = true
+      try {
+        // 加载流程实例
+        const res = await getAction('/ietm/workflow/instance/getByFormid', { formid: this.formid })
+        if (res.success && res.result) {
+          this.instance = res.result
+
+          // 加载节点列表
+          await this.loadNodes()
+
+          // 加载待办任务
+          await this.loadTodo()
+        }
+      } catch (e) {
+        console.error('加载流程信息失败', e)
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async loadNodes() {
+      if (!this.instance) return
+      const res = await getAction('/ietm/workflow/dtl/list', { instid: this.instance.id })
+      if (res.success) {
+        this.nodes = res.result || []
+        // 加载每个节点的执行记录
+        for (const node of this.nodes) {
+          const execRes = await getAction('/ietm/workflow/execute/list', { instdtlid: node.id })
+          node.execList = execRes.success ? execRes.result : []
+        }
+      }
+    },
+
+    async loadTodo() {
+      const res = await getAction('/ietm/workflow/instance/getTodo', { formid: this.formid })
+      if (res.success && res.result) {
+        this.currentTodoNode = res.result
+      }
+    },
+
+    refreshData() {
+      this.loadData()
+    },
+
+    addNode() {
+      // 计算插入位置（已处理节点的最大顺序号 + 1）
+      let maxExecedSeqno = -1
+      for (const node of this.nodes) {
+        if (node.ifexec === 'Y' && node.seqno > maxExecedSeqno) {
+          maxExecedSeqno = node.seqno
+        }
+      }
+
+      const newNode = {
+        id: 'new_' + Date.now(),
+        instanceid: this.instance.id,
+        seqno: maxExecedSeqno + 1,
+        nodename: '',
+        userid: '',
+        nodetype: '0',
+        stagename: '',
+        ifexec: 'N',
+        execList: [],
+        isNew: true
+      }
+
+      this.nodes.push(newNode)
+      this.editingNodeId = newNode.id
+    },
+
+    editNode(record) {
+      this.editingNodeId = record.id
+    },
+
+    deleteNode(record) {
+      this.$confirm({
+        title: '确认删除',
+        content: `确定要删除节点"${record.nodename}"吗？`,
+        onOk: () => {
+          const index = this.nodes.findIndex(n => n.id === record.id)
+          if (index > -1) {
+            this.nodes.splice(index, 1)
+          }
+        }
+      })
+    },
+
+    async saveNodes() {
+      // 校验节点数据
+      for (const node of this.nodes) {
+        if (!node.nodename || !node.nodename.trim()) {
+          this.$message.error('节点名称不能为空')
+          return
+        }
+        if (!node.userid || !node.userid.trim()) {
+          this.$message.error('处理人不能为空')
+          return
+        }
+      }
+
+      // 校验顺序号连续性
+      const seqnos = this.nodes.map(n => n.seqno).sort((a, b) => a - b)
+      for (let i = 0; i < seqnos.length; i++) {
+        if (seqnos[i] !== i) {
+          this.$message.error(`顺序号必须连续，当前缺少：${i}`)
+          return
+        }
+      }
+
+      this.saving = true
+      try {
+        const res = await postAction('/ietm/workflow/dtl/saveBatch', { nodes: this.nodes })
+        if (res.success) {
+          this.$message.success('保存成功')
+          this.editingNodeId = null
+          await this.loadNodes()
+        } else {
+          this.$message.error(res.message || '保存失败')
+        }
+      } catch (e) {
+        this.$message.error('保存失败：' + e.message)
+      } finally {
+        this.saving = false
+      }
+    },
+
+    selectUser(record) {
+      this.selectingNode = record
+      this.userSelectorVisible = true
+    },
+
+    handleUserSelected(userIds) {
+      if (this.selectingNode) {
+        this.selectingNode.userid = userIds.join(',')
+      }
+      this.userSelectorVisible = false
+    },
+
+    showModifyUrgent() {
+      this.newUrgent = this.instance.ifurgent || ''
+      this.urgentModalVisible = true
+    },
+
+    async handleModifyUrgent() {
+      try {
+        const res = await postAction('/ietm/workflow/instance/updateUrgent', {
+          id: this.instance.id,
+          ifurgent: this.newUrgent
+        })
+        if (res.success) {
+          this.$message.success('修改成功')
+          this.instance.ifurgent = this.newUrgent
+          this.urgentModalVisible = false
+        } else {
+          this.$message.error(res.message || '修改失败')
+        }
+      } catch (e) {
+        this.$message.error('修改失败：' + e.message)
+      }
+    },
+
+    showAddOpinion(record) {
+      this.addOpinionNodeId = record.id
+      this.addOpinionText = ''
+      this.addOpinionVisible = true
+    },
+
+    async handleAddOpinion() {
+      if (!this.addOpinionText || !this.addOpinionText.trim()) {
+        this.$message.error('请输入追加的意见')
+        return
+      }
+
+      try {
+        const res = await postAction('/ietm/workflow/execute/addOpinion', {
+          instdtlid: this.addOpinionNodeId,
+          opinion: this.addOpinionText
+        })
+        if (res.success) {
+          this.$message.success('追加意见成功')
+          this.addOpinionVisible = false
+          await this.loadNodes()
+        } else {
+          this.$message.error(res.message || '追加意见失败')
+        }
+      } catch (e) {
+        this.$message.error('追加意见失败：' + e.message)
+      }
+    },
+
+    async takeBack(record) {
+      this.$confirm({
+        title: '确认拿回',
+        content: `确定要拿回节点"${record.nodename}"吗？`,
+        onOk: async () => {
+          try {
+            const res = await postAction('/ietm/workflow/execute/takeBack', {
+              instdtlid: record.id
+            })
+            if (res.success) {
+              this.$message.success('拿回成功')
+              await this.loadData()
+            } else {
+              this.$message.error(res.message || '拿回失败')
+            }
+          } catch (e) {
+            this.$message.error('拿回失败：' + e.message)
+          }
+        }
+      })
+    },
+
+    onIfpassChange() {
+      this.executeForm.targetDtlid = null
+    },
+
+    beforeUpload(file) {
+      this.fileList = [file]
+      this.executeForm.file = file
+      return false // 阻止自动上传
+    },
+
+    removeFile() {
+      this.fileList = []
+      this.executeForm.file = null
+    },
+
+    async submitExecute() {
+      // 校验
+      if (this.executeForm.ifpass === '3' && !this.executeForm.targetDtlid) {
+        this.$message.error('跳转操作必须选择目标节点')
+        return
+      }
+      if (this.requireOpinion && (!this.executeForm.opinion || !this.executeForm.opinion.trim())) {
+        this.$message.error('该操作必须填写意见')
+        return
+      }
+      if (this.executeForm.ifpass === '2' && this.executeForm.opinion.includes('同意')) {
+        this.$message.error('不同意意见中不能包含"同意"二字')
+        return
+      }
+
+      this.submitting = true
+      try {
+        const formData = new FormData()
+        formData.append('instdtlid', this.currentTodoNode.id)
+        formData.append('ifpass', this.executeForm.ifpass)
+        if (this.executeForm.targetDtlid) {
+          formData.append('targetDtlid', this.executeForm.targetDtlid)
+        }
+        if (this.executeForm.opinion) {
+          formData.append('opinion', this.executeForm.opinion)
+        }
+        if (this.executeForm.file) {
+          formData.append('file', this.executeForm.file)
+        }
+
+        const res = await postAction('/ietm/workflow/execute/submit', formData)
+        if (res.success) {
+          this.$message.success('提交成功')
+          // 重置表单
+          this.executeForm = {
+            ifpass: '1',
+            targetDtlid: null,
+            opinion: '',
+            file: null
+          }
+          this.fileList = []
+          // 刷新数据
+          await this.loadData()
+          // 通知父组件
+          this.$emit('workflow-change', { submitted: true })
+        } else {
+          this.$message.error(res.message || '提交失败')
+        }
+      } catch (e) {
+        this.$message.error('提交失败：' + e.message)
+      } finally {
+        this.submitting = false
+      }
+    },
+
+    // 工具方法
+    isEditing(record) {
+      return this.editingNodeId === record.id
+    },
+
+    canEditNode(record) {
+      return this.canEdit && record.ifexec === 'N'
+    },
+
+    canDeleteNode(record) {
+      return this.canEdit && record.ifexec === 'N'
+    },
+
+    canAddOpinion(record) {
+      // 节点必须已处理
+      if (record.ifexec !== 'Y') return false
+
+      // 检查当前用户是否为该节点的处理人
+      if (!this.currentUser) return false
+      if (!record.execList || record.execList.length === 0) return false
+
+      return record.execList.some(exec => exec.createBy === this.currentUser)
+    },
+
+    canTakeBack(record) {
+      // 节点必须已处理
+      if (record.ifexec !== 'Y') return false
+
+      // 检查当前用户
+      if (!this.currentUser) return false
+      if (!record.execList || record.execList.length === 0) return false
+
+      // 检查当前用户是否为该节点的通过处理人
+      const hasPass = record.execList.some(exec =>
+        exec.createBy === this.currentUser && exec.ifpass === '1'
+      )
+      if (!hasPass) return false
+
+      // 检查后续节点是否未处理
+      const currentSeqno = record.seqno
+      const hasProcessedAfter = this.nodes.some(n =>
+        n.seqno > currentSeqno && n.ifexec === 'Y'
+      )
+
+      return !hasProcessedAfter
+    },
+
+    formatUserName(userid) {
+      // 后备方案：如果useridname为空，显示userid
+      if (!userid) return '-'
+      return userid
+    },
+
+    getNodeTypeName(type) {
+      const map = { '0': '所有人必完成', '1': '任意一人完成', '2': '按顺序完成' }
+      return map[type] || type
+    },
+
+    getStatusBadge() {
+      if (!this.instance) return 'default'
+      const map = { '0': 'default', '1': 'processing', '2': 'success', '9': 'error' }
+      return map[this.instance.status] || 'default'
+    },
+
+    getStatusText() {
+      if (!this.instance) return '未知'
+      const map = { '0': '创建', '1': '审批中', '2': '完成', '9': '终止' }
+      return map[this.instance.status] || '未知'
+    },
+
+    getUrgentColor() {
+      if (!this.instance || !this.instance.ifurgent) return 'default'
+      const map = { '1': 'blue', '2': 'orange', '3': 'red' }
+      return map[this.instance.ifurgent] || 'default'
+    },
+
+    getUrgentText() {
+      if (!this.instance || !this.instance.ifurgent) return '普通'
+      const map = { '1': '一般', '2': '★紧急', '3': '★★特急' }
+      return map[this.instance.ifurgent] || '普通'
+    },
+
+    getExecStatusColor(status) {
+      const map = { 'N': 'default', 'Y': 'success', 'R': 'warning', 'J': 'default' }
+      return map[status] || 'default'
+    },
+
+    getExecStatusText(status) {
+      const map = { 'N': '未处理', 'Y': '已处理', 'R': '退回', 'J': '跳过' }
+      return map[status] || status
+    },
+
+    getIfpassText(ifpass) {
+      const map = { '1': '通过', '2': '不同意', '3': '跳转', '4': '追加意见', '5': '拿回', '9': '终止' }
+      return map[ifpass] || ifpass
+    },
+
+    getOpinionPlaceholder() {
+      if (this.executeForm.ifpass === '2') return '请输入不同意的理由（不能包含"同意"二字）'
+      if (this.executeForm.ifpass === '9') return '请输入终止原因'
+      return '请输入处理意见（选填）'
+    }
+  }
+}
+</script>
+
+<style scoped lang="less">
+.workflow-info-panel {
+  background: #fff;
+
+  .instance-info {
+    margin-bottom: 0;
+  }
+
+  .toolbar {
+    padding: 8px 0;
+  }
+
+  .execute-form {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 24px;
+  }
+}
+</style>
