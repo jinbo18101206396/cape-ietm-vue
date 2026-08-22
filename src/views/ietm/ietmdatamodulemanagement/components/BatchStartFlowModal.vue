@@ -1049,12 +1049,12 @@ export default {
     },
 
     /**
-     * 全量检查所有节点（对应需求文档第11.2节 checkAllnode()）
-     * @returns {Array} 错误信息数组，为空表示校验通过
+     * 基础信息校验（检查1-2：节点列表+顺序号唯一性）
+     * @param {Array} nodes - 节点列表
+     * @returns {Array} 错误信息数组
      */
-    checkAllNodes() {
+    validateBasicNodeInfo(nodes) {
       const errors = []
-      const nodes = this.model.nodes
 
       // 检查1：节点列表不为空
       if (!nodes || nodes.length === 0) {
@@ -1072,8 +1072,40 @@ export default {
         seqnoSet.add(node.seqno)
       }
 
-      // 按seqno升序排序后逐行校验
-      const sortedNodes = [...nodes].sort((a, b) => a.seqno - b.seqno)
+      return errors
+    },
+
+    /**
+     * 跳转节点规则校验（检查7的子规则）
+     * @param {String|Array} ifgetback - 可跳转节点
+     * @param {Number} rowNum - 行号
+     * @returns {String|null} 错误信息或null
+     */
+    validateJumpRules(ifgetback, rowNum) {
+      const ifgetbackArr = Array.isArray(ifgetback)
+        ? ifgetback
+        : ifgetback.split(',').map(v => v.trim())
+
+      // 规则1：《不限制》（空字符串或__UNLIMITED__）不能和其他节点同时选
+      if ((ifgetbackArr.includes('') || ifgetbackArr.includes('__UNLIMITED__')) && ifgetbackArr.length > 1) {
+        return `不能保存第 ${rowNum} 行，当可跳转节点选择《不限制》时，不能再选择其它节点.`
+      }
+
+      // 规则2：《不可跳转》（-1或__NO_JUMP__）不能和其他节点同时选
+      if ((ifgetbackArr.includes('-1') || ifgetbackArr.includes('__NO_JUMP__')) && ifgetbackArr.length > 1) {
+        return `不能保存第 ${rowNum} 行，当可跳转节点选择《不可跳转》时，不能再选择其它节点.`
+      }
+
+      return null
+    },
+
+    /**
+     * 节点数据完整性校验（检查3-7）
+     * @param {Array} sortedNodes - 已排序的节点列表
+     * @returns {Array} 错误信息数组
+     */
+    validateNodeData(sortedNodes) {
+      const errors = []
 
       for (let i = 0; i < sortedNodes.length; i++) {
         const node = sortedNodes[i]
@@ -1105,72 +1137,91 @@ export default {
 
         // 检查7：跳转节点规则
         if (node.ifgetback) {
-          const ifgetbackArr = Array.isArray(node.ifgetback)
-            ? node.ifgetback
-            : node.ifgetback.split(',').map(v => v.trim())
-
-          // 规则1：《不限制》（空字符串或__UNLIMITED__）不能和其他节点同时选
-          // 🔧 修复：支持新标记
-          if ((ifgetbackArr.includes('') || ifgetbackArr.includes('__UNLIMITED__')) && ifgetbackArr.length > 1) {
-            errors.push(`不能保存第 ${rowNum} 行，当可跳转节点选择《不限制》时，不能再选择其它节点.`)
-            return errors
-          }
-
-          // 规则2：《不可跳转》（-1或__NO_JUMP__）不能和其他节点同时选
-          // 🔧 修复：支持新标记
-          if ((ifgetbackArr.includes('-1') || ifgetbackArr.includes('__NO_JUMP__')) && ifgetbackArr.length > 1) {
-            errors.push(`不能保存第 ${rowNum} 行，当可跳转节点选择《不可跳转》时，不能再选择其它节点.`)
+          const jumpError = this.validateJumpRules(node.ifgetback, rowNum)
+          if (jumpError) {
+            errors.push(jumpError)
             return errors
           }
         }
       }
 
-      // 检查8：分阶段流程特殊规则
-      if (this.isStageWorkflow && this.model.stagenames) {
-        const stageNames = this.model.stagenames.split(',').map(s => s.trim())
+      return errors
+    },
 
-        // 检查8.1：阶段与顺序号不能交叉
-        // 规则：同一阶段内的节点，seqno必须连续，不能跨阶段
-        const stageGroups = {}
-        for (const node of sortedNodes) {
-          const stage = node.stagename || '0'
-          if (!stageGroups[stage]) {
-            stageGroups[stage] = []
-          }
-          stageGroups[stage].push(node.seqno)
+    /**
+     * 分阶段流程特殊规则校验（检查8）
+     * @param {Array} sortedNodes - 已排序的节点列表
+     * @returns {Array} 错误信息数组
+     */
+    validateStageWorkflow(sortedNodes) {
+      const errors = []
+      const stageNames = this.model.stagenames.split(',').map(s => s.trim())
+
+      // 检查8.1：阶段与顺序号不能交叉
+      const stageGroups = {}
+      for (const node of sortedNodes) {
+        const stage = node.stagename || '0'
+        if (!stageGroups[stage]) {
+          stageGroups[stage] = []
         }
+        stageGroups[stage].push(node.seqno)
+      }
 
-        // 检查每个阶段的seqno是否连续（简化版，检查是否有交叉）
-        const allSeqnos = sortedNodes.map(n => n.seqno)
-        for (const stage in stageGroups) {
-          const seqnos = stageGroups[stage]
-          // 检查该阶段的seqno是否在整体顺序中连续
-          const minSeq = Math.min(...seqnos)
-          const maxSeq = Math.max(...seqnos)
-          const expectedCount = maxSeq - minSeq + 1
+      // 检查每个阶段的seqno是否连续（简化版，检查是否有交叉）
+      for (const stage in stageGroups) {
+        const seqnos = stageGroups[stage]
+        const minSeq = Math.min(...seqnos)
+        const maxSeq = Math.max(...seqnos)
+        const expectedCount = maxSeq - minSeq + 1
 
-          // 简化判断：如果该阶段的节点数量少于范围内应有的数量，说明有交叉
-          if (seqnos.length < expectedCount) {
-            // 检查是否真的有交叉（其他阶段的节点在这个范围内）
-            const hasIntersection = sortedNodes.some(n => {
-              return n.seqno >= minSeq && n.seqno <= maxSeq && n.stagename !== stage
-            })
-            if (hasIntersection) {
-              errors.push('流程阶段与顺序号有交叉情况，请检查。')
-              return errors
-            }
-          }
-        }
-
-        // 检查8.2：至少需要一个"下阶段"节点
-        // 规则：如果有多个阶段，至少要有一个节点的stagename不是'0'（本阶段）
-        if (stageNames.length > 1) {
-          const hasNextStage = sortedNodes.some(n => n.stagename && n.stagename !== '0')
-          if (!hasNextStage) {
-            errors.push('必须至少有一个下阶段的节点。')
+        // 简化判断：如果该阶段的节点数量少于范围内应有的数量，说明有交叉
+        if (seqnos.length < expectedCount) {
+          // 检查是否真的有交叉（其他阶段的节点在这个范围内）
+          const hasIntersection = sortedNodes.some(n => {
+            return n.seqno >= minSeq && n.seqno <= maxSeq && n.stagename !== stage
+          })
+          if (hasIntersection) {
+            errors.push('流程阶段与顺序号有交叉情况，请检查。')
             return errors
           }
         }
+      }
+
+      // 检查8.2：至少需要一个"下阶段"节点
+      if (stageNames.length > 1) {
+        const hasNextStage = sortedNodes.some(n => n.stagename && n.stagename !== '0')
+        if (!hasNextStage) {
+          errors.push('必须至少有一个下阶段的节点。')
+          return errors
+        }
+      }
+
+      return errors
+    },
+
+    /**
+     * 全量检查所有节点（对应需求文档第11.2节 checkAllnode()）
+     * @returns {Array} 错误信息数组，为空表示校验通过
+     */
+    checkAllNodes() {
+      const errors = []
+      const nodes = this.model.nodes
+
+      // 1. 基础校验（节点列表+顺序号唯一性）
+      const basicErrors = this.validateBasicNodeInfo(nodes)
+      if (basicErrors.length > 0) return basicErrors
+
+      // 2. 按seqno升序排序
+      const sortedNodes = [...nodes].sort((a, b) => a.seqno - b.seqno)
+
+      // 3. 节点数据完整性校验
+      const nodeDataErrors = this.validateNodeData(sortedNodes)
+      if (nodeDataErrors.length > 0) return nodeDataErrors
+
+      // 4. 分阶段流程特殊规则校验
+      if (this.isStageWorkflow && this.model.stagenames) {
+        const stageErrors = this.validateStageWorkflow(sortedNodes)
+        if (stageErrors.length > 0) return stageErrors
       }
 
       // 所有检查通过
