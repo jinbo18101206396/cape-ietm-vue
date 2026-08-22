@@ -389,71 +389,63 @@ export default {
     },
     // 动态计算表格列（按需求文档4.1节顺序）
     nodeColumns() {
-      const baseColumns = []
-
-      // 1. 处理人姓名/ID列（第一列）
+      return [
+        this.userColumn,
+        ...this.basicColumns,
+        this.actionColumn
+      ]
+    },
+    // 处理人列（根据authtype动态切换）
+    userColumn() {
       if (this.showUseridColumn) {
-        baseColumns.push({
+        return {
           title: '处理人ID',
           dataIndex: 'userid',
           width: 180,
           scopedSlots: { customRender: 'userid' }
-        })
+        }
       } else {
-        baseColumns.push({
+        return {
           title: '处理人',
           dataIndex: 'useridname',
           width: 180,
           scopedSlots: { customRender: 'useridname' }
-        })
+        }
       }
-
-      // 2. 阶段（分阶段流程时显示）- 隐藏阶段列
-      // if (this.isStageWorkflow) {
-      //   baseColumns.push({
-      //     title: '阶段',
-      //     dataIndex: 'stagename',
-      //     width: 100,
-      //     align: 'center',
-      //     scopedSlots: { customRender: 'stagename' }
-      //   })
-      // }
-
-      // 3. 节点名称
-      baseColumns.push({
-        title: '节点名称',
-        dataIndex: 'nodename',
-        width: 160,
-        scopedSlots: { customRender: 'nodename' }
-      })
-
-      // 4. 顺序号
-      baseColumns.push({
-        title: '顺序号',
-        dataIndex: 'seqno',
-        width: 80,
-        align: 'center',
-        scopedSlots: { customRender: 'seqno' }
-      })
-
-      // 5. 处理方式（nodetype字段）
-      baseColumns.push({
-        title: '处理方式',
-        dataIndex: 'nodetype',
-        width: 140,
-        align: 'center',
-        scopedSlots: { customRender: 'nodetype' }
-      })
-
-      // 6. 可跳转节点
-      baseColumns.push({
+    },
+    // 基础列（节点名称、顺序号、处理方式）
+    basicColumns() {
+      return [
+        {
+          title: '节点名称',
+          dataIndex: 'nodename',
+          width: 160,
+          scopedSlots: { customRender: 'nodename' }
+        },
+        {
+          title: '顺序号',
+          dataIndex: 'seqno',
+          width: 80,
+          align: 'center',
+          scopedSlots: { customRender: 'seqno' }
+        },
+        {
+          title: '处理方式',
+          dataIndex: 'nodetype',
+          width: 140,
+          align: 'center',
+          scopedSlots: { customRender: 'nodetype' }
+        }
+      ]
+    },
+    // 操作列（可跳转节点）
+    actionColumn() {
+      return {
         title: '可跳转节点',
         dataIndex: 'ifgetback',
         width: 180,
         scopedSlots: { customRender: 'ifgetback' }
-      })
-
-      return baseColumns
+      }
     }
   },
   methods: {
