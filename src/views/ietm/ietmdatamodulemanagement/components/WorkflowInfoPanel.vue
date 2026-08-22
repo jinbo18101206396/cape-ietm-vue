@@ -52,6 +52,7 @@
         :stage-execution-status="stageExecutionStatus"
         :current-user-stage="currentUserStage"
         :is-stage-leader="isStageLeader"
+        :is-stage-first-leader="isStageFirstLeader"
         @select="handleNodeSelect"
         @nodes-loaded="handleNodesLoaded"
         @before-insert-node="(e) => $emit('before-insert-node', e)"
@@ -366,6 +367,7 @@ export default {
     // ═══════════════════════════════════════════════════════════════
 
     // 各阶段的第一处理人 [{stage: '0', user: 'xxx', seqno: 1}, ...]
+    // 🔴 缺陷6修复：过滤创建节点，避免空stagename污染stageUsers
     stageUsers() {
       if (!this.existStage || !this.nodes || this.nodes.length === 0) return []
 
@@ -378,6 +380,9 @@ export default {
       const seen = new Set()
 
       this.nodes.forEach(node => {
+        // ✅ 跳过创建节点(seqno=0)，其stagename通常为空
+        if (node.seqno === 0 || node.seqno === '0') return
+
         const stage = node.stagename
         if (stage != null && stage !== '' && !seen.has(stage)) {
           seen.add(stage)
@@ -427,9 +432,37 @@ export default {
       return status
     },
 
-    // 当前用户所在阶段
+    // 当前用户所在阶段（对齐旧系统globalNowstage计算逻辑）
+    // 🔴 问题1修复：改为遍历所有节点，任何节点处理人都能获得阶段
+    // 🔴 缺陷1修复：过滤创建节点(seqno=0)，其stagename通常为空
     currentUserStage() {
-      if (!this.existStage || this.stageUsers.length === 0) return null
+      if (!this.existStage || !this.nodes || this.nodes.length === 0) return null
+
+      // ✅ 遍历所有节点，找到当前用户是处理人的节点
+      // 对齐旧系统 IncludeWfInstanceExec.jsp Line 234-236, Line 430
+      const found = this.nodes.find(node => {
+        // 跳过创建节点(seqno=0)，对齐旧系统特殊处理
+        if (node.seqno === 0 || node.seqno === '0') return false
+
+        if (!node.userid) return false
+        const users = node.userid.split(',').map(u => u.trim()).filter(u => u)
+        return users.includes(this.currentUserId) || users.includes(this.currentUsername)
+      })
+
+      return found ? found.stagename : null  // ✅ 返回该节点的阶段
+    },
+
+    // 当前用户是否有阶段权限（即是否是某节点的处理人）
+    // 🔴 问题1修复：语义调整 - 不再限制必须是"阶段第一处理人"
+    // 只要是某节点的处理人，就有阶段权限（可新增节点等）
+    isStageLeader() {
+      return this.currentUserStage != null
+    },
+
+    // 🔴 问题2修复：当前用户是否是阶段第一处理人（对齐旧系统stageuser检查）
+    // 用于删除节点等需要严格限制为"第一处理人"的场景
+    isStageFirstLeader() {
+      if (!this.existStage || !this.stageUsers || this.stageUsers.length === 0) return false
 
       const found = this.stageUsers.find(s => {
         if (!s.user) return false
@@ -437,12 +470,7 @@ export default {
         return users.includes(this.currentUserId) || users.includes(this.currentUsername)
       })
 
-      return found ? found.stage : null
-    },
-
-    // 当前用户是否是某阶段的第一处理人
-    isStageLeader() {
-      return this.currentUserStage != null
+      return !!found
     },
 
     // 当前阶段是否已结束

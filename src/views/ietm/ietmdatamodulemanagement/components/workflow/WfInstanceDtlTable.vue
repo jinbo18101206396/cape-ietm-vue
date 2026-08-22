@@ -78,14 +78,16 @@
       </template>
 
       <!-- 🔴 问题2修复：阶段（编辑态用 a-select） -->
+      <!-- 🔴 问题6.3修复：编辑态也显示阶段文本 -->
       <template #stagename="text, record">
         <a-select
           v-if="isEditing(record) && existStage"
           v-model="record.stagename"
+          :disabled="!record._isNew"
           size="small"
           style="width: 100%"
         >
-          <a-select-option v-for="opt in getStageOptions()" :key="opt.value" :value="opt.value">
+          <a-select-option v-for="opt in getStageOptionsForEdit(record)" :key="opt.value" :value="opt.value">
             {{ opt.text }}
           </a-select-option>
         </a-select>
@@ -188,8 +190,13 @@ export default {
       type: String,
       default: null
     },
-    // 当前用户是否是阶段第一人
+    // 🔴 问题1修复后：当前用户是否有阶段权限（任何节点处理人）
     isStageLeader: {
+      type: Boolean,
+      default: false
+    },
+    // 🔴 问题2修复：当前用户是否是阶段第一处理人（严格限制）
+    isStageFirstLeader: {
       type: Boolean,
       default: false
     }
@@ -420,10 +427,30 @@ export default {
     },
 
     // 🟡 I4修复：双击行编辑（对齐旧系统 Line 378-383 onClickRow）
+    // 🔴 问题6.1修复：放宽双击权限 - 除了全局canEditNodes，节点处理人也能双击编辑自己的节点
     handleRowDblClick(record) {
-      if (!this.canEditNodes) return
+      // 优先检查：节点必须可编辑（未处理或退回）
       if (!this.canRowEdit(record)) return
+
+      // 权限检查：canEditNodes=true（创建人/待办人）OR 节点处理人
+      const isNodeHandler = this.isCurrentUserHandler(record)
+      if (!this.canEditNodes && !isNodeHandler) return
+
       this.startEditRow(record)
+    },
+
+    // 🔴 问题6.1修复：判断当前用户是否是节点的处理人
+    isCurrentUserHandler(record) {
+      if (!record.userid) return false
+      const userInfo = this.$store.getters.userInfo
+      if (!userInfo) return false
+
+      const currentUserId = userInfo.id
+      const currentUsername = userInfo.username
+
+      // userid可能是逗号分隔的多人，需要逐个匹配
+      const userids = record.userid.split(',').map(u => u.trim()).filter(u => u)
+      return userids.some(uid => uid === currentUserId || uid === currentUsername)
     },
 
     // 新增节点（面板"新增节点"按钮调用）：追加一空行进入编辑
@@ -557,6 +584,26 @@ export default {
       const UNLIMITED = '__UNLIMITED__'
       const NO_JUMP = '__NO_JUMP__'
 
+      // P1-6修复：互斥逻辑
+      if (value.includes(UNLIMITED) && value.length > 1) {
+        // 如果选中"不限制"，清除其他选项
+        record.ifgetback = ''
+        this.$nextTick(() => {
+          // 强制更新选择器显示
+          this.$set(record, '_ifgetbackDisplay', [UNLIMITED])
+        })
+        return
+      }
+      if (value.includes(NO_JUMP) && value.length > 1) {
+        // 如果选中"不可跳转"，清除其他选项
+        record.ifgetback = '-1'
+        this.$nextTick(() => {
+          this.$set(record, '_ifgetbackDisplay', [NO_JUMP])
+        })
+        return
+      }
+
+      // 正常处理
       if (value.includes(UNLIMITED)) {
         record.ifgetback = ''
       } else if (value.includes(NO_JUMP)) {
@@ -725,10 +772,14 @@ export default {
       }
 
       // 🔴 B1修复: 分阶段删除权限检查（对齐旧系统 Line 1008-1018）
-      if (this.existStage && this.isStageLeader && this.currentUserStage != null) {
-        const recordStage = record.stagename
+      // 🔴 问题2修复：改用isStageFirstLeader，只限制阶段第一处理人不能跨阶段删除
+      // 🔴 缺陷5修复：使用parseStagename做类型安全的比较
+      if (this.existStage && this.isStageFirstLeader && this.currentUserStage != null) {
+        const currentStageNum = this.parseStagename(this.currentUserStage, null)
+        const recordStageNum = this.parseStagename(record.stagename, null)
+
         // 登录人是本阶段第一个节点的处理人，不能删除其它阶段的节点
-        if (recordStage !== this.currentUserStage) {
+        if (currentStageNum != null && recordStageNum != null && recordStageNum !== currentStageNum) {
           this.$message.warning('不能删除其它阶段的节点！')
           return
         }
@@ -871,30 +922,89 @@ export default {
     },
 
     // ── 字典格式化 ──
+    // 🔴 缺陷3修复：统一stagename解析方法（处理空/文本/数字三种格式）
+    // 对齐旧系统 formatestage 明确检查空值的逻辑
+    parseStagename(stagename, fallback = null) {
+      // 快速返回：null、undefined、空字符串
+      if (stagename == null || stagename === '') return fallback
+
+      // 尝试解析为数字索引
+      const num = parseInt(stagename)
+      if (!isNaN(num)) return num
+
+      // 如果是文本名称，尝试从stagenames中查找索引（向后兼容）
+      if (this.instance && this.instance.stagenames) {
+        const stages = this.instance.stagenames.split(',')
+        const index = stages.indexOf(stagename)
+        if (index >= 0) return index
+      }
+
+      // 无法解析，返回fallback
+      return fallback
+    },
+
     // 处理结果（还原旧 formateIfpass：含退回次数前缀）
     getIfpassText(ifpass, ifjump) {
       const jump = (ifjump != null && ifjump !== '') ? '[第' + ifjump + '次退回]' : ''
       const map = { '1': '通过', '2': '发表不同意见', '3': '流程跳转', '4': '追加意见', '5': '拿回', '9': '流程终止' }
       return jump + (map[ifpass] || '')
     },
+    // 🔴 问题6.2修复：格式化阶段名（增强容错性）
+    // 🔴 缺陷4修复：加强空值防御，统一使用parseStagename
     formatStagename(stagename) {
-      if (!this.instance || !this.instance.stagenames) return stagename
-      const stages = this.instance.stagenames.split(',')
-      const index = parseInt(stagename)
-      if (!isNaN(index) && index >= 0 && index < stages.length) return stages[index]
-      return stagename
+      // ✅ 空值快速返回
+      if (stagename == null || stagename === '') return ''
+
+      // ✅ 统一使用parseStagename解析索引（处理文本名称兼容）
+      const index = this.parseStagename(stagename, null)
+
+      // 有合法索引且有stagenames配置：返回阶段名称
+      if (index != null && this.instance && this.instance.stagenames) {
+        const stages = this.instance.stagenames.split(',')
+        if (index >= 0 && index < stages.length) {
+          return stages[index]
+        }
+      }
+
+      // fallback: 不分阶段模式直接返回原值
+      if (!this.existStage) return String(stagename)
+
+      // 分阶段但无stagenames数据：尝试从stageExecutionStatus解析
+      if (this.stageExecutionStatus && this.stageExecutionStatus.length > 0) {
+        const stageInfo = this.stageExecutionStatus.find(s => String(s.stage) === String(stagename))
+        if (stageInfo && stageInfo.stagename) {
+          return stageInfo.stagename
+        }
+      }
+
+      // 最终fallback: 有索引返回"阶段N"，否则返回原值
+      return index != null ? `阶段${index}` : String(stagename)
     },
 
     // 🔴 问题5.1修复: 获取阶段选项（对齐旧系统 Line 704-733）
+    // 🔴 问题1修复: 配合WorkflowInfoPanel的currentUserStage修复，现在任何节点处理人都能获取阶段选项
+    // 🔴 缺陷2修复: 严格校验currentUserStage，防止空字符串通过检查
     // 🔧 优化3：简化逻辑，提升可读性
     getStageOptions() {
       if (!this.existStage || !this.instance || !this.instance.stagenames) return []
-      if (!this.isStageLeader || this.currentUserStage == null) return []
+
+      // ✅ 严格校验：拦截null、undefined、空字符串
+      if (!this.isStageLeader ||
+          this.currentUserStage == null ||
+          this.currentUserStage === '') {
+        return []
+      }
 
       const stages = this.instance.stagenames.split(',')
-      const currentStage = parseInt(this.currentUserStage) || 0
+      const currentStage = parseInt(this.currentUserStage)
 
-      // 检查下阶段是否有节点
+      // ✅ 校验索引合法性（对齐旧系统 formatestage 的空值检查）
+      if (isNaN(currentStage) || currentStage < 0 || currentStage >= stages.length) {
+        console.error('[getStageOptions] Invalid currentUserStage:', this.currentUserStage, 'Expected numeric index in [0,', stages.length - 1, ']')
+        return []
+      }
+
+      // 检查下阶段是否有节点（对齐旧系统 insertstage=stageuser[stageno+1]）
       const hasNextStageNodes = this.dataSource.some(node => {
         const nodeStage = parseInt(node.stagename)
         return !isNaN(nodeStage) && nodeStage > currentStage
@@ -914,6 +1024,39 @@ export default {
       }
 
       return options
+    },
+
+    // 🔴 问题6.3修复：编辑态阶段选项（确保至少显示当前值）
+    getStageOptionsForEdit(record) {
+      // 优先使用权限内的选项（新节点可选择阶段）
+      const privilegedOptions = this.getStageOptions()
+      if (privilegedOptions.length > 0) return privilegedOptions
+
+      // fallback：非阶段领导或无权限时，至少显示当前节点的阶段
+      if (!this.instance || !this.instance.stagenames) {
+        // 无stagenames数据：返回兜底选项
+        const num = parseInt(record.stagename)
+        return [{
+          value: record.stagename,
+          text: !isNaN(num) ? `阶段${num}` : record.stagename
+        }]
+      }
+
+      // 有stagenames数据：返回当前阶段选项
+      const stages = this.instance.stagenames.split(',')
+      const index = parseInt(record.stagename)
+      if (!isNaN(index) && index >= 0 && index < stages.length) {
+        return [{
+          value: record.stagename,
+          text: stages[index]
+        }]
+      }
+
+      // 最终fallback
+      return [{
+        value: record.stagename,
+        text: record.stagename
+      }]
     },
 
     getNodetypeText(nodetype) {
