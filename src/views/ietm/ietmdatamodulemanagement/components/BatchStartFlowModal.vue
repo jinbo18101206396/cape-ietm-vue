@@ -262,18 +262,19 @@
           <!-- 可跳转节点 -->
           <template slot="ifgetback" slot-scope="text, record">
             <a-select
-              v-model="record.ifgetback"
+              :value="parseIfgetback(record.ifgetback)"
               mode="multiple"
-              placeholder="不限制"
+              placeholder="选择可跳转节点"
               style="width: 100%"
               allowClear
+              @change="onIfgetbackChange(record, $event)"
             >
-              <a-select-option value="">不限制</a-select-option>
-              <a-select-option value="nochoice">不可跳转</a-select-option>
-              <a-select-option value="create">创建</a-select-option>
-              <a-select-option value="check">校对</a-select-option>
-              <a-select-option value="review">审核</a-select-option>
-              <a-select-option value="approve">批准</a-select-option>
+              <a-select-option value="__UNLIMITED__">《不限制》</a-select-option>
+              <a-select-option value="__NO_JUMP__">《不可跳转》</a-select-option>
+              <a-select-option value="0">《创建》</a-select-option>
+              <a-select-option v-for="node in getJumpableNodes(record)" :key="node.id" :value="node.id">
+                {{ node.nodename }}
+              </a-select-option>
             </a-select>
           </template>
 
@@ -509,7 +510,7 @@ export default {
           userid: (currentUser && currentUser.id) || '',
           useridname: (currentUser && currentUser.realname) || '',
           stagename: this.isStageWorkflow ? '0' : '',
-          ifgetback: [''], // 默认"不限制"（空字符串数组）
+          ifgetback: '', // 🔧 修复：使用后端格式（空字符串 = 不限制，parseIfgetback会转换为UI格式）
           ifexec: 'Y' // 标记为已执行，不可删除
         }
       ]
@@ -611,27 +612,32 @@ export default {
 
     // 加载处理方式字典（WF_TEMPLATE_DTL_NODETYPE）
     loadNodetypeDict() {
+      // 🔧 修复：统一文本，对齐流程信息模块（WfInstanceDtlTable.vue:73-75）
       // 必须与后端 WfConstants 保持一致：0=创建,1=审核,2=签批
       this.nodetypeOptions = [
-        { text: '创建/所有人必完成', value: '0' },
-        { text: '审核/只1人完成', value: '1' },
-        { text: '签批', value: '2' }
+        { text: '创建节点', value: '0' },
+        { text: '审核节点', value: '1' },
+        { text: '签批节点', value: '2' }
       ]
     },
 
     /**
      * 将旧版文本型 nodetype（如"只1人完成"）标准化为数值字符串（"0"/"1"/"2"）。
      * 历史数据中 wf_template_dtl.nodetype_ 可能保存的是中文文本，加载模板时需转换。
+     * 🔧 修复：添加新文本映射，兼容统一后的"创建节点"等文本
      */
     normalizeNodetype(nodetype) {
       const textMap = {
         '所有人必完成': '0',
         '创建/所有人必完成': '0',
         '创建': '0',
+        '创建节点': '0',  // 🔧 新增
         '只1人完成': '1',
         '审核/只1人完成': '1',
         '审核': '1',
+        '审核节点': '1',  // 🔧 新增
         '签批': '2',
+        '签批节点': '2',  // 🔧 新增
         '审批': '2'
       }
       if (nodetype && textMap[nodetype] !== undefined) {
@@ -756,6 +762,8 @@ export default {
               userid: '',
               useridname: '',
               stagename: node.stagename || '',
+              // 🔧 修复：从模板加载的ifgetback可能是后端格式（空字符串/-1），无需转换
+              // parseIfgetback只在UI显示时使用，存储时保持后端格式
               ifgetback: node.ifgetback || ''
             }))
 
@@ -799,12 +807,6 @@ export default {
     },
 
     // 刷新节点
-    handleRefreshNodes() {
-      this.resetNodes()
-      this.selectedNodeKeys = []
-      this.$message.info('已重置节点配置')
-    },
-
     // 添加节点（符合需求文档第11.4节）
     handleAddNode() {
       // 校验：须有上一行先完整填写
@@ -828,7 +830,7 @@ export default {
         userid: '',
         useridname: '',
         stagename: this.isStageWorkflow ? '0' : '',
-        ifgetback: [] // 默认"不限制"（空数组）
+        ifgetback: '' // 🔧 修复：使用后端格式（空字符串 = 不限制，parseIfgetback会转换为UI格式）
       })
 
       this.$message.success('已添加新节点')
@@ -925,18 +927,23 @@ export default {
       const params = {
         batchId: this.model.batchId,
         dmIds: this.selectedDmIds,
-        nodes: this.model.nodes.map(node => ({
-          seqno: node.seqno,
-          nodename: node.nodename,
-          nodetype: node.nodetype,
-          userid: node.userid,
-          useridname: node.useridname || '',
-          stagename: node.stagename || '',
-          // ifgetback处理：过滤掉空字符串（"不限制"选项），其他值用逗号连接
-          ifgetback: Array.isArray(node.ifgetback)
-            ? node.ifgetback.filter(v => v !== '').join(',')
-            : (node.ifgetback || '')
-        })),
+        nodes: this.model.nodes.map(node => {
+          // 🔧 修复：使用prepareNodeDataForSubmit转换特殊标记
+          const prepared = this.prepareNodeDataForSubmit(node)
+          return {
+            seqno: prepared.seqno,
+            nodename: prepared.nodename,
+            nodetype: prepared.nodetype,
+            userid: prepared.userid,
+            useridname: prepared.useridname || '',
+            stagename: prepared.stagename || '',
+            // ifgetback已由prepareNodeDataForSubmit转换：
+            // __UNLIMITED__ → '' (空字符串)
+            // __NO_JUMP__ → '-1'
+            // 节点ID列表 → '001,002,003'
+            ifgetback: prepared.ifgetback || ''
+          }
+        }),
         ifurgent: this.model.ifurgent,
         templateId: this.model.templateId || '',
         stagenames: this.model.stagenames || ''
@@ -1102,14 +1109,16 @@ export default {
             ? node.ifgetback
             : node.ifgetback.split(',').map(v => v.trim())
 
-          // 规则1：《不限制》（空字符串）不能和其他节点同时选
-          if (ifgetbackArr.includes('') && ifgetbackArr.length > 1) {
+          // 规则1：《不限制》（空字符串或__UNLIMITED__）不能和其他节点同时选
+          // 🔧 修复：支持新标记
+          if ((ifgetbackArr.includes('') || ifgetbackArr.includes('__UNLIMITED__')) && ifgetbackArr.length > 1) {
             errors.push(`不能保存第 ${rowNum} 行，当可跳转节点选择《不限制》时，不能再选择其它节点.`)
             return errors
           }
 
-          // 规则2：《不可跳转》（-1）不能和其他节点同时选
-          if (ifgetbackArr.includes('-1') && ifgetbackArr.length > 1) {
+          // 规则2：《不可跳转》（-1或__NO_JUMP__）不能和其他节点同时选
+          // 🔧 修复：支持新标记
+          if ((ifgetbackArr.includes('-1') || ifgetbackArr.includes('__NO_JUMP__')) && ifgetbackArr.length > 1) {
             errors.push(`不能保存第 ${rowNum} 行，当可跳转节点选择《不可跳转》时，不能再选择其它节点.`)
             return errors
           }
@@ -1186,75 +1195,93 @@ export default {
     },
 
     // 备用校验（保持向后兼容）
-    validateFormLegacy() {
-      const errors = []
+    /**
+     * 🔧 修复1: 获取可跳转的节点列表（对齐旧系统 + WfInstanceDtlTable.vue）
+     * 对标：旧系统 IncludeInstanceAdd.jsp:465-478
+     */
+    getJumpableNodes(record) {
+      return this.nodeList.filter(n =>
+        n.id !== record.id &&  // 排除自己
+        !n._isNew              // 排除未保存的新节点
+      )
+    },
 
-      // 验证紧急级别
-      if (!this.model.ifurgent) {
-        errors.push('请选择紧急级别')
-        return errors
+    /**
+     * 🔧 修复2: 可跳转节点变更处理（互斥性校验）
+     * 对标：WfInstanceDtlTable.vue onIfgetbackChange
+     */
+    onIfgetbackChange(record, selectedValues) {
+      if (!selectedValues || selectedValues.length === 0) {
+        record.ifgetback = ''
+        return
       }
 
-      // 验证节点配置
-      if (this.model.nodes.length === 0) {
-        errors.push('请至少配置一个节点')
-        return errors
+      const UNLIMITED = '__UNLIMITED__'
+      const NO_JUMP = '__NO_JUMP__'
+
+      // 互斥逻辑：《不限制》不能与其他选项共存
+      if (selectedValues.includes(UNLIMITED) && selectedValues.length > 1) {
+        this.$message.warning('选择《不限制》时，不能再选择其他节点')
+        record.ifgetback = '' // 后端格式：空字符串
+        return
       }
 
-      // 验证创建节点存在
-      let hasCreateNode = false
-      const seqnoSet = new Set()
-
-      for (const node of this.model.nodes) {
-        // 检查创建节点
-        if (node.nodetype === '0' && node.seqno === 0) {
-          hasCreateNode = true
-        }
-
-        // 检查seqno重复
-        if (seqnoSet.has(node.seqno)) {
-          errors.push(`节点顺序号重复：${node.seqno}`)
-          return errors
-        }
-        seqnoSet.add(node.seqno)
-
-        // 检查必填字段
-        if (!node.nodename || node.nodename.trim() === '') {
-          errors.push(`节点${node.seqno}：节点名称不能为空`)
-          return errors
-        }
-
-        if (!node.nodetype) {
-          errors.push(`节点${node.seqno}：节点类型不能为空`)
-          return errors
-        }
-
-        if (!node.userid || node.userid.trim() === '') {
-          errors.push(`节点${node.seqno}：处理人ID不能为空`)
-          return errors
-        }
-
-        if (!node.useridname || node.useridname.trim() === '') {
-          errors.push(`节点${node.seqno}：处理人姓名不能为空`)
-          return errors
-        }
-
-        // 校验userid和useridname数量一致
-        const userids = node.userid.split(',').filter(id => id.trim())
-        const usernames = node.useridname.split(',').filter(name => name.trim())
-        if (userids.length !== usernames.length) {
-          errors.push(`节点${node.seqno}：处理人ID数量（${userids.length}）与姓名数量（${usernames.length}）不一致`)
-          return errors
-        }
+      // 互斥逻辑：《不可跳转》不能与其他选项共存
+      if (selectedValues.includes(NO_JUMP) && selectedValues.length > 1) {
+        this.$message.warning('选择《不可跳转》时，不能再选择其他节点')
+        record.ifgetback = '-1' // 后端格式：-1
+        return
       }
 
-      if (!hasCreateNode) {
-        errors.push('必须包含创建节点（节点类型=创建节点，顺序号=0）')
-        return errors
+      // 正常处理
+      if (selectedValues.includes(UNLIMITED)) {
+        record.ifgetback = ''
+      } else if (selectedValues.includes(NO_JUMP)) {
+        record.ifgetback = '-1'
+      } else {
+        // 过滤掉特殊标记，保留实际节点ID（包括'0'）
+        const nodeIds = selectedValues.filter(v => v !== UNLIMITED && v !== NO_JUMP)
+        record.ifgetback = nodeIds.join(',')
       }
+    },
 
-      return errors
-    }
+    /**
+     * 🔧 修复3: 解析ifgetback字段（数据库→UI）
+     * 对标：WfInstanceDtlTable.vue:618-628
+     */
+    parseIfgetback(value) {
+      if (!value || value === '') return ['__UNLIMITED__']
+      if (value === '-1') return ['__NO_JUMP__'] // 后端格式：-1
+      if (value === '__NO_JUMP__') return ['__NO_JUMP__'] // UI格式残留（防御性）
+      if (value === '__UNLIMITED__') return ['__UNLIMITED__'] // UI格式残留（防御性）
+
+      // 其他情况：逗号分隔的节点ID列表
+      return value.split(',').map(v => v.trim()).filter(v => v)
+    },
+
+    /**
+     * 🔧 修复4: 提交前转换（防御性编程）
+     * 正常情况下，onIfgetbackChange已将数据转换为后端格式
+     * 此方法用于防御性处理可能残留的UI格式标记
+     */
+    prepareNodeDataForSubmit(node) {
+      const prepared = { ...node }
+
+      // 防御性转换：万一有UI格式标记残留，转换为后端格式
+      if (prepared.ifgetback === '__UNLIMITED__') {
+        prepared.ifgetback = ''
+      } else if (prepared.ifgetback === '__NO_JUMP__') {
+        prepared.ifgetback = '-1'
+      }
+      // 其他情况：已是后端格式（空字符串/-1/节点ID列表），保持不变
+
+      return prepared
+    },
+
+    /**
+     * 🔧 修复5: 格式化显示（非编辑态）
+     * 对标：WfInstanceDtlTable.vue:616-628
+     */
   }
 }
 </script>
