@@ -272,7 +272,7 @@
               <a-select-option value="__UNLIMITED__">《不限制》</a-select-option>
               <a-select-option value="__NO_JUMP__">《不可跳转》</a-select-option>
               <a-select-option value="0">《创建》</a-select-option>
-              <a-select-option v-for="node in getJumpableNodes(record)" :key="node.id" :value="node.id">
+              <a-select-option v-for="node in getJumpableNodes(record)" :key="node._rid" :value="String(node.seqno)">
                 {{ node.nodename }}
               </a-select-option>
             </a-select>
@@ -827,8 +827,26 @@ export default {
         return
       }
 
-      // 保留创建节点，加载其他节点
-      const createNode = this.model.nodes.find(n => n.seqno === 0)
+      // 保留创建节点，如果不存在则创建一个
+      let createNode = this.model.nodes.find(n => n.seqno === 0)
+
+      // 🐛 修复：如果创建节点不存在，创建一个默认的创建节点
+      if (!createNode) {
+        console.warn('批量启动流程：创建节点不存在，自动初始化')
+        const currentUser = this.$store.getters.userInfo
+        createNode = {
+          _rid: generateUUID(),
+          seqno: 0,
+          nodename: '创建节点',
+          nodetype: '0',
+          userid: (currentUser && currentUser.id) || '',
+          useridname: (currentUser && currentUser.realname) || '',
+          stagename: this.isStageWorkflow ? '0' : '',
+          ifgetback: '',
+          ifexec: 'Y'
+        }
+      }
+
       const formattedNodes = templateNodes
         .filter(n => n.seqno !== 0) // 过滤掉创建节点（如果模板中包含）
         .map(node => ({
@@ -977,10 +995,17 @@ export default {
      * @returns {Object} 符合后端接口的请求参数
      */
     prepareSubmitData() {
-      return {
+      // 🐛 修复：过滤掉undefined节点（防御性编程）
+      const validNodes = this.model.nodes.filter(node => node != null)
+
+      if (validNodes.length === 0) {
+        throw new Error('节点列表为空，无法提交')
+      }
+
+      const submitData = {
         batchId: this.model.batchId,
         dmIds: this.selectedDmIds,
-        nodes: this.model.nodes.map(node => {
+        nodes: validNodes.map(node => {
           const prepared = this.prepareNodeDataForSubmit(node)
           return {
             seqno: prepared.seqno,
@@ -996,6 +1021,19 @@ export default {
         templateId: this.model.templateId || '',
         stagenames: this.model.stagenames || ''
       }
+
+      // 🐛 调试日志：打印提交数据
+      console.log('========== 批量启动流程提交数据 ==========')
+      console.log('批次ID:', submitData.batchId)
+      console.log('DM数量:', submitData.dmIds.length)
+      console.log('节点总数:', submitData.nodes.length)
+      console.log('节点详情:')
+      submitData.nodes.forEach((node, index) => {
+        console.log(`  [${index}] seqno=${node.seqno}, nodename='${node.nodename}', nodetype='${node.nodetype}', userid=${node.userid}`)
+      })
+      console.log('==========================================')
+
+      return submitData
     },
 
     /**
@@ -1338,12 +1376,14 @@ export default {
     /**
      * 🔧 修复1: 获取可跳转的节点列表（对齐旧系统 + WfInstanceDtlTable.vue）
      * 对标：旧系统 IncludeInstanceAdd.jsp:465-478
+     * 🐛 BUG修复：
+     *   1. 使用 this.model.nodes 而不是不存在的 this.nodeList
+     *   2. 使用 _rid 而不是 id（新系统节点没有id字段，只有_rid）
+     *   3. 返回所有其他节点（包括创建节点seqno=0），用于可跳转节点选择
      */
     getJumpableNodes(record) {
-      return this.nodeList.filter(n =>
-        n.id !== record.id &&  // 排除自己
-        !n._isNew              // 排除未保存的新节点
-      )
+      // 🐛 修复：返回所有其他节点（排除当前节点自己）
+      return this.model.nodes.filter(n => n._rid !== record._rid)
     },
 
     /**
