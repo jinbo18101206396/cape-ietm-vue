@@ -908,27 +908,15 @@ export default {
       this.currentSelectingNode = null
     },
 
-    // 提交（符合需求文档第十二章交互细节）
-    handleOk() {
-      // 前端表单验证（需求文档第11.2节）
-      const errors = this.validateForm()
-      if (errors.length > 0) {
-        this.$message.error(errors[0])
-        return
-      }
-
-      // 防重复提交（需求文档第12章：提交时防重复点击）
-      if (this.confirmLoading) {
-        return
-      }
-      this.confirmLoading = true
-
-      // 组装数据，按照后端BatchStartFlowVO格式
-      const params = {
+    /**
+     * 准备提交数据（组装BatchStartFlowVO格式）
+     * @returns {Object} 符合后端接口的请求参数
+     */
+    prepareSubmitData() {
+      return {
         batchId: this.model.batchId,
         dmIds: this.selectedDmIds,
         nodes: this.model.nodes.map(node => {
-          // 🔧 修复：使用prepareNodeDataForSubmit转换特殊标记
           const prepared = this.prepareNodeDataForSubmit(node)
           return {
             seqno: prepared.seqno,
@@ -937,10 +925,6 @@ export default {
             userid: prepared.userid,
             useridname: prepared.useridname || '',
             stagename: prepared.stagename || '',
-            // ifgetback已由prepareNodeDataForSubmit转换：
-            // __UNLIMITED__ → '' (空字符串)
-            // __NO_JUMP__ → '-1'
-            // 节点ID列表 → '001,002,003'
             ifgetback: prepared.ifgetback || ''
           }
         }),
@@ -948,73 +932,113 @@ export default {
         templateId: this.model.templateId || '',
         stagenames: this.model.stagenames || ''
       }
+    },
 
-      // 🔧 临时Mock数据（后端接口可用后删除此段）
+    /**
+     * Mock模式提交处理
+     * 🔧 临时Mock数据（后端接口可用后删除此方法）
+     */
+    handleMockSubmit() {
+      setTimeout(() => {
+        this.$message.success('保存成功！')
+        this.$message.warning('⚠️ 当前为Mock演示模式，请稍后查看列表更新效果', 3)
+
+        // Mock模式：通知父组件更新数据
+        const firstWorkNode = this.model.nodes.find(n => n.seqno > 0)
+        if (firstWorkNode) {
+          this.$emit('mock-updated', {
+            dmIds: this.selectedDmIds,
+            workflowStep: firstWorkNode.nodename || 'DM编写',
+            workflowStatus: '1',
+            workflowStatus_dictText: '流转中'
+          })
+        }
+
+        this.handleCancel()
+        this.$emit('ok')
+      }, 500)
+    },
+
+    /**
+     * 提交成功处理
+     * @param {Object} res - 后端响应对象
+     */
+    handleSubmitSuccess(res) {
+      if (res.success) {
+        this.$message.success('保存成功！')
+        this.handleCancel()
+        this.$emit('ok')
+      } else {
+        this.$message.error(res.message || '批量启动失败')
+        this.confirmLoading = false
+      }
+    },
+
+    /**
+     * 提交失败错误处理
+     * @param {Error} err - 错误对象
+     */
+    handleSubmitError(err) {
+      console.error('批量启动流程失败', err)
+
+      if (err.response) {
+        const status = err.response.status
+        if (status === 400) {
+          this.$message.error('请求参数错误：' + (err.response.data.message || ''))
+        } else if (status === 401) {
+          this.$message.error('未登录或登录已过期，请重新登录')
+        } else if (status === 500) {
+          this.$message.error('服务器错误：' + (err.response.data.message || ''))
+        } else {
+          this.$message.error('操作失败：' + (err.message || '未知错误'))
+        }
+      } else if (err.request) {
+        this.$message.error('网络错误，请检查网络连接')
+      } else {
+        this.$message.error('操作失败：' + (err.message || '未知错误'))
+      }
+
+      this.confirmLoading = false
+    },
+
+    /**
+     * 提交批量启动流程（根据配置选择Mock或真实API）
+     * @param {Object} params - 提交参数
+     */
+    submitBatchFlow(params) {
       const useMockData = false // 设置为false启用真实接口
 
       if (useMockData) {
-        setTimeout(() => {
-          // 模拟成功响应
-          this.$message.success('保存成功！')
-
-          // 🔧 Mock模式提示
-          this.$message.warning('⚠️ 当前为Mock演示模式，请稍后查看列表更新效果', 3)
-
-          // 🔧 Mock模式：通知父组件更新数据
-          const firstWorkNode = this.model.nodes.find(n => n.seqno > 0)
-          if (firstWorkNode) {
-            this.$emit('mock-updated', {
-              dmIds: this.selectedDmIds,
-              workflowStep: firstWorkNode.nodename || 'DM编写',
-              workflowStatus: '1',
-              workflowStatus_dictText: '流转中'
-            })
-          }
-
-          this.handleCancel()
-          this.$emit('ok')
-        }, 500)
-
+        this.handleMockSubmit()
         return
       }
 
       // 真实接口调用
       postAction('/ietm/workflow/batchStartFlow', params)
-        .then(res => {
-          if (res.success) {
-            // 需求文档第12章：提示消息统一使用layer.msg（Vue中使用$message）
-            this.$message.success('保存成功！')
+        .then(res => this.handleSubmitSuccess(res))
+        .catch(err => this.handleSubmitError(err))
+    },
 
-            // 关闭弹窗
-            this.handleCancel()
+    // 提交（符合需求文档第十二章交互细节）
+    handleOk() {
+      // 1. 前端表单验证（需求文档第11.2节）
+      const errors = this.validateForm()
+      if (errors.length > 0) {
+        this.$message.error(errors[0])
+        return
+      }
 
-            // 需求文档第12章：提交成功刷新父页面
-            this.$emit('ok')
-          } else {
-            this.$message.error(res.message || '批量启动失败')
-            this.confirmLoading = false
-          }
-        })
-        .catch(err => {
-          console.error('批量启动流程失败', err)
-          if (err.response) {
-            const status = err.response.status
-            if (status === 400) {
-              this.$message.error('请求参数错误：' + (err.response.data.message || ''))
-            } else if (status === 401) {
-              this.$message.error('未登录或登录已过期，请重新登录')
-            } else if (status === 500) {
-              this.$message.error('服务器错误：' + (err.response.data.message || ''))
-            } else {
-              this.$message.error('操作失败：' + (err.message || '未知错误'))
-            }
-          } else if (err.request) {
-            this.$message.error('网络错误，请检查网络连接')
-          } else {
-            this.$message.error('操作失败：' + (err.message || '未知错误'))
-          }
-          this.confirmLoading = false
-        })
+      // 2. 防重复提交（需求文档第12章：提交时防重复点击）
+      if (this.confirmLoading) {
+        return
+      }
+      this.confirmLoading = true
+
+      // 3. 准备提交数据
+      const params = this.prepareSubmitData()
+
+      // 4. 提交批量启动流程
+      this.submitBatchFlow(params)
     },
 
     // 关闭弹窗
