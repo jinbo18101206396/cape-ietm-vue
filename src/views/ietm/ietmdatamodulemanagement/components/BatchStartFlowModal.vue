@@ -344,6 +344,7 @@ export default {
       notdelNode: '', // 不可删除的节点名称列表
       authtype: '0', // 权限类型（从系统配置读取）
       autoMatchedTemplate: false, // 是否自动匹配了模板
+      timers: [], // 🔧 P1修复：存储定时器引用，用于组件销毁时清理
       model: {
         batchId: '',
         dmIds: [],
@@ -523,7 +524,7 @@ export default {
      */
     loadMockTemplates() {
       return new Promise(resolve => {
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           resolve([
             {
               id: 'mock_template_dm_001',
@@ -542,6 +543,7 @@ export default {
             }
           ])
         }, 300)
+        this.timers.push(timer) // 🔧 P1修复：存储定时器引用
       })
     },
 
@@ -738,7 +740,7 @@ export default {
 
         const mockNodes = mockNodesByTemplate[templateId] || []
 
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           if (mockNodes.length > 0) {
             // 保留创建节点，加载其他节点
             const createNode = this.model.nodes.find(n => n.seqno === 0)
@@ -760,6 +762,7 @@ export default {
           }
           this.confirmLoading = false
         }, 300)
+        this.timers.push(timer) // 🔧 P1修复：存储定时器引用
 
         return
       }
@@ -956,7 +959,7 @@ export default {
      * 🔧 临时Mock数据（后端接口可用后删除此方法）
      */
     handleMockSubmit() {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         this.$message.success('保存成功！')
         this.$message.warning('⚠️ 当前为Mock演示模式，请稍后查看列表更新效果', 3)
 
@@ -974,6 +977,7 @@ export default {
         this.handleCancel()
         this.$emit('ok')
       }, 500)
+      this.timers.push(timer) // 🔧 P1修复：存储定时器引用
     },
 
     /**
@@ -1374,6 +1378,31 @@ export default {
      * 🔧 修复5: 格式化显示（非编辑态）
      * 对标：WfInstanceDtlTable.vue:616-628
      */
+  },
+
+  /**
+   * 🔧 P1修复：组件销毁时清理资源
+   * 解决内存泄漏风险
+   */
+  beforeDestroy() {
+    // 1. 清理所有定时器
+    if (this.timers && this.timers.length > 0) {
+      this.timers.forEach(timer => clearTimeout(timer))
+      this.timers = []
+    }
+
+    // 2. 重置加载状态（防止幽灵更新）
+    this.visible = false
+    this.confirmLoading = false
+    this.templateLoading = false
+
+    // 3. 清空数据（释放内存）
+    this.model.nodes = []
+    this.templateList = []
+    this.selectedDmIds = []
+    this.internalSelectedRecords = []
+
+    console.log('[BatchStartFlowModal] 组件销毁，资源已清理')
   }
 }
 </script>
