@@ -516,98 +516,115 @@ export default {
       ]
     },
 
+    /**
+     * 加载Mock模板数据
+     * 🔧 临时Mock数据（后端接口可用后删除此方法）
+     * @returns {Promise<Array>} Mock模板列表
+     */
+    loadMockTemplates() {
+      return new Promise(resolve => {
+        setTimeout(() => {
+          resolve([
+            {
+              id: 'mock_template_dm_001',
+              tmplname: 'DM数据模块流程模板',
+              stagenames: '编写,审核,签批'
+            },
+            {
+              id: 'mock_template_pm_001',
+              tmplname: 'PM流程模板',
+              stagenames: '创建,审批,发布'
+            },
+            {
+              id: 'mock_template_cm_001',
+              tmplname: 'CM配置管理流程',
+              stagenames: ''
+            }
+          ])
+        }, 300)
+      })
+    },
+
+    /**
+     * 加载真实模板数据
+     * @returns {Promise<Array>} 真实模板列表
+     */
+    async loadRealTemplates() {
+      const res = await getAction('/ietm/workflow/template/getPubOwnWfTemplates')
+
+      if (res.success) {
+        if ((res.result || []).length === 0) {
+          this.$message.warning('暂无可用的流程模板，请先在系统中配置流程模板')
+        }
+        return res.result || []
+      } else {
+        throw new Error(res.message || '加载失败')
+      }
+    },
+
+    /**
+     * 应用匹配到的模板
+     * @param {Object} template - 匹配的模板对象
+     */
+    applyMatchedTemplate(template) {
+      this.model.templateId = template.id
+      this.autoMatchedTemplate = true
+
+      // 自动加载模板节点
+      this.loadTemplateNodes(template.id)
+
+      // 设置分阶段标志
+      if (template.stagenames) {
+        this.model.stagenames = template.stagenames
+      }
+    },
+
+    /**
+     * 处理模板列表（自动匹配+节点加载）
+     * @param {Array} templates - 模板列表
+     */
+    processTemplateList(templates) {
+      this.templateList = templates
+
+      // 需求文档第12章：模板自动匹配
+      if (!this.defaultTemplate) return
+
+      const matchedTemplate = this.templateList.find(
+        t => t.tmplname && t.tmplname.indexOf(this.defaultTemplate) >= 0
+      )
+
+      if (matchedTemplate) {
+        this.applyMatchedTemplate(matchedTemplate)
+      }
+    },
+
+    /**
+     * 加载模板失败错误处理
+     * @param {Error} err - 错误对象
+     */
+    handleLoadTemplateError(err) {
+      console.error('加载流程模板失败', err)
+      this.$message.error('加载流程模板失败：' + err.message)
+    },
+
     // 加载流程模板列表
-    loadTemplateList() {
+    async loadTemplateList() {
       this.templateLoading = true
 
-      // 🔧 临时Mock数据（后端接口可用后删除此段）
-      // TODO: 与后端确认正确的接口路径后，启用真实接口
-      const useMockData = false // 设置为false启用真实接口
+      try {
+        // 🔧 临时Mock数据（后端接口可用后删除useMockData开关）
+        const useMockData = false // 设置为false启用真实接口
 
-      if (useMockData) {
-        const mockTemplates = [
-          {
-            id: 'mock_template_dm_001',
-            tmplname: 'DM数据模块流程模板',
-            stagenames: '编写,审核,签批'
-          },
-          {
-            id: 'mock_template_pm_001',
-            tmplname: 'PM流程模板',
-            stagenames: '创建,审批,发布'
-          },
-          {
-            id: 'mock_template_cm_001',
-            tmplname: 'CM配置管理流程',
-            stagenames: ''
-          }
-        ]
+        const templates = useMockData
+          ? await this.loadMockTemplates()
+          : await this.loadRealTemplates()
 
-        setTimeout(() => {
-          this.templateList = mockTemplates
-          this.templateLoading = false
-
-          // 需求文档第12章：模板自动匹配
-          if (this.defaultTemplate) {
-            const matchedTemplate = this.templateList.find(
-              t => t.tmplname && t.tmplname.indexOf(this.defaultTemplate) >= 0
-            )
-            if (matchedTemplate) {
-              this.model.templateId = matchedTemplate.id
-              this.autoMatchedTemplate = true
-              // 自动加载模板节点
-              this.loadTemplateNodes(matchedTemplate.id)
-
-              // 如果模板有stagenames，设置分阶段标志
-              if (matchedTemplate.stagenames) {
-                this.model.stagenames = matchedTemplate.stagenames
-              }
-            }
-          }
-        }, 300)
-
-        return
+        this.processTemplateList(templates)
+      } catch (err) {
+        this.handleLoadTemplateError(err)
+      } finally {
+        this.templateLoading = false
       }
-
-      // 真实接口调用
-      getAction('/ietm/workflow/template/getPubOwnWfTemplates')
-        .then(res => {
-          if (res.success) {
-            this.templateList = res.result || []
-
-            if (this.templateList.length === 0) {
-              this.$message.warning('暂无可用的流程模板，请先在系统中配置流程模板')
-            }
-
-            // 需求文档第12章：模板自动匹配
-            // 按 default_template 参数模糊匹配（indexOf >= 0）模板名，自动选中并禁用选择器
-            if (this.defaultTemplate) {
-              const matchedTemplate = this.templateList.find(
-                t => t.tmplname && t.tmplname.indexOf(this.defaultTemplate) >= 0
-              )
-              if (matchedTemplate) {
-                this.model.templateId = matchedTemplate.id
-                this.autoMatchedTemplate = true
-                // 自动加载模板节点
-                this.loadTemplateNodes(matchedTemplate.id)
-
-                // 如果模板有stagenames，设置分阶段标志
-                if (matchedTemplate.stagenames) {
-                  this.model.stagenames = matchedTemplate.stagenames
-                }
-              }
-            }
-          } else {
-            this.$message.warning('加载流程模板失败：' + (res.message || ''))
-          }
-        })
-        .catch(err => {
-          console.error('加载流程模板失败', err)
-          this.$message.error('加载流程模板失败：' + err.message)
-        })
-        .finally(() => {
-          this.templateLoading = false
-        })
     },
 
     // 加载处理方式字典（WF_TEMPLATE_DTL_NODETYPE）
