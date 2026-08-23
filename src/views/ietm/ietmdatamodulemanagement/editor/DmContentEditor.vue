@@ -156,6 +156,7 @@
           ref="workflowPanel"
           :formid="id"
           :readonly="readonly"
+          :checkout-user="checkoutUser"
           @workflow-change="onWorkflowChange"
           @workflow-complete="onWorkflowComplete"
         />
@@ -233,7 +234,9 @@ export default {
       // 南区流程信息：默认折叠（对齐旧系统 region:'south',collapsed:true）+ 点标题栏展开/可拖高
       workflowCollapsed: true,
       workflowHeight: 350,
-      workflowResizing: false
+      workflowResizing: false,
+      // 🔴 P0-X: DM签出用户（用于流程审批前校验签出状态）
+      checkoutUser: null
     }
   },
   computed: {
@@ -311,6 +314,8 @@ export default {
         this.en2cnElem       = r.en2cnElem || {}
         this.cn2enElem       = r.cn2enElem || {}
         this.designerSett    = r.designerSett || {}
+        // 🔴 P0-X: 保存签出用户（用于流程审批前校验）
+        this.checkoutUser    = r.checkoutUser || null
         if (this.isGjb) this.locale = 'cn'
         // 🆕 解析 icnlist（离线模式，§16.4.3 机制2）
         this._parseIcnlistFromXml()
@@ -557,6 +562,8 @@ export default {
                   this.$message.success('签入成功')
                   this.mode = 'browse'
                   this.$refs.editor.setReadOnly(true)
+                  // 🔧 修复：签入成功后清空签出用户状态
+                  this.checkoutUser = null
                   resolve()
                 } else {
                   this.$message.error(res.message || '签入失败')

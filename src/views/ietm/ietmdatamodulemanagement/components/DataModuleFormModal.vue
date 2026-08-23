@@ -244,6 +244,14 @@ export default {
       confirmLoading: false,
       isEditMode: false,  // 是否为编辑模式
       model: {},
+      // 版本号和默认值常量（与后端保持一致）
+      DEFAULT_VALUES: {
+        issueNo: '001',      // 初始发行号（S1000D标准）
+        inWork: '00',        // 初始在编号
+        lang: 'zh',          // 默认语言
+        country: 'CN',       // 默认国家
+        location: 'A'        // 默认位置码
+      },
       rules: {
         security: [{ required: true, message: '请选择密级', trigger: 'change' }],
         sns: [
@@ -319,16 +327,16 @@ export default {
         learnEventCode: '',
         yearOfChange: '',
         seqNo: '',
-        languageIsoCode: 'zh',  // ISO 639标准：小写语言代码
-        countryIsoCode: 'CN',
+        languageIsoCode: this.DEFAULT_VALUES.lang,  // ISO 639标准：小写语言代码
+        countryIsoCode: this.DEFAULT_VALUES.country,
         infoCode: '',
         dmType: '',
         originator: '',
         rpc: '',
         techName: contextData.techName || '',  // 从构型节点传入
         infoName: '',
-        issueNo: '001',  // 初始版本：发行编号001
-        inWork: '00',    // 初始版本：在编号00（与后端 saveDm 默认值及 isInitialVersion 判定一致）
+        issueNo: this.DEFAULT_VALUES.issueNo,  // 初始版本：发行编号（与后端INITIAL_ISSUE_NO保持一致）
+        inWork: this.DEFAULT_VALUES.inWork,    // 初始版本：在编号（与后端INITIAL_IN_WORK保持一致）
         issueType: 'new'
       }
 
@@ -523,22 +531,23 @@ export default {
     },
 
     dmcPreview() {
-      const m = this.model
+      const { model: m, snsFormatted, DEFAULT_VALUES: d } = this
 
       // DMC格式：逐字符对标老系统 getDmc() 及后端 generateDmc()（纯S1000D缩略标识+文件名后缀）：
       // DMC-{sns}-{infoCode}{infoCodeVariant}-{itemLocationCode}_{issueNo}-{inWork}_{lang}-{country}
       // 注：yearOfChange/seqNo/originator/learn 码不进 DMC 字符串（仅存实体列与 <dmCode> XML 属性）。
-      const sns = this.snsFormatted || '[SNS]'
-      // infoCodeVariant 可为空（校验允许），空时不补——与后端 generateDmc 逐字符一致
-      const infoCodePart = (m.infoCode || '[信息码]') + (m.infoCodeVariant || '')
-      const loc = m.ietmLocationCode || 'A'
-      const issueBlock = (m.issueNo || '001') + '-' + (m.inWork || '00')
-      // 语言码小写、国家码大写，符合ISO 639/3166标准（DMC文件名中显示为 zh-CN）
-      const lang = (m.languageIsoCode || 'zh').toLowerCase()
-      const country = (m.countryIsoCode || 'CN').toUpperCase()
-      const langBlock = lang + '-' + country
 
-      return `DMC-${sns}-${infoCodePart}-${loc}_${issueBlock}_${langBlock}`
+      // 提取各字段（使用常量作为默认值）
+      const sns = snsFormatted || '[SNS]'
+      const infoCode = m.infoCode || '[信息码]'
+      const variant = m.infoCodeVariant || ''
+      const location = m.ietmLocationCode || d.location
+      const version = `${m.issueNo || d.issueNo}-${m.inWork || d.inWork}`
+      const lang = (m.languageIsoCode || d.lang).toLowerCase()
+      const country = (m.countryIsoCode || d.country).toUpperCase()
+      const locale = `${lang}-${country}`
+
+      return `DMC-${sns}-${infoCode}${variant}-${location}_${version}_${locale}`
     }
   }
 }

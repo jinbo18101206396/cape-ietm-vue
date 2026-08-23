@@ -117,10 +117,12 @@
 
         <!-- 工作流信息 -->
         <a-descriptions-item label="工作流状态">
-          <a-badge v-if="model.workflowStatus === '1'" status="processing" text="审批中" />
-          <a-badge v-else-if="model.workflowStatus === '2'" status="success" text="已通过" />
-          <a-badge v-else-if="model.workflowStatus === '3'" status="error" text="已拒绝" />
-          <a-badge v-else status="default" text="未提交" />
+          <a-badge v-if="!model.workflowStatus" status="default" text="未启动" />
+          <a-badge v-else-if="model.workflowStatus === '1'" status="processing" text="进行中" />
+          <a-badge v-else-if="model.workflowStatus === '0'" status="success" text="已结束" />
+          <a-badge v-else-if="model.workflowStatus === '9'" status="warning" text="已终止" />
+          <a-badge v-else-if="model.workflowStatus === '2'" status="error" text="已撤销" />
+          <a-badge v-else status="default" text="未知" />
         </a-descriptions-item>
         <a-descriptions-item label="当前处理人">
           {{ model.workflowHandler || '-' }}

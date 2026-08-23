@@ -75,8 +75,8 @@
           <span class="form-label">处理方式</span>
           <a-radio-group v-model="form.ifpass" size="small" @change="onIfpassChange">
             <a-radio value="1">通过</a-radio>
-            <a-radio value="2">不同意</a-radio>
-            <a-radio value="9">终止</a-radio>
+            <a-radio value="2">发表不同意见</a-radio>
+            <a-radio value="9">流程终止</a-radio>
             <a-radio value="3">跳转</a-radio>
           </a-radio-group>
           <a-select
@@ -181,6 +181,11 @@ export default {
     restartflow: {
       type: [String, Boolean],
       default: false
+    },
+    // 🔴 P0-X: DM签出用户（用于校验签出状态，对齐旧系统）
+    checkoutUser: {
+      type: String,
+      default: null
     }
   },
   data() {
@@ -536,9 +541,11 @@ export default {
     },
 
     // 刷新全部（实例/待办/节点表）
-    refreshAll() {
-      this.loadInstance()
-      this.$refs.dtlTable && this.$refs.dtlTable.refresh()
+    async refreshAll() {
+      await this.loadInstance()
+      if (this.$refs.dtlTable) {
+        await this.$refs.dtlTable.refresh()
+      }
       this.selectedNode = null // P1-4修复：刷新后清空选中状态
     },
 
@@ -736,16 +743,21 @@ export default {
         content: '你已经处理完毕了，确定要拿回以重新处理？',
         onOk: async () => {
           try {
-            const url = `/ietm/workflow/execute/takeBack?instdtlid=${encodeURIComponent(this.selectedNode.id)}`
+            // 🔴 修复：保存节点ID，因为refreshAll()会清空selectedNode
+            const nodeId = this.selectedNode.id
+            const instId = this.instance.id
+
+            const url = `/ietm/workflow/execute/takeBack?instdtlid=${encodeURIComponent(nodeId)}`
             const res = await postAction(url)
             if (res.success) {
               this.$message.success('拿回成功')
-              this.refreshAll()
+              // 🔴 修复：等待刷新完成后再触发钩子，确保"处理情况"已清空
+              await this.refreshAll()
 
               // P3-1: 拿回成功后钩子（兼容旧系统 parent.afterGetBackSuccess 和新系统 @after-get-back）
               const payload = {
-                instdtlid: this.selectedNode.id,
-                instid: this.instance.id
+                instdtlid: nodeId,
+                instid: instId
               }
               this.emitCompat('after-get-back', 'afterGetBackSuccess', payload)
             } else {
@@ -790,6 +802,12 @@ export default {
 
     // 提交处理（还原旧 saveExecute + submitexec 的前端校验）
     handleSubmit() {
+      // 🔴 P0-X: 签出状态校验（对齐旧系统：该DM还是签出状态,请签入后再提交后续流程处理）
+      if (this.checkoutUser) {
+        this.$message.warning('该DM还是签出状态,请签入后再提交后续流程处理。')
+        return
+      }
+
       // P0-19: 提交前钩子 - beforeSubmit
       // 允许父组件阻止提交（返回false）
       // P3-1: 触发钩子（兼容旧系统 parent.beforeExec 和新系统 @before-submit）

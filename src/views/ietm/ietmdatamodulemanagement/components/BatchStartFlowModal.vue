@@ -271,7 +271,7 @@
             >
               <a-select-option value="__UNLIMITED__">《不限制》</a-select-option>
               <a-select-option value="__NO_JUMP__">《不可跳转》</a-select-option>
-              <a-select-option value="0">《创建》</a-select-option>
+              <!-- 🔧 修复：移除固定的《创建》选项，避免与动态生成的创建节点重复 -->
               <a-select-option v-for="node in getJumpableNodes(record)" :key="node._rid" :value="String(node.seqno)">
                 {{ node.nodename }}
               </a-select-option>
@@ -649,32 +649,39 @@ export default {
 
     // 加载处理方式字典（WF_TEMPLATE_DTL_NODETYPE）
     loadNodetypeDict() {
-      // 🔧 修复：统一文本，对齐流程信息模块（WfInstanceDtlTable.vue:73-75）
-      // 必须与后端 WfConstants 保持一致：0=创建,1=审核,2=签批
+      // 🔧 修复：对齐旧系统，显示处理方式而非节点类型
+      // nodetype字段含义：0=所有人必须完成, 1=只1人完成
+      // 旧系统JSP: "所有人必须完成""只1人完成"
       this.nodetypeOptions = [
-        { text: '创建节点', value: '0' },
-        { text: '审核节点', value: '1' },
-        { text: '签批节点', value: '2' }
+        { text: '所有人必须完成', value: '0' },
+        { text: '只1人完成', value: '1' }
       ]
     },
 
     /**
      * 将旧版文本型 nodetype（如"只1人完成"）标准化为数值字符串（"0"/"1"/"2"）。
      * 历史数据中 wf_template_dtl.nodetype_ 可能保存的是中文文本，加载模板时需转换。
-     * 🔧 修复：添加新文本映射，兼容统一后的"创建节点"等文本
+     * 🔧 修复：对齐旧系统处理方式文本
      */
     normalizeNodetype(nodetype) {
       const textMap = {
+        // 旧系统标准文本（处理方式）
         '所有人必完成': '0',
-        '创建/所有人必完成': '0',
-        '创建': '0',
-        '创建节点': '0',  // 🔧 新增
+        '所有人必须完成': '0',
         '只1人完成': '1',
+        '只一人完成': '1',
+
+        // 兼容旧版本的复合文本
+        '创建/所有人必完成': '0',
         '审核/只1人完成': '1',
+
+        // 新系统错误文本（兼容，但不应出现在新数据中）
+        '创建': '0',
+        '创建节点': '0',
         '审核': '1',
-        '审核节点': '1',  // 🔧 新增
+        '审核节点': '1',
         '签批': '2',
-        '签批节点': '2',  // 🔧 新增
+        '签批节点': '2',
         '审批': '2'
       }
       if (nodetype && textMap[nodetype] !== undefined) {
@@ -853,11 +860,14 @@ export default {
           _rid: generateUUID(),
           seqno: node.seqno,
           nodename: node.nodename,
-          nodetype: node.nodetype,
+          // 🔧 修复：如果模板中nodetype为空或undefined，默认设置为'0'（所有人必须完成）
+          nodetype: node.nodetype || '0',
           userid: '',
           useridname: '',
           stagename: node.stagename || '',
-          ifgetback: node.ifgetback || ''
+          // 🔧 修复：对齐旧系统，加载模板时忽略模板中的ifgetback值，统一默认为''（不限制）
+          // 旧系统行为：模板中的ifgetback仅作为参考，批量启动时用户需要手动配置
+          ifgetback: ''
         }))
 
       this.model.nodes = [createNode, ...formattedNodes]
@@ -1067,11 +1077,17 @@ export default {
      * @param {Object} res - 后端响应对象
      */
     handleSubmitSuccess(res) {
+      console.log('🔍 [启动流程调试] 后端返回:', res)
+      console.log('🔍 [启动流程调试] res.success:', res.success)
+
       if (res.success) {
+        console.log('✅ [启动流程调试] 进入成功分支，准备发射ok事件')
         this.$message.success('保存成功！')
         this.handleCancel()
         this.$emit('ok')
+        console.log('✅ [启动流程调试] 已发射ok事件')
       } else {
+        console.log('❌ [启动流程调试] 进入失败分支，res.message:', res.message)
         this.$message.error(res.message || '批量启动失败')
         this.confirmLoading = false
       }
@@ -1284,6 +1300,15 @@ export default {
       const errors = []
       const stageNames = this.model.stagenames.split(',').map(s => s.trim())
 
+      // 🔧 修复：如果所有节点的stagename都是空，跳过阶段相关校验
+      // 对齐旧系统行为：模板虽然定义了stagenames，但节点未分配阶段时，视为非分阶段流程
+      const hasStageNames = sortedNodes.some(n => n.stagename && n.stagename.trim() !== '')
+      if (!hasStageNames) {
+        // 所有节点stagename都是空，完全跳过分阶段流程的所有校验
+        console.warn('模板定义了stagenames但节点未分配阶段，按非分阶段流程处理')
+        return errors  // 直接返回，不进行任何阶段相关校验
+      }
+
       // 检查8.1：阶段与顺序号不能交叉
       const stageGroups = {}
       for (const node of sortedNodes) {
@@ -1389,9 +1414,11 @@ export default {
     /**
      * 🔧 修复2: 可跳转节点变更处理（互斥性校验）
      * 对标：WfInstanceDtlTable.vue onIfgetbackChange
+     * 🔧 修复互斥逻辑：支持所有选项之间的流畅切换
      */
     onIfgetbackChange(record, selectedValues) {
       if (!selectedValues || selectedValues.length === 0) {
+        // 用户清空了所有选择，默认设为《不限制》
         record.ifgetback = ''
         return
       }
@@ -1399,30 +1426,48 @@ export default {
       const UNLIMITED = '__UNLIMITED__'
       const NO_JUMP = '__NO_JUMP__'
 
-      // 互斥逻辑：《不限制》不能与其他选项共存
-      if (selectedValues.includes(UNLIMITED) && selectedValues.length > 1) {
-        this.$message.warning('选择《不限制》时，不能再选择其他节点')
-        record.ifgetback = '' // 后端格式：空字符串
+      // 🔧 特殊处理：两个特殊选项互斥
+      if (selectedValues.includes(UNLIMITED) && selectedValues.includes(NO_JUMP)) {
+        // 用户在两个特殊选项之间切换
+        // 判断哪个是新增的：如果当前是《不限制》，说明用户想切换到《不可跳转》
+        if (record.ifgetback === '' || record.ifgetback === null) {
+          record.ifgetback = '-1'  // 切换到《不可跳转》
+        } else {
+          record.ifgetback = ''  // 切换到《不限制》
+        }
         return
       }
 
-      // 互斥逻辑：《不可跳转》不能与其他选项共存
-      if (selectedValues.includes(NO_JUMP) && selectedValues.length > 1) {
-        this.$message.warning('选择《不可跳转》时，不能再选择其他节点')
-        record.ifgetback = '-1' // 后端格式：-1
-        return
-      }
-
-      // 正常处理
+      // 🔧 修复：特殊选项与具体节点互斥
       if (selectedValues.includes(UNLIMITED)) {
-        record.ifgetback = ''
-      } else if (selectedValues.includes(NO_JUMP)) {
-        record.ifgetback = '-1'
-      } else {
-        // 过滤掉特殊标记，保留实际节点ID（包括'0'）
-        const nodeIds = selectedValues.filter(v => v !== UNLIMITED && v !== NO_JUMP)
-        record.ifgetback = nodeIds.join(',')
+        // 用户选择了《不限制》
+        if (selectedValues.length === 1) {
+          // 只选了《不限制》
+          record.ifgetback = ''
+        } else {
+          // 《不限制》+ 具体节点：自动取消《不限制》，保留具体节点
+          const nodeIds = selectedValues.filter(v => v !== UNLIMITED && v !== NO_JUMP)
+          record.ifgetback = nodeIds.join(',')
+        }
+        return
       }
+
+      if (selectedValues.includes(NO_JUMP)) {
+        // 用户选择了《不可跳转》
+        if (selectedValues.length === 1) {
+          // 只选了《不可跳转》
+          record.ifgetback = '-1'
+        } else {
+          // 《不可跳转》+ 具体节点：自动取消《不可跳转》，保留具体节点
+          const nodeIds = selectedValues.filter(v => v !== UNLIMITED && v !== NO_JUMP)
+          record.ifgetback = nodeIds.join(',')
+        }
+        return
+      }
+
+      // 只有具体节点，没有特殊选项
+      const nodeIds = selectedValues.filter(v => v !== UNLIMITED && v !== NO_JUMP)
+      record.ifgetback = nodeIds.join(',')
     },
 
     /**

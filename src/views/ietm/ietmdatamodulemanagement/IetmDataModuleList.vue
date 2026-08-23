@@ -8,7 +8,7 @@
           <a-button type="primary" icon="copy" @click="handleCopy" :disabled="selectedRowKeys.length !== 1">复制</a-button>
           <a-button type="primary" icon="copy" @click="handleCopyNew" :disabled="!copyId">复制新建</a-button>
           <a-button v-if="canShowDeleteButton" type="danger" icon="delete" @click="handleDelete()" :disabled="!canBatchDelete">删除</a-button>
-          <a-button type="primary" icon="deployment-unit" @click="handleStartWorkflow" :disabled="!hasSelected">启动流程</a-button>
+          <a-button type="primary" icon="deployment-unit" @click="handleStartWorkflow" :disabled="!canStartWorkflow">启动流程</a-button>
           <a-button type="primary" icon="edit" @click="handleEditProp" :disabled="!buttonStates.canEditProp">编辑</a-button>
           <a-button type="primary" icon="export" @click="handleCheckOut" :disabled="!buttonStates.canCheckOut">签出</a-button>
           <a-button type="primary" icon="close-circle" @click="handleCancelCheckOut" :disabled="!buttonStates.canCancelCheckOut">取消签出</a-button>
@@ -19,7 +19,7 @@
           <a-button type="primary" icon="history" @click="handleHistory" :disabled="selectedRowKeys.length !== 1">历史版本</a-button>
           <a-button type="primary" icon="apartment" @click="handleReference" :disabled="selectedRowKeys.length !== 1">引用关系</a-button>
           <a-button type="primary" icon="rocket" @click="handlePublish" :disabled="!buttonStates.canPublish">发布</a-button>
-          <a-button type="primary" icon="reload" @click="handleRestartWorkflow" :disabled="selectedRowKeys.length !== 1">重启流程</a-button>
+          <a-button type="primary" icon="reload" @click="handleRestartWorkflow" :disabled="!buttonStates.canRestartWorkflow" title="发布后重启流程（修订版本审批）">发布后重启流程</a-button>
         </a-space>
       </div>
 
@@ -125,11 +125,15 @@
                 <a-tag v-if="!record.workflowStatus_dictText || record.workflowStatus_dictText === '未启动'" color="blue">
                   <a-icon type="clock-circle" /> {{ record.workflowStatus_dictText || '未启动' }}
                 </a-tag>
-                <a-tag v-else-if="record.workflowStatus_dictText === '进行中'" color="orange">
+                <a-tag v-else-if="record.workflowStatus_dictText === '进行中' || record.workflowStatus_dictText === '审批中'" color="orange">
                   <a-icon type="loading" /> {{ record.workflowStatus_dictText }}
                 </a-tag>
                 <a-tag v-else-if="record.workflowStatus_dictText === '已结束'" color="green">
                   <a-icon type="check-circle" /> {{ record.workflowStatus_dictText }}
+                </a-tag>
+                <!-- P0-19修复：对齐旧系统 - "已终止"显示红色 -->
+                <a-tag v-else-if="record.workflowStatus_dictText === '已终止'" color="red">
+                  <a-icon type="stop" /> {{ record.workflowStatus_dictText }}
                 </a-tag>
                 <a-tag v-else color="cyan">{{ record.workflowStatus_dictText }}</a-tag>
               </span>
@@ -198,6 +202,7 @@
     <dm-resource-modal ref="resourceModal" @ok="handleResourceModalOk" />
     <dm-edit-prop-modal ref="editPropModal" @ok="handleEditPropModalOk" />
     <batch-start-flow-modal ref="batchStartFlowModal" @ok="loadData" @mock-updated="handleMockFlowUpdated" />
+    <batch-restart-flow-modal ref="batchRestartFlowModal" @ok="loadData" />  <!-- ⚠️ 新增：重启流程对话框 -->
     <!-- DmImportModal 已删除：无 UI 入口，属于死代码 -->
   </div>
 </template>
@@ -219,6 +224,7 @@ import DmCopyModal from './components/DmCopyModal'
 import DmResourceModal from './components/DmResourceModal'
 import DmEditPropModal from './components/DmEditPropModal'
 import BatchStartFlowModal from './components/BatchStartFlowModal'
+import BatchRestartFlowModal from './components/BatchRestartFlowModal'  // ⚠️ 新增：重启流程对话框
 import ConfigTree from './components/ConfigTree'
 // DmImportModal 已删除：无 UI 入口，属于死代码
 
@@ -239,6 +245,7 @@ export default {
     DmResourceModal,
     DmEditPropModal,
     BatchStartFlowModal,
+    BatchRestartFlowModal,  // ⚠️ 新增：重启流程对话框
     ConfigTree
   },
   data() {
@@ -268,7 +275,17 @@ export default {
           }
         },
         { title: '密级', align: 'center', dataIndex: 'security_dictText', width: 100 },
-        { title: '流程当前步骤', align: 'center', dataIndex: 'workflowStep', width: 120, ellipsis: true, fixed: 'right' },
+        { title: '流程当前步骤', align: 'center', dataIndex: 'workflowStep', width: 120, ellipsis: true, fixed: 'right',
+          customRender: (text, record) => {
+            // P0-17修复：对齐旧系统 - 流程终止后显示"终止"，流程结束后显示"结束"
+            // 根因：v_wf_instance视图只返回有待办节点的流程，终止后视图无记录导致workflowStep为空
+            if (text) return text
+            // 兜底逻辑：根据 workflowStatus 显示对应文本
+            if (record.workflowStatus === '9') return '终止'  // 已终止
+            if (record.workflowStatus === '0') return '结束'  // 已结束
+            return '-'  // 未启动流程
+          }
+        },
         { title: '流程状态', align: 'center', dataIndex: 'workflowStatus_dictText', width: 100, fixed: 'right',
           scopedSlots: { customRender: 'workflowStatus' } }
       ],
@@ -295,7 +312,8 @@ export default {
         canPublish: false,
         canEditContent: false,
         canValidate: false,
-        canEditProp: false
+        canEditProp: false,
+        canRestartWorkflow: false
       },
       // 树选择相关
       currentTreeNode: null,
@@ -329,6 +347,14 @@ export default {
   computed: {
     hasSelected() {
       return this.selectedRowKeys.length > 0
+    },
+    // 是否可以启动流程（提前判断流程状态，改善UX）
+    canStartWorkflow() {
+      if (this.selectedRows.length === 0) return false
+      // 所有选中的记录都不能处于进行中状态
+      return this.selectedRows.every(record =>
+        record.workflowStatus !== '1' && record.workflowStatus !== '2'
+      )
     },
     // 当前选中的单条记录
     currentRecord() {
@@ -371,19 +397,28 @@ export default {
   methods: {
     // 重写 JeecgListMixin 的loadData 方法，添加参数校验守卫
     loadData(arg) {
+      console.log('🔍 [列表刷新调试] loadData被调用，参数:', arg)
+      console.log('🔍 [列表刷新调试] 当前projectId:', this.queryParam.projectId)
+      console.log('🔍 [列表刷新调试] 当前cmNodeId:', this.queryParam.cmNodeId)
 
       // 守卫：如果没有选中树节点（projectId 或cmNodeId为空），不允许查询
       if (!this.queryParam.projectId && !this.queryParam.cmNodeId) {
-        console.warn('【loadData守卫拦截】projectId和cmNodeId都为空，跳过加载')
+        console.warn('⚠️ [列表刷新调试] loadData守卫拦截：projectId和cmNodeId都为空，跳过加载')
         this.dataSource = []
         this.loading = false
         this.ipagination.total = 0
         return Promise.resolve()
       }
 
+      console.log('✅ [列表刷新调试] 守卫通过，准备加载数据')
+
       // 参数合法，调用mixin 的原始loadData
       // 注意：不能用 this.$options.mixins[0].methods.loadData，因为mixin 可能有多个
       // 正确做法：直接访问JeecgListMixin 的实例
+
+      // 🔧 修复BUG-2026-08-23-001：在加载前清空dataSource，避免累加导致重复
+      this.dataSource = []
+
       if (!arg) {
         arg = 1
       }
@@ -392,17 +427,24 @@ export default {
       this.loading = true
       return getAction(this.url.list, params).then((res) => {
         if (res.success) {
-          this.dataSource = res.result.records || res.result
+          // 🔧 修复：使用数组解构创建新数组，避免引用问题
+          const records = res.result.records || res.result
+          this.dataSource = [...records]
 
           // 🔧 Mock模式：应用缓存的流程状态更新
           if (Object.keys(this.mockFlowUpdates).length > 0) {
             console.log('🔧 Mock模式：应用流程状态更新到列表数据')
-            this.dataSource.forEach(record => {
+
+            // 🔧 修复：使用map创建新数组，避免修改原对象导致重复
+            this.dataSource = this.dataSource.map(record => {
               if (this.mockFlowUpdates[record.id]) {
-                Object.assign(record, this.mockFlowUpdates[record.id])
-                console.log(`✅ 更新记录 ${record.dmCode}:`, this.mockFlowUpdates[record.id])
+                return { ...record, ...this.mockFlowUpdates[record.id] }
               }
+              return record
             })
+
+            // 🔧 修复：清空缓存，避免重复应用
+            this.mockFlowUpdates = {}
           }
 
           if (res.result.total) {
@@ -645,7 +687,7 @@ export default {
         path: `/ietm/dm-content-editor/${data.id}`,
         query: {
           mode: mode,
-          dmc: data.dmc || ''
+          dmc: data.dmcCode || ''
         }
       })
     },
@@ -763,13 +805,13 @@ export default {
         const record = selectedRecords[i]
 
         // 调试输出：查看实际的状态值
-        console.log(`记录${i + 1} - DMC: ${record.dmcCode || record.dmc}`)
+        console.log(`记录${i + 1} - DMC: ${record.dmcCode || '（空）'}`)
         console.log(`  status值:`, record.status, `(类型: ${typeof record.status})`, `- 含义：0=已删除，1=正常`)
         console.log(`  workflowStatus值:`, record.workflowStatus, `(类型: ${typeof record.workflowStatus})`, `- 含义：null=未启动，0=已结束，1=流转中，2=已撤销`)
 
         // status状态检查：0=已删除，1=正常
         if (record.status == '0' || record.status === 0) {
-          this.$message.warning(`第${i + 1}条数据【${record.dmcCode || record.dmc}】已删除，无法启动流程`)
+          this.$message.warning(`第${i + 1}条数据【${record.dmcCode || '（空）'}】已删除，无法启动流程`)
           return
         }
 
@@ -778,13 +820,13 @@ export default {
         // 0=流程已结束：可以重新启动
         // 1=流转中：不允许启动新流程
         // 2=已撤销：需要先处理
-        if (record.workflowStatus == '1' || record.workflowStatus === 1) {
-          this.$message.warning(`第${i + 1}条数据【${record.dmcCode || record.dmc}】处于审批中，无法启动新流程`)
+        if (record.workflowStatus === '1' || record.workflowStatus === 1) {
+          this.$message.warning(`第${i + 1}条数据【${record.dmcCode || '（空）'}】处于审批中，无法启动新流程`)
           return
         }
 
-        if (record.workflowStatus == '2' || record.workflowStatus === 2) {
-          this.$message.warning(`第${i + 1}条数据【${record.dmcCode || record.dmc}】流程已撤销，请先处理后再启动`)
+        if (record.workflowStatus === '2' || record.workflowStatus === 2) {
+          this.$message.warning(`第${i + 1}条数据【${record.dmcCode || '（空）'}】流程已撤销，请先处理后再启动`)
           return
         }
 
@@ -796,23 +838,53 @@ export default {
       this.$refs.batchStartFlowModal.show(selectedRecords)
     },
     handleRestartWorkflow(record) {
+      // 工具栏调用时 record 是 MouseEvent，需从 selectedRows 获取数据
+      if (!record || typeof record.id === 'undefined') {
+        record = null
+      }
+
       if (!record && this.selectedRowKeys.length === 0) {
         this.$message.warning('请选择一条记录')
         return
       }
-      const id = record ? record.id : this.selectedRowKeys[0]
-      this.$confirm({
-        title: '确认重启',
-        content: '确定要重启工作流吗？',
-        onOk: () => {
-          postAction('/ietm/datamodule/restartWorkflow', { id, processKey: 'dm_review' }).then(res => {
-            if (res.success) {
-              this.$message.success('工作流重启成功')
-              this.loadData()
-            }
-          })
-        }
-      })
+
+      // 获取DM数据
+      let data = record
+      if (!data && this.selectedRows.length > 0) {
+        data = this.selectedRows[0]
+      } else if (!data && this.selectedRowKeys.length > 0) {
+        data = this.dataSource.find(item => item.id === this.selectedRowKeys[0])
+      }
+
+      if (!data || !data.id) {
+        this.$message.error('无法获取DM信息，请重新选择')
+        return
+      }
+
+      // 对齐旧系统校验逻辑（旧系统：IetmDmManage.jsp Line 1147-1159）
+
+      // 校验1：流程必须已结束或已终止
+      if (data.workflowStatus !== '0' && data.workflowStatus !== '9') {
+        this.$message.warning('流程还未结束，不能重新启动流程')
+        return
+      }
+
+      // 校验2：必须是发布状态（对齐旧系统：issueno>0 && inwork==00）
+      const issueNo = parseInt(data.issueNo || '0')
+      if (!(issueNo > 0 && data.inWork === '00')) {
+        this.$message.warning('不是版本发布状态(版本号为00x-00)，不能重新启动流程。请先发布该DM后再重启流程。')
+        return
+      }
+
+      // 校验3：只能重启自己创建的流程（对齐旧系统权限控制）
+      if (data.createBy && data.createBy !== this.currentUser) {
+        this.$message.warning('只能重新启动自己创建的流程')
+        return
+      }
+
+      // ⚠️ 修复：打开专用的重启流程对话框（而非BatchStartFlowModal）
+      // 重启流程对话框包含：重启原因输入框、旧实例ID、调用batchRestartFlow接口
+      this.$refs.batchRestartFlowModal.show([data])
     },
     // 判断是否为初始版本（issueNo=001 且inWork=00）→ 执行物理删除
     isInitialVersion(record) {
@@ -825,7 +897,8 @@ export default {
     // 判断记录是否可删除（用于操作列状态控制）
     canDeleteRecord(record) {
       const isCheckedOut = !!record.checkoutUser
-      const hasActiveWorkflow = record.workflowStatus && record.workflowStatus !== 'ended'
+      // 对齐对照表：只有进行中('1')不能删除，已结束('0')和已终止('9')都可以删除
+      const hasActiveWorkflow = record.workflowStatus === '1'
       return !isCheckedOut && !hasActiveWorkflow
     },
     handleDelete(record) {
@@ -1129,7 +1202,8 @@ export default {
           canPublish: false,
           canEditContent: false,
           canValidate: false,
-          canEditProp: false
+          canEditProp: false,
+          canRestartWorkflow: false
         }
         return
       }
@@ -1138,14 +1212,16 @@ export default {
       const isCheckedOut = !!record.checkoutUser
       const isMyCheckOut = record.checkoutUser === this.currentUser
       const isPublished = record.versionType === '1' // 已发布
-      const isInWorkflow = record.workflowStatus && record.workflowStatus !== 'ended'
+      // 对齐旧系统：只有流程状态='0'(已结束)才能发布，终止(9)不能发布
+      const isWorkflowEnded = record.workflowStatus === '0'
       const hasWorkflowStarted = !!record.workflowInstanceId // 工作流已启动
       const isDmWriteStep = record.workflowStep === 'DM编写' // 当前节点为DM编写
 
+      // 调试日志：排查签出按钮为何禁用
       this.buttonStates = {
-        // 签出：未签出 且未发布 且未被他人签出
-        // 注意：工作流相关校验在handleCheckOut方法中进行，避免按钮状态过于严格
-        canCheckOut: !isCheckedOut && !isPublished,
+        // 签出：未签出 且未发布 且流程已启动 且当前节点='DM编写'
+        // 对齐对照表：提前判断流程状态，避免用户点击后才被后端拦截
+        canCheckOut: !isCheckedOut && !isPublished && hasWorkflowStarted && isDmWriteStep,
 
         // 签入：本人已签出
         canCheckIn: isCheckedOut && isMyCheckOut,
@@ -1157,8 +1233,8 @@ export default {
         canEdit: !isCheckedOut && !isPublished,
 
 
-        // 发布：未签出 且未发布、工作流已结束
-        canPublish: !isCheckedOut && !isPublished && !isInWorkflow,
+        // 发布：未签出 且未发布 且流程已结束（对齐旧系统：终止状态不能发布）
+        canPublish: !isCheckedOut && !isPublished && isWorkflowEnded,
 
         // DM内容：本人已签出
         canEditContent: isCheckedOut && isMyCheckOut,
@@ -1167,7 +1243,13 @@ export default {
         canValidate: true,
 
         // 编辑属性：工作流已启动或有流程节点 + 节点为DM编写 + 未被他人签出
-        canEditProp: (hasWorkflowStarted || isDmWriteStep) && isDmWriteStep && (!record.checkoutUser || record.checkoutUser === this.currentUser)
+        canEditProp: (hasWorkflowStarted || isDmWriteStep) && isDmWriteStep && (!record.checkoutUser || record.checkoutUser === this.currentUser),
+
+        // 重启流程：流程已结束或已终止 且 已发布 且 自己创建
+        // 对齐对照表：提前判断避免点击后被方法内校验拦截
+        canRestartWorkflow: (record.workflowStatus === '0' || record.workflowStatus === '9') &&
+                           parseInt(record.issueNo || '0') > 0 && record.inWork === '00' &&
+                           (!record.createBy || record.createBy === this.currentUser)
       }
     },
     // 树节点选择
@@ -1179,7 +1261,7 @@ export default {
       }
 
       const record = this.selectedRows[0]
-      this.$refs.resourceModal.show(record.id, record.techName || record.dmc)
+      this.$refs.resourceModal.show(record.id, record.techName || record.dmcCode || '未命名DM')
     },
     // 查看DMC详情
     handleViewDmcDetail(record) {

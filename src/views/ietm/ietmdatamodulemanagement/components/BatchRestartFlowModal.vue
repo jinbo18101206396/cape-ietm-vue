@@ -192,7 +192,15 @@ export default {
       this.visible = true
       this.selectedRecords = selectedRecords
       this.model.batchId = generateUUID()
-      this.model.reason = ''
+
+      // ⚠️ 自动填充重启原因（对标旧系统：fullissueno+'版重新启动流程'）
+      if (selectedRecords.length === 1 && selectedRecords[0]) {
+        const record = selectedRecords[0]
+        const fullissueno = record.fullissueno || `${record.issueNo}-${record.inWork}`
+        this.model.reason = `${fullissueno}版重新启动流程`
+      } else {
+        this.model.reason = ''
+      }
 
       // 构建dataList（dmId + oldInstanceId）
       this.model.dataList = selectedRecords.map(record => ({
@@ -262,7 +270,8 @@ export default {
         ifurgent: this.model.ifurgent
       }
 
-      postAction('/ietm/workflow/batchRestartFlow', params)
+      // ⚠️ 修复：正确的接口路径
+      postAction('/ietm/workflow/instance/batchRestartFlow', params)
         .then(res => {
           if (res.success) {
             this.$message.success(res.message || '批量重启成功')

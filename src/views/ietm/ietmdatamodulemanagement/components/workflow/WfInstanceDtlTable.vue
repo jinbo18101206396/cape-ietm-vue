@@ -22,20 +22,8 @@
     >
       <!-- 处理人（编辑态用 JSelectUserByDep） -->
       <template #useridname="text, record">
-        <!-- 🔧 新增节点：显示当前用户，不可修改 -->
-        <span v-if="isEditing(record) && record._isNew" class="new-node-user">
-          {{ record.useridname || '当前用户' }}
-        </span>
-        <!-- 编辑已有节点：正常选择器 -->
-        <j-select-user-by-dep
-          v-else-if="isEditing(record)"
-          :value="record.userid"
-          :multi="true"
-          placeholder="选择处理人"
-          @change="v => onUseridChange(record, v)"
-          @back="info => onUseridBack(record, info)"
-        />
-        <span v-else>{{ record.useridname || record.useridAlias || '-' }}</span>
+        <!-- 🔴 问题3修复：处理人列禁止编辑，始终显示为文本 -->
+        <span>{{ record.useridname || record.useridAlias || '-' }}</span>
       </template>
 
       <!-- 节点名称（编辑态用 a-input） -->
@@ -68,11 +56,10 @@
           v-if="isEditing(record)"
           v-model="record.nodetype"
           size="small"
-          style="width: 100px"
+          style="width: 130px"
         >
-          <a-select-option value="0">创建节点</a-select-option>
-          <a-select-option value="1">审核节点</a-select-option>
-          <a-select-option value="2">签批节点</a-select-option>
+          <a-select-option value="0">所有人必完成</a-select-option>
+          <a-select-option value="1">只1人完成</a-select-option>
         </a-select>
         <span v-else>{{ getNodetypeText(text) }}</span>
       </template>
@@ -107,7 +94,7 @@
         >
           <a-select-option value="__UNLIMITED__">《不限制》</a-select-option>
           <a-select-option value="__NO_JUMP__">《不可跳转》</a-select-option>
-          <a-select-option value="0">《创建》</a-select-option>
+          <!-- 🔴 修复问题4：移除《创建》选项，动态节点列表已包含创建节点 -->
           <a-select-option v-for="node in getJumpableNodes(record)" :key="node.id" :value="node.id">
             {{ node.nodename }}
           </a-select-option>
@@ -250,9 +237,9 @@ export default {
           ellipsis: true,
           scopedSlots: { customRender: 'nodename' }
         },
-        // 顺序
+        // 顺序号
         {
-          title: '顺序',
+          title: '顺序号',
           dataIndex: 'seqno',
           key: 'seqno',
           width: 70,
@@ -261,17 +248,17 @@ export default {
         }
       ]
 
-      // P2-UI-02修复：阶段列动态显隐（仅分阶段时显示）
-      if (this.existStage) {
-        cols.push({
-          title: '阶段',
-          dataIndex: 'stagename',
-          key: 'stagename',
-          width: 80,
-          align: 'center',
-          scopedSlots: { customRender: 'stagename' }
-        })
-      }
+      // 🔴 问题2修复：隐藏阶段列（根据用户要求始终隐藏）
+      // if (this.existStage) {
+      //   cols.push({
+      //     title: '阶段',
+      //     dataIndex: 'stagename',
+      //     key: 'stagename',
+      //     width: 80,
+      //     align: 'center',
+      //     scopedSlots: { customRender: 'stagename' }
+      //   })
+      // }
 
       // 继续添加后续列
       cols.push(
@@ -289,7 +276,7 @@ export default {
           title: '可跳转节点',
           dataIndex: 'ifgetback',
           key: 'ifgetback',
-          width: 130,
+          width: 200,  // 🔴 问题1修复：加宽列宽从130到200，保证下拉选项内容显示完整
           align: 'center',
           ellipsis: true,
           scopedSlots: { customRender: 'ifgetback' }
@@ -490,7 +477,7 @@ export default {
       }
 
       const nextSeq = this.dataSource.length > 0
-        ? Math.max(...this.dataSource.map(r => Number(r.seqno) || 0)) + 1
+        ? Math.max(...this.dataSource.map(r => Number(r.seqno) || 0)) + 10
         : 0
 
       // 🔴 B1修复: 设置新节点的默认阶段（对齐旧系统 Line 704-733）
@@ -584,35 +571,77 @@ export default {
       const UNLIMITED = '__UNLIMITED__'
       const NO_JUMP = '__NO_JUMP__'
 
-      // P1-6修复：互斥逻辑
-      if (value.includes(UNLIMITED) && value.length > 1) {
-        // 如果选中"不限制"，清除其他选项
-        record.ifgetback = ''
-        this.$nextTick(() => {
-          // 强制更新选择器显示
-          this.$set(record, '_ifgetbackDisplay', [UNLIMITED])
-        })
-        return
-      }
-      if (value.includes(NO_JUMP) && value.length > 1) {
-        // 如果选中"不可跳转"，清除其他选项
-        record.ifgetback = '-1'
-        this.$nextTick(() => {
-          this.$set(record, '_ifgetbackDisplay', [NO_JUMP])
-        })
+      // 🔴 问题4修复：智能切换逻辑，允许从《不限制》切换到其他选项
+      // 判断用户的操作意图：
+      // 1. 如果当前是《不限制》(ifgetback='')，用户又选了其他节点 → 自动取消《不限制》，保留其他节点
+      // 2. 如果当前是具体节点，用户又选了《不限制》 → 自动取消其他节点，只保留《不限制》
+
+      const hasUnlimited = value.includes(UNLIMITED)
+      const hasNoJump = value.includes(NO_JUMP)
+      const hasNodes = value.some(v => v !== UNLIMITED && v !== NO_JUMP)
+
+      // 场景1：同时包含《不限制》和其他节点
+      if (hasUnlimited && hasNodes) {
+        // 判断之前的状态
+        if (record.ifgetback === '') {
+          // 之前是《不限制》，用户新选了节点 → 取消《不限制》，保留节点
+          const nodeIds = value.filter(v => v !== UNLIMITED && v !== NO_JUMP)
+          record.ifgetback = nodeIds.join(',')
+        } else {
+          // 之前是节点，用户新选了《不限制》 → 取消所有节点，只保留《不限制》
+          record.ifgetback = ''
+        }
         return
       }
 
-      // 正常处理
-      if (value.includes(UNLIMITED)) {
+      // 场景2：同时包含《不可跳转》和其他节点
+      if (hasNoJump && hasNodes) {
+        // 判断之前的状态
+        if (record.ifgetback === '-1') {
+          // 之前是《不可跳转》，用户新选了节点 → 取消《不可跳转》，保留节点
+          const nodeIds = value.filter(v => v !== UNLIMITED && v !== NO_JUMP)
+          record.ifgetback = nodeIds.join(',')
+        } else {
+          // 之前是节点，用户新选了《不可跳转》 → 取消所有节点，只保留《不可跳转》
+          record.ifgetback = '-1'
+        }
+        return
+      }
+
+      // 场景3：同时包含《不限制》和《不可跳转》
+      if (hasUnlimited && hasNoJump) {
+        // 判断之前的状态，保留用户最新选择的那个
+        if (record.ifgetback === '') {
+          // 之前是《不限制》，用户新选了《不可跳转》
+          record.ifgetback = '-1'
+        } else {
+          // 之前是《不可跳转》或其他，用户新选了《不限制》
+          record.ifgetback = ''
+        }
+        return
+      }
+
+      // 场景4：只选了《不限制》
+      if (hasUnlimited && !hasNodes && !hasNoJump) {
         record.ifgetback = ''
-      } else if (value.includes(NO_JUMP)) {
+        return
+      }
+
+      // 场景5：只选了《不可跳转》
+      if (hasNoJump && !hasNodes && !hasUnlimited) {
         record.ifgetback = '-1'
-      } else {
-        // 过滤掉特殊标记，只保留实际节点ID
+        return
+      }
+
+      // 场景6：只选了具体节点
+      if (hasNodes && !hasUnlimited && !hasNoJump) {
         const nodeIds = value.filter(v => v !== UNLIMITED && v !== NO_JUMP)
         record.ifgetback = nodeIds.join(',')
+        return
       }
+
+      // 默认：清空
+      record.ifgetback = ''
     },
 
     // 🔴 问题5.2修复：解析ifgetback字符串为数组（供a-select多选显示）
@@ -835,7 +864,20 @@ export default {
     // ── 内联处理情况（还原旧 formateexec）──
     renderExec(dtlid) {
       const list = this.execMap[dtlid]
-      if (!list || list.length === 0) return ''
+
+      // 🔴 修复问题2：创建节点没有执行记录时，生成默认处理情况
+      if (!list || list.length === 0) {
+        // 查找对应的节点记录
+        const node = this.dataSource.find(n => n.id === dtlid)
+        if (node && (node.seqno === 0 || node.seqno === '0') && node.ifexec === 'Y') {
+          // 这是已执行的创建节点，生成默认处理情况（对齐旧系统）
+          const who = this.escapeHtml(node.useridname || node.userid || '系统')
+          const time = node.createTime ? moment(node.createTime).format('YYYY-MM-DD HH:mm:ss') : ''
+          return `【${who}】于【${time}】通过，意见为:【编制】`
+        }
+        return ''
+      }
+
       const parts = list.map(item => {
         const time = item.createTime ? moment(item.createTime).format('YYYY-MM-DD HH:mm:ss') : ''
         const jumpPrefix = this.jumpPrefix(item.ifjump)
@@ -1060,7 +1102,9 @@ export default {
     },
 
     getNodetypeText(nodetype) {
-      const map = { '0': '创建节点', '1': '审核节点', '2': '签批节点' }
+      // 🔴 修复问题1：对齐旧系统，nodetype表示"处理方式"而非"节点类型"
+      // 旧系统: '0'=所有人必完成, '1'=只1人完成
+      const map = { '0': '所有人必完成', '1': '只1人完成' }
       return map[nodetype] || nodetype
     },
     getIfexecText(ifexec) {
