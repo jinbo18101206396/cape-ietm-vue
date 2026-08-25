@@ -14,9 +14,9 @@ test('workflow panel: buttons + collapse default', async ({ page }) => {
   // login
   await page.goto(FE + '/user/login')
   await page.waitForTimeout(1500)
-  await page.fill('input[placeholder*="账户"], input[placeholder*="用户名"], #username', 'admin').catch(()=>{})
-  await page.fill('input[type="password"]', '123456').catch(()=>{})
-  await page.click('button[type="submit"], .login-button, button:has-text("登录")').catch(()=>{})
+  await page.fill('input[placeholder*="账户"], input[placeholder*="用户名"], #username', 'admin').catch(() => {})
+  await page.fill('input[type="password"]', '123456').catch(() => {})
+  await page.click('button[type="submit"], .login-button, button:has-text("登录")').catch(() => {})
   await page.waitForTimeout(3500)
 
   console.log('after-login url:', page.url())
@@ -34,21 +34,21 @@ test('workflow panel: buttons + collapse default', async ({ page }) => {
   console.log('south-title-bar count:', hasTitle)
 
   // default collapsed => south-body hidden
-  const bodyVisibleBefore = await page.locator('.south-body').isVisible().catch(()=>false)
+  const bodyVisibleBefore = await page.locator('.south-body').isVisible().catch(() => false)
   console.log('south-body visible BEFORE click (expect false=collapsed):', bodyVisibleBefore)
 
   // expand
   if (hasTitle > 0) { await titleBar.first().click(); await page.waitForTimeout(2500) }
 
-  const bodyVisibleAfter = await page.locator('.south-body').isVisible().catch(()=>false)
+  const bodyVisibleAfter = await page.locator('.south-body').isVisible().catch(() => false)
   console.log('south-body visible AFTER click (expect true):', bodyVisibleAfter)
 
   // toolbar text + node rows + exec form (browse mode!)
-  const toolbarTxt = await page.locator('.wf-toolbar').innerText().catch(()=> '(none)')
+  const toolbarTxt = await page.locator('.wf-toolbar').innerText().catch(() => '(none)')
   console.log('toolbar text:', JSON.stringify(toolbarTxt))
-  const legend = await page.locator('.wf-legend').innerText().catch(()=> '(none)')
+  const legend = await page.locator('.wf-legend').innerText().catch(() => '(none)')
   console.log('legend:', legend)
-  const rowCount = await page.locator('.wf-table-wrap table tbody tr').count().catch(()=>0)
+  const rowCount = await page.locator('.wf-table-wrap table tbody tr').count().catch(() => 0)
   console.log('node rows:', rowCount)
   const hasAddNode = await page.locator('.wf-toolbar >> text=新增节点').count()
   console.log('新增节点 button present (expect >0 for creator):', hasAddNode)

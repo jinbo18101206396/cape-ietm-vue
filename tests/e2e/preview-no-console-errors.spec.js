@@ -7,9 +7,9 @@ const http = require('http')
  * 里所有加载时调用的未定义函数均已覆盖，不再抛 ReferenceError/TypeError
  */
 const BASE = 'http://localhost:3000'
-const API  = 'http://localhost:9999/jeecg-boot'
+const API = 'http://localhost:9999/jeecg-boot'
 const DM_ID = '2084945965503942657'
-const DMC   = 'DMC-ZB1-A-03-00-00-00A-007A-A-00-0030101-001-01_ZH-CN'
+const DMC = 'DMC-ZB1-A-03-00-00-00A-007A-A-00-0030101-001-01_ZH-CN'
 const PROJECT_ID = '2078348945532030978'
 
 function apiReq(method, path, body, token) {
@@ -34,18 +34,18 @@ let TOKEN
 
 // 每次预览都执行的 base.xsl 调用（需要桩）
 const BASE_XSL_FNS = [
-  'initFigureBrowser','clearLinks','JumpToRow',
-  'setContentHolderHeight','autoJump','autoXref'
+  'initFigureBrowser', 'clearLinks', 'JumpToRow',
+  'setContentHolderHeight', 'autoJump', 'autoXref'
 ]
 
 // 含 graphic 时调用的函数
-const GRAPHIC_FNS = ['addFigure','graphicTitle']
+const GRAPHIC_FNS = ['addFigure', 'graphicTitle']
 
 // 含多媒体时调用的变量/函数
-const MULTIMEDIA_FNS = ['addFigure','lessonPath']
+const MULTIMEDIA_FNS = ['addFigure', 'lessonPath']
 
 // 点击时触发
-const CLICK_FNS = ['showDmRefInfo','showMultimediaInfo','playSound']
+const CLICK_FNS = ['showDmRefInfo', 'showMultimediaInfo', 'playSound']
 
 function makeXml(body) {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -91,7 +91,7 @@ async function previewAndCollectErrors(page) {
 
   await page.locator('button:has-text("预览")').first().click()
   await page.waitForSelector('.ant-modal:has-text("DM内容预览") iframe', { timeout: 15000 })
-  await page.waitForTimeout(3000)  // 足够让 iframe 加载并执行所有 inline scripts
+  await page.waitForTimeout(3000) // 足够让 iframe 加载并执行所有 inline scripts
 
   // 捕获 iframe 内的控制台错误
   const iframeErrors = await page.evaluate(() => {
@@ -101,19 +101,17 @@ async function previewAndCollectErrors(page) {
     try {
       const win = ifr.contentWindow
       // 检查是否还有未定义的关键函数
-      const fns = ['initFigureBrowser','clearLinks','JumpToRow','setContentHolderHeight',
-                   'autoJump','autoXref','addFigure','setActualContentHeight',
-                   'acknowledged','playSound','showWCN','getWCNVisibility',
-                   'addLink','addParamRef','initFault','loadImage','displayISOLegend']
+      const fns = ['initFigureBrowser', 'clearLinks', 'JumpToRow', 'setContentHolderHeight',
+                   'autoJump', 'autoXref', 'addFigure', 'setActualContentHeight',
+                   'acknowledged', 'playSound', 'showWCN', 'getWCNVisibility',
+                   'addLink', 'addParamRef', 'initFault', 'loadImage', 'displayISOLegend']
       fns.forEach(fn => {
         if (typeof win[fn] === 'undefined') errors.push(`UNDEFINED: ${fn}`)
       })
       // 检查 graphicTitle 对象
-      if (!win.graphicTitle || typeof win.graphicTitle.add !== 'function')
-        errors.push('UNDEFINED: graphicTitle.add')
+      if (!win.graphicTitle || typeof win.graphicTitle.add !== 'function') { errors.push('UNDEFINED: graphicTitle.add') }
       // 检查 lessonPath
-      if (typeof win.lessonPath === 'undefined')
-        errors.push('UNDEFINED: lessonPath')
+      if (typeof win.lessonPath === 'undefined') { errors.push('UNDEFINED: lessonPath') }
     } catch (e) { /* 跨域 */ }
     return errors
   })
@@ -229,17 +227,15 @@ test('热点图/热点dmRef/告警/多媒体: 加载时构造器桩全部就位'
   const ctorErrors = await page.evaluate(() => {
     const errs = []
     const win = document.querySelector('.ant-modal iframe').contentWindow
-    ;['REFDMLink','XREFLink','HotspotLink','CSNREFLink','ParamLink'].forEach(c => {
+    ;['REFDMLink', 'XREFLink', 'HotspotLink', 'CSNREFLink', 'ParamLink'].forEach(c => {
       if (typeof win[c] !== 'function') { errs.push(`UNDEFINED ctor: ${c}`); return }
       // 实例必须有 addTarget（content.xsl:341 refdm.addTarget(xref)）
-      try { const inst = new win[c](); if (typeof inst.addTarget !== 'function') errs.push(`${c} 缺 addTarget`) }
-      catch (e) { errs.push(`${c} new 抛错: ${e.message}`) }
+      try { const inst = new win[c](); if (typeof inst.addTarget !== 'function') errs.push(`${c} 缺 addTarget`) } catch (e) { errs.push(`${c} new 抛错: ${e.message}`) }
     })
-    ;['addHotspotRef','linkToHotSpot','linkToParam','locateCSN','prepTableForTearOff'].forEach(f => {
+    ;['addHotspotRef', 'linkToHotSpot', 'linkToParam', 'locateCSN', 'prepTableForTearOff'].forEach(f => {
       if (typeof win[f] !== 'function') errs.push(`UNDEFINED fn: ${f}`)
     })
-    if (!win.multimediaTitle || typeof win.multimediaTitle.add !== 'function')
-      errs.push('UNDEFINED: multimediaTitle.add')
+    if (!win.multimediaTitle || typeof win.multimediaTitle.add !== 'function') { errs.push('UNDEFINED: multimediaTitle.add') }
     return errs
   })
   expect(ctorErrors, ctorErrors.join(', ')).toHaveLength(0)

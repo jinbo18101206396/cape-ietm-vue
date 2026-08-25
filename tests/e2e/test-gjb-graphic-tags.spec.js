@@ -57,7 +57,7 @@ test('测试GJB图形标签名', async ({ page }) => {
   const testCases = [
     { name: '英文graphic', xml: '<graphic infoEntityIdent="ICN-001.cgm"/>' },
     { name: '中文"图"', xml: '<图 infoEntityIdent="ICN-001.cgm"/>' },
-    { name: '中文"图形"', xml: '<图形 infoEntityIdent="ICN-001.cgm"/>' },
+    { name: '中文"图形"', xml: '<图形 infoEntityIdent="ICN-001.cgm"/>' }
   ]
 
   for (const tc of testCases) {

@@ -13,7 +13,6 @@ const { test, expect } = require('@playwright/test')
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000'
 
 test.describe('DM编辑器修复验证 - 核心测试', () => {
-
   // 跳过登录，假设已登录或使用Cookie
   test.beforeEach(async ({ page }) => {
     // 设置较长的超时时间
@@ -140,7 +139,6 @@ test.describe('DM编辑器修复验证 - 核心测试', () => {
       expect(dmNotExistErrors.length).toBe(0)
 
       console.log('\n✅ 核心测试通过！未发现 /load/undefined 请求')
-
     } catch (error) {
       console.error('❌ 测试执行出错:', error.message)
 
@@ -212,7 +210,6 @@ test.describe('DM编辑器修复验证 - 核心测试', () => {
       }
 
       console.log('\n✅ 边界测试通过！undefined ID未触发请求')
-
     } catch (error) {
       console.error('❌ 边界测试失败:', error.message)
       console.log('📋 请求记录:', requests)

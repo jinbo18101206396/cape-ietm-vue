@@ -161,9 +161,9 @@ runTest('后端返回应包含languageIsoCode字段', () => {
     ietmLocationCode: 'A',
     issueNo: '001',
     inWork: '03',
-    languageIsoCode: 'zh',  // ← 必须包含
-    countryIsoCode: 'CN',   // ← 必须包含
-    dmContent: '<dmodule>...</dmodule>'  // ← 必须包含
+    languageIsoCode: 'zh', // ← 必须包含
+    countryIsoCode: 'CN', // ← 必须包含
+    dmContent: '<dmodule>...</dmodule>' // ← 必须包含
   }
 
   if (!backendRecord.languageIsoCode) {
@@ -188,7 +188,7 @@ runTest('后端返回应包含dmContent字段', () => {
 runTest('dmContent可以为空字符串（表示未编辑）', () => {
   const backendRecord = {
     id: '2078348945532030978',
-    dmContent: ''  // 空字符串是合法的
+    dmContent: '' // 空字符串是合法的
   }
 
   if (backendRecord.dmContent === undefined || backendRecord.dmContent === null) {

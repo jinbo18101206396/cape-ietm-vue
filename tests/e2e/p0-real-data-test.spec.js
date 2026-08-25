@@ -7,7 +7,6 @@ const API_BASE = 'http://127.0.0.1:9999/jeecg-boot'
 const TEST_USER = { username: 'admin', password: '123456' }
 
 test.describe('P0修复真实数据验证', () => {
-
   let authToken = ''
   let realDMs = []
 
@@ -65,7 +64,6 @@ test.describe('P0修复真实数据验证', () => {
       console.log(`\n签出状态:`)
       console.log(`  已签出: ${checkedOut.length} 条`)
       console.log(`  未签出: ${realDMs.length - checkedOut.length} 条`)
-
     } else {
       console.log('⚠️ 未找到DM数据')
     }
@@ -112,7 +110,7 @@ test.describe('P0修复真实数据验证', () => {
     const editableDMs = realDMs.filter(dm =>
       dm.workflowStatus === '1' &&
       (!dm.workflowStep || dm.workflowStep === 'DM编写') &&
-      !dm.checkoutUser  // 未被签出
+      !dm.checkoutUser // 未被签出
     )
 
     if (editableDMs.length === 0) {

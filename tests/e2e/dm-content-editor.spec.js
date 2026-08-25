@@ -20,7 +20,6 @@ const TEST_USER = process.env.TEST_USER || 'admin'
 const TEST_PASSWORD = process.env.TEST_PASSWORD || 'admin123'
 
 test.describe('DM内容编辑器 - 核心场景测试', () => {
-
   // 每个测试前登录
   test.beforeEach(async ({ page }) => {
     await page.goto(`${BASE_URL}/user/login`)
@@ -283,7 +282,6 @@ test.describe('DM内容编辑器 - 核心场景测试', () => {
 })
 
 test.describe('DM内容编辑器 - 边界测试', () => {
-
   test.beforeEach(async ({ page }) => {
     await page.goto(`${BASE_URL}/user/login`)
     await page.fill('input[placeholder="账号"]', TEST_USER)

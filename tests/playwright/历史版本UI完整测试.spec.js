@@ -10,7 +10,6 @@
 const { test, expect } = require('@playwright/test')
 
 test.describe('历史版本显示修复 - UI测试套件', () => {
-
   let dmInfo = null
 
   test.beforeEach(async ({ page }) => {

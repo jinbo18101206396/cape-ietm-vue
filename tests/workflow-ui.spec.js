@@ -11,7 +11,6 @@ const API_BASE = 'http://localhost:9999/jeecg-boot'
 test.setTimeout(180000)
 
 test.describe('工作流信息模块 - UI功能测试', () => {
-
   let sharedContext = {
     hasDm: false,
     hasWorkflow: false
@@ -129,7 +128,6 @@ test.describe('工作流信息模块 - UI功能测试', () => {
           }
         }
       }
-
     } catch (error) {
       console.log('[TEST-03] 登录过程出错:', error.message)
     }
@@ -305,7 +303,6 @@ test.describe('工作流信息模块 - UI功能测试', () => {
         await page.waitForTimeout(500)
         console.log('[TEST-06] 已取消编辑')
       }
-
     } else {
       console.log('[TEST-06] ✗ 未检测到新行')
     }

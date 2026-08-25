@@ -48,8 +48,8 @@ describe('DmHistoryView.vue - BUG #6 中文元素名支持', () => {
       // 验证缩进结构
       const lines = result.split('\n')
       expect(lines[0]).toBe('<数据模块>')
-      expect(lines[1]).toBe('  <内容>')           // 2空格缩进
-      expect(lines[2]).toBe('    <说明>文本内容</说明>')  // 4空格缩进
+      expect(lines[1]).toBe('  <内容>') // 2空格缩进
+      expect(lines[2]).toBe('    <说明>文本内容</说明>') // 4空格缩进
       expect(lines[3]).toBe('  </内容>')
       expect(lines[4]).toBe('</数据模块>')
     })
@@ -178,7 +178,7 @@ describe('DmHistoryView.vue - BUG #6 中文元素名支持', () => {
 
       expect(regex.test('<dmodule>')).toBe(true)
       expect(regex.test('<para>')).toBe(true)
-      expect(regex.test('<_internal>')).toBe(true)  // 下划线开头
+      expect(regex.test('<_internal>')).toBe(true) // 下划线开头
     })
 
     test('闭合标签正则', () => {

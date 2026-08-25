@@ -100,7 +100,6 @@ async function main() {
       console.log('找到的数据可以用于验证！')
       console.log('\n下一步: 选择其中一个DM进行签出签入测试')
     }
-
   } catch (err) {
     console.error('\n❌ 错误:', err.message)
   }

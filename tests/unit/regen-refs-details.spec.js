@@ -35,7 +35,7 @@ describe('重建 refs 细节功能', () => {
       const input = [
         'ICN-001【10行】',
         'ICN-002【15行】',
-        'ICN-001【20行】',  // 重复
+        'ICN-001【20行】', // 重复
         'ICN-003【25行】'
       ]
       const output = deduplicatePreserveOrder(input)
@@ -174,7 +174,7 @@ describe('重建 refs 细节功能', () => {
     it('hasNotation 应正确判断', () => {
       expect(hasNotation('cgm')).toBe(true)
       expect(hasNotation('.cgm')).toBe(true)
-      expect(hasNotation('CGM')).toBe(true)  // 大小写不敏感
+      expect(hasNotation('CGM')).toBe(true) // 大小写不敏感
       expect(hasNotation('unknown')).toBe(false)
     })
 
@@ -217,7 +217,7 @@ describe('重建 refs 细节功能', () => {
 
     it('isValidIcnExt 应正确校验', () => {
       expect(isValidIcnExt('.cgm')).toBe(true)
-      expect(isValidIcnExt('.CGM')).toBe(true)  // 大小写不敏感
+      expect(isValidIcnExt('.CGM')).toBe(true) // 大小写不敏感
       expect(isValidIcnExt('.unknown')).toBe(false)
       expect(isValidIcnExt('')).toBe(false)
       expect(isValidIcnExt(null)).toBe(false)
@@ -240,7 +240,7 @@ describe('重建 refs 细节功能', () => {
       const missingNotations = []
 
       for (const ext of ICN_FILE_EXT) {
-        const normalized = ext.substring(1)  // 去掉前导点
+        const normalized = ext.substring(1) // 去掉前导点
         if (!hasNotation(normalized)) {
           missingNotations.push(ext)
         }
@@ -248,7 +248,7 @@ describe('重建 refs 细节功能', () => {
 
       // 白名单中的后缀应该都在 NOTATION 映射表中
       // 注意：.tif 在白名单但 NOTATION 是 tiff
-      const allowed = ['.tif']  // 已知的别名
+      const allowed = ['.tif'] // 已知的别名
       const actualMissing = missingNotations.filter(ext => !allowed.includes(ext))
 
       expect(actualMissing.length).toBe(0)

@@ -17,7 +17,7 @@ async function test() {
   // 测试用例：使用之前测试中创建的DM
   const testCases = [
     { sns: 'VERIFY-MAP-1786248824957', infoCode: '070', name: '之前的测试DM' },
-    { sns: 'TEST-001', infoCode: '001', name: '假设的测试DM' },
+    { sns: 'TEST-001', infoCode: '001', name: '假设的测试DM' }
   ]
 
   for (const testCase of testCases) {

@@ -113,7 +113,6 @@ let sharedPage
 let testDmId = '2086304902014750721'
 
 test.describe('IETM 异常恢复场景测试', () => {
-
   test.beforeAll(async ({ browser }) => {
     sharedPage = await browser.newPage()
 

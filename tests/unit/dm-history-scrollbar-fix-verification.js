@@ -35,7 +35,7 @@ runTest('dm-merge-container设置了明确高度', () => {
     height: '600px',
     border: '1px solid #d9d9d9',
     borderRadius: '4px',
-    overflow: 'visible',  // ✅ 修复后
+    overflow: 'visible', // ✅ 修复后
     background: '#fff'
   }
 
@@ -102,7 +102,7 @@ runTest('MergeView配置了明确高度', () => {
     lineNumbers: true,
     mode: 'xml',
     lineWrapping: false,
-    height: 600  // ✅ 关键配置
+    height: 600 // ✅ 关键配置
   }
 
   if (!mergeViewConfig.height) {
@@ -155,7 +155,7 @@ runTest('容器高度固定，内容超出时显示滚动条', () => {
 
 runTest('左右编辑器独立滚动', () => {
   const mergeViewConfig = {
-    connect: null  // ✅ 禁用同步滚动
+    connect: null // ✅ 禁用同步滚动
   }
 
   if (mergeViewConfig.connect !== null) {

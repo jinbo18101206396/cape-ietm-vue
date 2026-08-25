@@ -7,7 +7,6 @@ const API_BASE = 'http://localhost:9999/jeecg-boot'
 const TEST_USER = { username: 'admin', password: '123456' }
 
 test.describe('通过API创建P0测试数据', () => {
-
   let authToken = ''
 
   test.beforeAll(async ({ request }) => {

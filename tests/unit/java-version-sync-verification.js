@@ -212,7 +212,7 @@ runTest('版本号对比逻辑正确', () => {
   cases.forEach((c, idx) => {
     const needSync = c.xml !== c.db || c.xmlInWork !== c.dbInWork
     if (needSync !== c.shouldSync) {
-      throw new Error(`用例${idx+1}判断错误`)
+      throw new Error(`用例${idx + 1}判断错误`)
     }
   })
 })
@@ -238,10 +238,10 @@ runTest('同步失败不影响主流程', () => {
 
 runTest('日志记录详细', () => {
   const logInfo = {
-    hasBeforeLog: true,  // 记录修正前的版本号
-    hasAfterLog: true,   // 记录修正后的版本号
-    hasDmId: true,       // 记录DM ID
-    hasErrorLog: true    // 记录错误信息
+    hasBeforeLog: true, // 记录修正前的版本号
+    hasAfterLog: true, // 记录修正后的版本号
+    hasDmId: true, // 记录DM ID
+    hasErrorLog: true // 记录错误信息
   }
 
   if (!logInfo.hasBeforeLog || !logInfo.hasAfterLog) {
@@ -284,7 +284,7 @@ runTest('只在不一致时更新', () => {
 runTest('正则匹配性能可接受', () => {
   // 正则表达式简单，性能影响小
   const pattern = '<issueInfo[^>]*/>'
-  const complexity = 'O(n)'  // 线性复杂度
+  const complexity = 'O(n)' // 线性复杂度
 
   if (complexity !== 'O(n)') {
     throw new Error('复杂度过高')
@@ -297,9 +297,9 @@ runTest('最小化数据库操作', () => {
   // copyDm: saveDm后一次update，共1次额外操作
 
   const extraDbOps = {
-    saveContent: 0,  // 不增加
-    checkOut: 1,     // +1次update
-    copyDm: 1        // +1次update
+    saveContent: 0, // 不增加
+    checkOut: 1, // +1次update
+    copyDm: 1 // +1次update
   }
 
   if (extraDbOps.saveContent > 0) {
@@ -388,9 +388,9 @@ runTest('处理：XML中无issueInfo标签', () => {
 
 runTest('处理：issueInfo标签格式异常', () => {
   const cases = [
-    '<issueInfo>',  // 缺少闭合
-    '<issueInfo/>',  // 缺少属性
-    '<issueInfo issueNumber="001"/>',  // 缺少inWork
+    '<issueInfo>', // 缺少闭合
+    '<issueInfo/>', // 缺少属性
+    '<issueInfo issueNumber="001"/>' // 缺少inWork
   ]
 
   // 正则可能不匹配或提取失败，应安全返回
@@ -403,7 +403,7 @@ runTest('处理：issueInfo标签格式异常', () => {
 runTest('处理：版本号特殊字符', () => {
   const specialChars = ['<', '>', '&', '"', "'"]
   const escaped = specialChars.map(c => {
-    switch(c) {
+    switch (c) {
       case '<': return '&lt;'
       case '>': return '&gt;'
       case '&': return '&amp;'

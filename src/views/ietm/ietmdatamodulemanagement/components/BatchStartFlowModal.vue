@@ -1083,9 +1083,16 @@ export default {
       if (res.success) {
         console.log('✅ [启动流程调试] 进入成功分支，准备发射ok事件')
         this.$message.success('保存成功！')
-        this.handleCancel()
+
+        // ✅ 修复：先触发事件，再关闭弹窗（确保父组件能够正确接收事件）
         this.$emit('ok')
         console.log('✅ [启动流程调试] 已发射ok事件')
+
+        // 延迟关闭弹窗，确保事件已完全处理
+        this.$nextTick(() => {
+          this.handleCancel()
+          console.log('✅ [启动流程调试] 弹窗已关闭')
+        })
       } else {
         console.log('❌ [启动流程调试] 进入失败分支，res.message:', res.message)
         this.$message.error(res.message || '批量启动失败')

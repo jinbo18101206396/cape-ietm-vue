@@ -10,30 +10,30 @@
  * 4. 边界条件和异常处理
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('fs')
+const path = require('path')
 
 // 从实际文件提取方法
 function extractMethod(filePath, methodName) {
-  const content = fs.readFileSync(filePath, 'utf8');
-  const regex = new RegExp(`${methodName}\\s*\\([^)]*\\)\\s*{[\\s\\S]*?^\\s{4}}`, 'm');
-  const match = content.match(regex);
+  const content = fs.readFileSync(filePath, 'utf8')
+  const regex = new RegExp(`${methodName}\\s*\\([^)]*\\)\\s*{[\\s\\S]*?^\\s{4}}`, 'm')
+  const match = content.match(regex)
   if (!match) {
-    throw new Error(`无法从 ${filePath} 提取 ${methodName}`);
+    throw new Error(`无法从 ${filePath} 提取 ${methodName}`)
   }
-  return match[0];
+  return match[0]
 }
 
 // 动态加载实际代码
-const historyViewPath = path.join(__dirname, '../../src/views/ietm/ietmdatamodulemanagement/DmHistoryView.vue');
-const historyModalPath = path.join(__dirname, '../../src/views/ietm/ietmdatamodulemanagement/components/DmHistoryModal.vue');
+const historyViewPath = path.join(__dirname, '../../src/views/ietm/ietmdatamodulemanagement/DmHistoryView.vue')
+const historyModalPath = path.join(__dirname, '../../src/views/ietm/ietmdatamodulemanagement/components/DmHistoryModal.vue')
 
-console.log('=== 历史版本功能集成测试 ===\n');
+console.log('=== 历史版本功能集成测试 ===\n')
 
 // ============================================
 // 测试套件 1: buildDmcCode
 // ============================================
-console.log('📦 测试套件 1: buildDmcCode\n');
+console.log('📦 测试套件 1: buildDmcCode\n')
 
 function buildDmcCode(record) {
   if (!record) return ''
@@ -74,24 +74,24 @@ const dmcTests = [
     input: { sns: 'DEMO', infoCode: '', infoCodeVariant: 'A', issueNo: '001', inWork: '' },
     expected: 'DMC-DEMO-A-001'
   }
-];
+]
 
-let dmcPassed = 0;
+let dmcPassed = 0
 dmcTests.forEach(test => {
-  const result = buildDmcCode(test.input);
+  const result = buildDmcCode(test.input)
   if (result === test.expected) {
-    console.log(`  ✅ ${test.name}: ${result}`);
-    dmcPassed++;
+    console.log(`  ✅ ${test.name}: ${result}`)
+    dmcPassed++
   } else {
-    console.log(`  ❌ ${test.name}: 期望 "${test.expected}", 实际 "${result}"`);
+    console.log(`  ❌ ${test.name}: 期望 "${test.expected}", 实际 "${result}"`)
   }
-});
-console.log(`\n  结果: ${dmcPassed}/${dmcTests.length} 通过\n`);
+})
+console.log(`\n  结果: ${dmcPassed}/${dmcTests.length} 通过\n`)
 
 // ============================================
 // 测试套件 2: handleBrowseDm 验证
 // ============================================
-console.log('🔍 测试套件 2: handleBrowseDm 验证\n');
+console.log('🔍 测试套件 2: handleBrowseDm 验证\n')
 
 function validateBrowseDm(record) {
   const errors = []
@@ -136,27 +136,27 @@ const validateTests = [
     input: { dmcCode: 'DMC-DEMO-001-A-001-01', issueNo: '001', inWork: '01', dmContent: '' },
     expectErrors: 0
   }
-];
+]
 
-let validatePassed = 0;
+let validatePassed = 0
 validateTests.forEach(test => {
-  const errors = validateBrowseDm(test.input);
+  const errors = validateBrowseDm(test.input)
   const passed = errors.length === test.expectErrors &&
-                 (!test.expectMessage || errors.some(e => e.includes(test.expectMessage)));
+                 (!test.expectMessage || errors.some(e => e.includes(test.expectMessage)))
   if (passed) {
-    console.log(`  ✅ ${test.name}: ${errors.length} 错误`);
-    validatePassed++;
+    console.log(`  ✅ ${test.name}: ${errors.length} 错误`)
+    validatePassed++
   } else {
-    console.log(`  ❌ ${test.name}: 期望 ${test.expectErrors} 错误, 实际 ${errors.length} 错误`);
-    if (test.expectMessage) console.log(`     期望消息包含: "${test.expectMessage}"`);
+    console.log(`  ❌ ${test.name}: 期望 ${test.expectErrors} 错误, 实际 ${errors.length} 错误`)
+    if (test.expectMessage) console.log(`     期望消息包含: "${test.expectMessage}"`)
   }
-});
-console.log(`\n  结果: ${validatePassed}/${validateTests.length} 通过\n`);
+})
+console.log(`\n  结果: ${validatePassed}/${validateTests.length} 通过\n`)
 
 // ============================================
 // 测试套件 3: formatXml
 // ============================================
-console.log('✨ 测试套件 3: formatXml\n');
+console.log('✨ 测试套件 3: formatXml\n')
 
 function formatXml(xml) {
   if (!xml) return ''
@@ -253,10 +253,10 @@ const formatTests = [
       {
         name: '3次格式化结果一致',
         test: r => {
-          const r1 = formatXml(r);
-          const r2 = formatXml(r1);
-          const r3 = formatXml(r2);
-          return r1 === r2 && r2 === r3;
+          const r1 = formatXml(r)
+          const r2 = formatXml(r1)
+          const r3 = formatXml(r2)
+          return r1 === r2 && r2 === r3
         }
       }
     ]
@@ -283,51 +283,51 @@ const formatTests = [
       { name: '4层缩进', test: r => r.includes('      <c>text') }
     ]
   }
-];
+]
 
-let formatPassed = 0;
-let totalFormatChecks = 0;
+let formatPassed = 0
+let totalFormatChecks = 0
 formatTests.forEach(test => {
-  const result = formatXml(test.input);
-  let allChecksPassed = true;
+  const result = formatXml(test.input)
+  let allChecksPassed = true
 
-  console.log(`  ${test.name}:`);
+  console.log(`  ${test.name}:`)
   test.checks.forEach(check => {
-    totalFormatChecks++;
-    const passed = check.test(result);
+    totalFormatChecks++
+    const passed = check.test(result)
     if (passed) {
-      console.log(`    ✅ ${check.name}`);
-      formatPassed++;
+      console.log(`    ✅ ${check.name}`)
+      formatPassed++
     } else {
-      console.log(`    ❌ ${check.name}`);
-      allChecksPassed = false;
+      console.log(`    ❌ ${check.name}`)
+      allChecksPassed = false
     }
-  });
+  })
 
   if (!allChecksPassed) {
-    console.log(`    实际输出:\n${result.split('\n').map(l => '      ' + l).join('\n')}`);
+    console.log(`    实际输出:\n${result.split('\n').map(l => '      ' + l).join('\n')}`)
   }
-});
-console.log(`\n  结果: ${formatPassed}/${totalFormatChecks} 通过\n`);
+})
+console.log(`\n  结果: ${formatPassed}/${totalFormatChecks} 通过\n`)
 
 // ============================================
 // 总结
 // ============================================
-const totalTests = dmcTests.length + validateTests.length + totalFormatChecks;
-const totalPassed = dmcPassed + validatePassed + formatPassed;
-const passRate = ((totalPassed / totalTests) * 100).toFixed(1);
+const totalTests = dmcTests.length + validateTests.length + totalFormatChecks
+const totalPassed = dmcPassed + validatePassed + formatPassed
+const passRate = ((totalPassed / totalTests) * 100).toFixed(1)
 
-console.log('='.repeat(50));
-console.log(`总测试数: ${totalTests}`);
-console.log(`✅ 通过: ${totalPassed}`);
-console.log(`❌ 失败: ${totalTests - totalPassed}`);
-console.log(`通过率: ${passRate}%`);
-console.log('='.repeat(50));
+console.log('='.repeat(50))
+console.log(`总测试数: ${totalTests}`)
+console.log(`✅ 通过: ${totalPassed}`)
+console.log(`❌ 失败: ${totalTests - totalPassed}`)
+console.log(`通过率: ${passRate}%`)
+console.log('='.repeat(50))
 
 if (totalPassed === totalTests) {
-  console.log('\n🎉 所有集成测试通过！');
-  process.exit(0);
+  console.log('\n🎉 所有集成测试通过！')
+  process.exit(0)
 } else {
-  console.log('\n⚠️ 有测试失败，请检查');
-  process.exit(1);
+  console.log('\n⚠️ 有测试失败，请检查')
+  process.exit(1)
 }

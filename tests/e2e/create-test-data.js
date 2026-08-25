@@ -155,7 +155,6 @@ async function createTestData() {
         }
       }
     }
-
   } catch (error) {
     console.error('Error:', error)
   } finally {

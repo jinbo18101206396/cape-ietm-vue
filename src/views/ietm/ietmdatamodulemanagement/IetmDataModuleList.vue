@@ -18,7 +18,7 @@
           <a-button type="primary" icon="check-circle" @click="handleValidate" :disabled="!buttonStates.canValidate">校验</a-button>
           <a-button type="primary" icon="history" @click="handleHistory" :disabled="selectedRowKeys.length !== 1">历史版本</a-button>
           <a-button type="primary" icon="apartment" @click="handleReference" :disabled="selectedRowKeys.length !== 1">引用关系</a-button>
-          <a-button type="primary" icon="rocket" @click="handlePublish" :disabled="!buttonStates.canPublish">发布</a-button>
+          <a-button type="primary" icon="rocket" @click="handlePublish" :disabled="!buttonStates.canPublish" :loading="publishLoading">发布</a-button>
           <a-button type="primary" icon="reload" @click="handleRestartWorkflow" :disabled="!buttonStates.canRestartWorkflow" title="发布后重启流程（修订版本审批）">发布后重启流程</a-button>
         </a-space>
       </div>
@@ -97,9 +97,9 @@
               </span>
 
               <span slot="versionInfo" slot-scope="text, record">
+                <!-- 对齐旧系统：版本列只显示版本号，不显示"已发布"标签 -->
+                <!-- 已发布状态通过"流程状态"列的"已结束"来体现 -->
                 <a-tag color="blue">{{ record.issueNo }}-{{ record.inWork }}</a-tag>
-                <a-tag v-if="record.versionType === '1'" color="purple">
-                  <a-icon type="check-circle" /> 已发布                </a-tag>
               </span>
 
               <span slot="checkoutStatus" slot-scope="text, record">
@@ -201,7 +201,7 @@
     <dm-copy-modal ref="copyModal" @ok="loadData" />
     <dm-resource-modal ref="resourceModal" @ok="handleResourceModalOk" />
     <dm-edit-prop-modal ref="editPropModal" @ok="handleEditPropModalOk" />
-    <batch-start-flow-modal ref="batchStartFlowModal" @ok="loadData" @mock-updated="handleMockFlowUpdated" />
+    <batch-start-flow-modal ref="batchStartFlowModal" @ok="handleFlowStarted" @mock-updated="handleMockFlowUpdated" />
     <batch-restart-flow-modal ref="batchRestartFlowModal" @ok="loadData" />  <!-- ⚠️ 新增：重启流程对话框 -->
     <!-- DmImportModal 已删除：无 UI 入口，属于死代码 -->
   </div>
@@ -341,7 +341,9 @@ export default {
       // Ant Design Empty组件的简单图标
       simpleImage: Empty.PRESENTED_IMAGE_SIMPLE,
       // Mock模式：流程状态更新缓存
-      mockFlowUpdates: {} // { dmId: { workflowStep, workflowStatus, workflowStatus_dictText } }
+      mockFlowUpdates: {}, // { dmId: { workflowStep, workflowStatus, workflowStatus_dictText } }
+      // 发布按钮加载状态
+      publishLoading: false
     }
   },
   computed: {
@@ -837,6 +839,68 @@ export default {
       // 传递完整的记录信息，用于生成insttitleparam
       this.$refs.batchStartFlowModal.show(selectedRecords)
     },
+    // 流程启动成功后的回调（修复：列表不刷新问题）
+    handleFlowStarted() {
+      console.log('========================================')
+      console.log('🔍 [流程启动成功回调] handleFlowStarted 被触发')
+      console.log('🔍 [流程启动成功回调] 当前时间:', new Date().toLocaleTimeString())
+      console.log('🔍 [流程启动成功回调] projectId:', this.queryParam.projectId)
+      console.log('🔍 [流程启动成功回调] cmNodeId:', this.queryParam.cmNodeId)
+      console.log('🔍 [流程启动成功回调] 当前列表记录数:', this.dataSource.length)
+      console.log('🔍 [流程启动成功回调] 当前选中记录数:', this.selectedRowKeys.length)
+
+      // 确保有树节点选中
+      if (!this.queryParam.projectId && !this.queryParam.cmNodeId) {
+        console.warn('⚠️ [流程启动成功回调] 没有选中树节点，无法刷新')
+        this.$message.warning('流程启动成功，但请选择项目或构型节点以查看列表')
+        return
+      }
+
+      console.log('✅ [流程启动成功回调] 守卫通过，准备调用 loadData(1)')
+
+      // 保存当前选中的ID列表（用于刷新后恢复选中状态）
+      const selectedIds = [...this.selectedRowKeys]
+      console.log('🔍 [流程启动成功回调] 已保存选中ID:', selectedIds)
+
+      // 强制刷新第1页
+      this.loadData(1).then(() => {
+        console.log('✅ [流程启动成功回调] loadData(1) 执行完成')
+        console.log('✅ [流程启动成功回调] 刷新后列表记录数:', this.dataSource.length)
+
+        // ✅ 关键修复：刷新后同步 selectedRows（从新的 dataSource 中查找）
+        if (selectedIds.length > 0) {
+          console.log('🔍 [流程启动成功回调] 开始同步 selectedRows')
+          this.selectedRows = this.dataSource.filter(record =>
+            selectedIds.includes(record.id)
+          )
+          console.log('✅ [流程启动成功回调] selectedRows 已同步，数量:', this.selectedRows.length)
+
+          // 打印选中记录的最新状态
+          this.selectedRows.forEach((record, index) => {
+            console.log(`🔍 [选中记录${index + 1}] DMC:`, record.dmcCode)
+            console.log(`   workflowStatus: ${record.workflowStatus} (null=未启动, 0=已结束, 1=流转中, 2=已撤销)`)
+            console.log(`   workflowStep: ${record.workflowStep}`)
+          })
+
+          // ✅ 手动触发按钮状态更新（因为 watch 可能不会立即触发）
+          this.$nextTick(() => {
+            this.updateButtonStates()
+            console.log('✅ [流程启动成功回调] 按钮状态已更新')
+          })
+        }
+
+        this.$message.success('列表已刷新')
+      }).catch(err => {
+        console.error('❌ [流程启动成功回调] loadData(1) 执行失败:', err)
+        this.$message.error('刷新列表失败：' + err.message)
+      })
+
+      console.log('========================================')
+
+      // ✅ 修复：启动流程后保持选中状态，不清空选中
+      // 原因：用户可能还需要对同一条记录进行其他操作（如：再次启动流程、编辑属性等）
+      // this.onClearSelected()  // ❌ 移除：不应清空选中
+    },
     handleRestartWorkflow(record) {
       // 工具栏调用时 record 是 MouseEvent，需从 selectedRows 获取数据
       if (!record || typeof record.id === 'undefined') {
@@ -1026,21 +1090,24 @@ export default {
               // 校验最新状态：是否已被签出
               if (latestRecord.checkoutUser) {
                 this.$message.error(`该DM已被 ${latestRecord.checkoutUser} 签出`)
-                this.loadData() // 刷新列表显示最新状态
+                // ✅ 使用统一方法：刷新后保持选中状态
+                this.refreshAndKeepSelection()
                 return
               }
 
               // 校验最新状态：工作流已启动
               if (!latestRecord.workflowInstanceId) {
                 this.$message.error('该DM还未启动流程')
-                this.loadData()
+                // ✅ 使用统一方法：刷新后保持选中状态
+                this.refreshAndKeepSelection()
                 return
               }
 
               // 校验最新状态：当前节点为DM编写
               if (latestRecord.workflowStep !== 'DM编写') {
                 this.$message.error('当前流程节点不是"DM编写"')
-                this.loadData()
+                // ✅ 使用统一方法：刷新后保持选中状态
+                this.refreshAndKeepSelection()
                 return
               }
 
@@ -1049,16 +1116,17 @@ export default {
                 .then(res => {
                   if (res.success) {
                     this.$message.success('签出成功！新版本已生成，原版本已保留为历史版本')
-                    this.onClearSelected() // 清空旧选中，避免 selectedRows 持有过期数据
-                    this.loadData().then(() => {
-                      // 数据加载完成后，重新选中该记录并更新按钮状态
-                      const newRecord = this.dataSource.find(item => item.id === id)
-                      if (newRecord) {
-                        this.selectedRowKeys = [newRecord.id]
-                        this.selectedRows = [newRecord]
-                        this.updateButtonStates()
-                      }
-                    })
+
+                    // ✅ 修复：后端返回新记录的ID（签出会生成新记录）
+                    const newId = res.result
+                    if (newId) {
+                      console.log('✅ [签出成功] 后端返回新ID:', newId)
+                      // 使用通用方法刷新并重新选中新记录
+                      this.loadDataAndReselect(newId)
+                    } else {
+                      console.warn('⚠️ [签出成功] 后端未返回新ID，刷新列表但不重新选中')
+                      this.loadData()
+                    }
                   } else {
                     this.$message.error(res.message || '签出失败')
                   }
@@ -1081,9 +1149,16 @@ export default {
           postAction(`${this.url.cancelCheckOut}?id=${id}`)
             .then(res => {
               if (res.success) {
-                this.$message.success('取消签出成功！已恢复到原版本')
-                this.onClearSelected() // 清空旧选中
-                this.loadData()
+                const originalId = res.result
+                if (originalId) {
+                  console.log('✅ [取消签出成功] 后端返回原版本ID:', originalId)
+                  this.$message.success('取消签出成功！已恢复到原版本')
+                  // ✅ 修复：使用后端返回的原版本ID重新选中
+                  this.loadDataAndReselect(originalId)
+                } else {
+                  this.$message.success('取消签出成功！')
+                  this.loadData()
+                }
               } else {
                 this.$message.error(res.message || '取消签出失败')
               }
@@ -1112,14 +1187,16 @@ export default {
               // 校验最新状态：是否已签出
               if (!latestRecord.checkoutUser) {
                 this.$message.error('该DM未被签出')
-                this.loadData() // 刷新列表显示最新状态
+                // ✅ 使用统一方法：刷新后保持选中状态
+                this.refreshAndKeepSelection()
                 return
               }
 
               // 校验最新状态：是否本人签出
               if (latestRecord.checkoutUser !== this.currentUser) {
                 this.$message.error(`该DM已被 ${latestRecord.checkoutUser} 签出，只能签入自己签出的数据模块`)
-                this.loadData()
+                // ✅ 使用统一方法：刷新后保持选中状态
+                this.refreshAndKeepSelection()
                 return
               }
 
@@ -1128,8 +1205,8 @@ export default {
                 .then(res => {
                   if (res.success) {
                     this.$message.success('签入成功')
-                    this.onClearSelected() // 清空旧选中
-                    this.loadData()
+                    // ✅ 修复：直接刷新并重新选中，不需要先清空
+                    this.loadDataAndReselect(id)
                   } else {
                     this.$message.error(res.message || '签入失败')
                   }
@@ -1144,21 +1221,120 @@ export default {
     },
     handlePublish() {
       const that = this
+      const selectedDm = that.selectedRows[0]
+      if (!selectedDm) {
+        that.$message.warning('请先选择要发布的DM')
+        return
+      }
+
+      // 计算版本号（用于显示）
+      const currentVersion = `${selectedDm.issueNo || '001'}-${selectedDm.inWork || '00'}`
+      const nextVersion = `${that.calculateNextVersion(selectedDm.issueNo)}-00`
+
+      // ✅ 优化：参照标准Modal样式的发布确认对话框
       this.$confirm({
         title: '确认发布',
-        content: '发布后将升级版本号并重置inwork，确定要发布吗？',
+        content: (h) => (
+          <div>
+            <p style="margin-bottom: 16px; font-size: 14px; color: rgba(0, 0, 0, 0.85);">
+              您即将发布以下数据模块，请确认版本信息：
+            </p>
+
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+              <tr style="background: #fafafa;">
+                <td style="padding: 12px; border: 1px solid #e8e8e8; width: 100px; font-size: 14px; color: rgba(0, 0, 0, 0.85); font-weight: 500;">当前版本</td>
+                <td style="padding: 12px; border: 1px solid #e8e8e8; font-family: Consolas, Monaco, monospace; font-size: 14px; color: rgba(0, 0, 0, 0.65);">
+                  {currentVersion}
+                </td>
+              </tr>
+              <tr style="background: #fafafa;">
+                <td style="padding: 12px; border: 1px solid #e8e8e8; font-size: 14px; color: rgba(0, 0, 0, 0.85); font-weight: 500;">发布版本</td>
+                <td style="padding: 12px; border: 1px solid #e8e8e8; font-family: Consolas, Monaco, monospace; font-size: 14px; color: #52c41a; font-weight: 500;">
+                  {nextVersion}
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin: 0; font-size: 14px; color: rgba(0, 0, 0, 0.45);">
+              <a-icon type="exclamation-circle" style="color: #faad14; margin-right: 4px;" />
+              发布后状态将变更为"已发布"，此操作不可撤销。
+            </p>
+          </div>
+        ),
+        width: 520,
+        okText: '确认发布',
+        cancelText: '取消',
+        okType: 'danger',
         onOk() {
+          // 显示加载状态
+          that.publishLoading = true
+
           postAction(that.url.publish, { id: that.selectedRowKeys[0] })
             .then(res => {
               if (res.success) {
+                const publishedId = that.selectedRowKeys[0]
                 that.$message.success('发布成功')
-                that.onClearSelected() // 清空旧选中
-                that.loadData()
+                // ✅ 修复：发布后保持选中（ID不变，只是版本号和DMC变化）
+                that.loadDataAndReselect(publishedId)
               } else {
-                that.$message.error(res.message || '发布失败')
+                // 检查是否为XSD校验错误（code=40001）
+                if (res.code === 40001 && res.result && res.result.errors) {
+                  // 显示详细错误弹窗
+                  that.showValidationErrors(res.result.errors, res.message)
+                } else {
+                  that.$message.error(res.message || '发布失败')
+                }
               }
             })
-            .catch(() => that.$message.error('发布失败，请稍后重试'))
+            .catch((err) => {
+              console.error('发布失败', err)
+              that.$message.error('发布失败，请稍后重试')
+            })
+            .finally(() => {
+              that.publishLoading = false
+            })
+        }
+      })
+    },
+    // 计算下一个版本号（用于确认对话框显示）
+    calculateNextVersion(currentIssueNo) {
+      const issueNo = parseInt(currentIssueNo || '001', 10)
+      const nextIssueNo = (issueNo + 1).toString().padStart(3, '0')
+      return nextIssueNo
+    },
+    // 显示XSD校验错误详情弹窗
+    showValidationErrors(errors, message) {
+      // 使用Ant Design Vue的Modal组件显示详细错误
+      const that = this
+      const errorListHtml = errors.map((err, index) => {
+        return `<li key="${index}">
+          <span style="color: #f5222d; font-weight: bold;">第${err.lineno || 0}行：</span>
+          <span>${err.info || '未知错误'}</span>
+        </li>`
+      }).join('')
+
+      const content = `
+        <div>
+          <p style="margin-bottom: 12px;">${message || '发布失败：DM内容不符合XSD规范'}</p>
+          <div style="max-height: 400px; overflow-y: auto; border: 1px solid #d9d9d9; border-radius: 4px; padding: 12px; background: #fafafa;">
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              ${errorListHtml}
+            </ul>
+          </div>
+          <p style="margin-top: 12px; color: #8c8c8c; font-size: 12px;">
+            提示：请在编辑器中修正这些错误后再发布
+          </p>
+        </div>
+      `
+
+      this.$error({
+        title: 'XSD校验失败',
+        content: (h) => <div domPropsInnerHTML={content}></div>,
+        width: 700,
+        okText: '我知道了',
+        onOk() {
+          // ✅ 使用统一方法：关闭弹窗后刷新列表并保持选中
+          that.refreshAndKeepSelection()
         }
       })
     },
@@ -1187,6 +1363,58 @@ export default {
         }
       }).finally(() => {
         this.loading = false
+      })
+    },
+    /**
+     * 刷新列表并保持当前选中状态（通用方法）
+     * 用于操作完成后需要刷新列表但不改变选中的场景
+     * @returns {Promise}
+     */
+    refreshAndKeepSelection() {
+      const selectedIds = [...this.selectedRowKeys]
+      return this.loadData().then(() => {
+        if (selectedIds.length > 0) {
+          const updatedRecords = this.dataSource.filter(record =>
+            selectedIds.includes(record.id)
+          )
+          if (updatedRecords.length > 0) {
+            this.selectedRowKeys = updatedRecords.map(r => r.id)
+            this.selectedRows = updatedRecords
+            this.updateButtonStates()
+            if (updatedRecords.length === 1) {
+              this.currentSelectedDm = updatedRecords[0]
+            }
+          }
+        }
+      })
+    },
+    /**
+     * 刷新列表并重新选中指定的记录（通用方法）
+     * @param {String|Array} ids - 要重新选中的记录ID（单个ID或ID数组）
+     * @returns {Promise}
+     */
+    loadDataAndReselect(ids) {
+      // 标准化为数组
+      const selectedIds = Array.isArray(ids) ? ids : [ids]
+
+      return this.loadData().then(() => {
+        if (selectedIds.length > 0) {
+          // 从新数据中查找记录
+          const updatedRecords = this.dataSource.filter(record =>
+            selectedIds.includes(record.id)
+          )
+
+          if (updatedRecords.length > 0) {
+            this.selectedRowKeys = updatedRecords.map(r => r.id)
+            this.selectedRows = updatedRecords
+            this.updateButtonStates()
+
+            // 如果是单选，更新 currentSelectedDm
+            if (updatedRecords.length === 1) {
+              this.currentSelectedDm = updatedRecords[0]
+            }
+          }
+        }
       })
     },
     // 更新按钮状态
@@ -1301,18 +1529,11 @@ export default {
         return
       }
 
-      this.loadData().then(() => {
-        // 数据加载完成后，重新选中该记录并更新按钮状态
-        const updatedRecord = this.dataSource.find(item => item.id === id)
-        if (updatedRecord) {
-          this.selectedRowKeys = [updatedRecord.id]
-          this.selectedRows = [updatedRecord]
-          this.currentSelectedDm = updatedRecord
-          this.updateButtonStates()
-          // 如果之前加载了资源列表，也需要刷新
-          if (this.resourceDataSource.length > 0) {
-            this.loadResourceList(updatedRecord.id)
-          }
+      // ✅ 使用统一方法：刷新并重新选中
+      this.loadDataAndReselect(id).then(() => {
+        // 如果之前加载了资源列表，也需要刷新
+        if (this.resourceDataSource.length > 0 && this.currentSelectedDm) {
+          this.loadResourceList(this.currentSelectedDm.id)
         }
       })
     },
@@ -1324,18 +1545,11 @@ export default {
         return
       }
 
-      this.loadData().then(() => {
-        // 数据加载完成后，重新选中该记录并更新按钮状态
-        const updatedRecord = this.dataSource.find(item => item.id === id)
-        if (updatedRecord) {
-          this.selectedRowKeys = [updatedRecord.id]
-          this.selectedRows = [updatedRecord]
-          this.currentSelectedDm = updatedRecord
-          this.updateButtonStates()
-          // 如果之前加载了资源列表，也需要刷新
-          if (this.resourceDataSource.length > 0) {
-            this.loadResourceList(updatedRecord.id)
-          }
+      // ✅ 使用统一方法：刷新并重新选中
+      this.loadDataAndReselect(id).then(() => {
+        // 如果之前加载了资源列表，也需要刷新
+        if (this.resourceDataSource.length > 0 && this.currentSelectedDm) {
+          this.loadResourceList(this.currentSelectedDm.id)
         }
       })
     },
@@ -1404,8 +1618,8 @@ export default {
     // 粘贴节点DM成功后刷新列表
     handlePasteSuccess() {
       console.log('粘贴节点DM成功，刷新列表')
-      // 刷新当前列表
-      this.loadData(1)
+      // ✅ 使用统一方法：刷新列表并保持选中（粘贴操作不影响当前选中的DM）
+      this.refreshAndKeepSelection()
     },
     // DM列表行选择变化
     onSelectChange(selectedRowKeys, selectedRows) {

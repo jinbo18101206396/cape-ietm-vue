@@ -242,14 +242,14 @@ async function main() {
     console.log('验证汇总')
     console.log('========================================')
     console.log(`验证记录数: ${totalRecords}`)
-    console.log(`有XML内容: ${recordsWithXml} (${(recordsWithXml/totalRecords*100).toFixed(1)}%)`)
-    console.log(`无XML内容: ${recordsWithoutXml} (${(recordsWithoutXml/totalRecords*100).toFixed(1)}%)`)
-    console.log(`发现问题: ${allIssues.length}条 (${(allIssues.length/totalRecords*100).toFixed(1)}%)`)
+    console.log(`有XML内容: ${recordsWithXml} (${(recordsWithXml / totalRecords * 100).toFixed(1)}%)`)
+    console.log(`无XML内容: ${recordsWithoutXml} (${(recordsWithoutXml / totalRecords * 100).toFixed(1)}%)`)
+    console.log(`发现问题: ${allIssues.length}条 (${(allIssues.length / totalRecords * 100).toFixed(1)}%)`)
 
     if (allIssues.length > 0) {
       console.log('\n问题详情:')
       allIssues.forEach((item, i) => {
-        console.log(`\n[${i+1}] DM: ${item.dmId} | 记录: ${item.recordId}`)
+        console.log(`\n[${i + 1}] DM: ${item.dmId} | 记录: ${item.recordId}`)
         item.issues.forEach(issue => console.log(`    ${issue}`))
       })
     }
@@ -275,7 +275,6 @@ async function main() {
       console.log('\n❌ 数据完整性: 需要改进 ⭐⭐⭐☆☆')
       console.log('❌ DMC一致性: 存在较多不一致')
     }
-
   } catch (error) {
     console.error('\n❌ 验证失败:', error.message)
     if (error.response) {

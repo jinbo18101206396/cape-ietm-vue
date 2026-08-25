@@ -3,7 +3,6 @@
  */
 
 describe('DmHistoryView.vue 中文支持向后兼容性验证', () => {
-
   // 模拟formatXml函数（修改后）
   function formatXmlNew(xml) {
     if (!xml || !xml.trim()) return xml
@@ -165,7 +164,7 @@ describe('DmHistoryView.vue 中文支持向后兼容性验证', () => {
       // 验证：英文和中文都能正确缩进
       expect(lines[0]).toBe('<dmodule>')
       expect(lines[1]).toBe('  <数据模块>')
-      expect(lines[2]).toBe('    <content>')      // 英文仍正常
+      expect(lines[2]).toBe('    <content>') // 英文仍正常
       expect(lines[3]).toBe('      <说明>text</说明>')
       expect(lines[4]).toBe('    </content>')
       expect(lines[5]).toBe('  </数据模块>')
@@ -241,8 +240,8 @@ describe('DmHistoryView.vue 中文支持向后兼容性验证', () => {
 
       chineseTags.forEach(tag => {
         // 中文元素：修改前不匹配（bug），修改后能匹配（bug修复）
-        expect(regexOld.test(tag)).toBe(false)  // 修改前
-        expect(regexNew.test(tag)).toBe(true)   // 修改后
+        expect(regexOld.test(tag)).toBe(false) // 修改前
+        expect(regexNew.test(tag)).toBe(true) // 修改后
       })
     })
   })

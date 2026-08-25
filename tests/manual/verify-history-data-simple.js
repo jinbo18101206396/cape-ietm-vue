@@ -324,8 +324,8 @@ async function main() {
     console.log('========================================')
     console.log(`总验证DM数: ${checkCount}`)
     console.log(`总验证历史记录数: ${totalRecords}`)
-    console.log(`有XML内容的记录: ${recordsWithXml} (${(recordsWithXml/totalRecords*100).toFixed(1)}%)`)
-    console.log(`无XML内容的记录: ${recordsWithoutXml} (${(recordsWithoutXml/totalRecords*100).toFixed(1)}%)`)
+    console.log(`有XML内容的记录: ${recordsWithXml} (${(recordsWithXml / totalRecords * 100).toFixed(1)}%)`)
+    console.log(`无XML内容的记录: ${recordsWithoutXml} (${(recordsWithoutXml / totalRecords * 100).toFixed(1)}%)`)
     console.log(`发现问题记录数: ${allIssues.length}`)
     console.log(`问题率: ${totalRecords > 0 ? ((allIssues.length / totalRecords) * 100).toFixed(1) : 0}%`)
 
@@ -394,7 +394,6 @@ async function main() {
       console.log('❌ DMC一致性: 存在明显不一致')
       console.log(`❌ 发现${errorCount}个错误，需要尽快修复`)
     }
-
   } catch (error) {
     console.error('\n❌ 验证过程出错:', error.message)
     if (error.response) {

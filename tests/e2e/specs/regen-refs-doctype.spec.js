@@ -35,7 +35,7 @@ function apiReq(method, path, body, token) {
 }
 
 let TOKEN
-let PROJECT_ID = '2078348945532030978'  // 项目1
+let PROJECT_ID = '2078348945532030978' // 项目1
 
 test.beforeAll(async () => {
   const l = await apiReq('POST', '/sys/login', { username: 'admin', password: '123456' })

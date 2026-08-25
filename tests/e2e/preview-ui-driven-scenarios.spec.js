@@ -328,7 +328,6 @@ test.describe('边界 · 异常与状态', () => {
 })
 
 test.describe('扩展场景 · updateLegendDiv 深度验证', () => {
-
   test('扩展1: 同一DM中3个不同热点引用', async ({ page }) => {
     const xml = makeXml(`
       <levelledPara>

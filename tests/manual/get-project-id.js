@@ -32,7 +32,7 @@ async function main() {
     console.log('\n可用项目:')
     if (projects && projects.records) {
       projects.records.forEach((p, i) => {
-        console.log(`  [${i+1}] ID: ${p.id} | 名称: ${p.projectName} | 编号: ${p.projectNo}`)
+        console.log(`  [${i + 1}] ID: ${p.id} | 名称: ${p.projectName} | 编号: ${p.projectNo}`)
       })
 
       if (projects.records.length > 0) {

@@ -19,18 +19,17 @@ const TEST_USER = {
 
 // 测试数据ID（需提前在数据库准备）
 const TEST_DATA = {
-  NOT_STARTED: 'test_p0_001',      // workflow_status = NULL
-  ENDED: 'test_p0_002',             // workflow_status = '0'
-  CANCELLED: 'test_p0_003',         // workflow_status = '2'
-  WRONG_STEP: 'test_p0_004',        // workflow_step = '技术审核'
-  CHECKED_BY_OTHER: 'test_p0_005',  // checkout_user = 'user_other'
-  CHECKED_BY_ME: 'test_p0_006',     // checkout_user = 'admin'
-  NORMAL: 'test_p0_007',            // workflow_status='1', step='DM编写', 未签出
-  NULL_STEP: 'test_p0_008'          // workflow_step = NULL
+  NOT_STARTED: 'test_p0_001', // workflow_status = NULL
+  ENDED: 'test_p0_002', // workflow_status = '0'
+  CANCELLED: 'test_p0_003', // workflow_status = '2'
+  WRONG_STEP: 'test_p0_004', // workflow_step = '技术审核'
+  CHECKED_BY_OTHER: 'test_p0_005', // checkout_user = 'user_other'
+  CHECKED_BY_ME: 'test_p0_006', // checkout_user = 'admin'
+  NORMAL: 'test_p0_007', // workflow_status='1', step='DM编写', 未签出
+  NULL_STEP: 'test_p0_008' // workflow_step = NULL
 }
 
 test.describe('P0修复验证 - editProp工作流校验', () => {
-
   test.beforeEach(async ({ page }) => {
     // 登录
     await page.goto(`${BASE_URL}/user/login`)
@@ -136,7 +135,7 @@ test.describe('P0修复验证 - editProp工作流校验', () => {
 
     expect(result.success).toBe(false)
     expect(result.message).toContain('流程状态不是DM编写状态')
-    expect(result.message).toContain('技术审核')  // 应包含当前状态
+    expect(result.message).toContain('技术审核') // 应包含当前状态
   })
 
   test('TC-P0-005: 被他人签出 - 应拒绝编辑', async ({ page }) => {
@@ -239,7 +238,6 @@ test.describe('P0修复验证 - editProp工作流校验', () => {
 })
 
 test.describe('类似问题验证 - checkOut工作流校验', () => {
-
   test.beforeEach(async ({ page }) => {
     await page.goto(`${BASE_URL}/user/login`)
     await page.fill('input[placeholder="请输入用户名"]', TEST_USER.username)
@@ -329,7 +327,6 @@ test.describe('类似问题验证 - checkOut工作流校验', () => {
 })
 
 test.describe('前后端一致性验证', () => {
-
   test('TC-P0-009: 前后端校验对齐验证', async ({ page, context }) => {
     // 测试策略：
     // 1. 正常情况：前端先拦截，不发请求
@@ -380,7 +377,6 @@ test.describe('前后端一致性验证', () => {
 })
 
 test.describe('并发场景测试', () => {
-
   test('TC-P0-010: 同时编辑冲突', async ({ browser }) => {
     // 创建两个浏览器上下文（模拟两个用户）
     const context1 = await browser.newContext()

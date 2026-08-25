@@ -3,7 +3,6 @@
  */
 
 describe('xmlTree.js 修改向后兼容性验证', () => {
-
   describe('原有长标签名仍然正常匹配', () => {
     test('普通标签仍然正常工作', () => {
       const tagNames = ['dmodule', 'content', 'para', 'description', 'emphasis']
@@ -52,7 +51,7 @@ describe('xmlTree.js 修改向后兼容性验证', () => {
       expect(matchOld('<para attr="val">', 'para')).toBe(true)
 
       // 问题：短标签误匹配（这是我们要修复的bug）
-      expect(matchOld('<emphasis>', 'em')).toBe(true)  // ❌ BUG
+      expect(matchOld('<emphasis>', 'em')).toBe(true) // ❌ BUG
     })
 
     test('修改后：正则匹配', () => {
@@ -78,7 +77,7 @@ describe('xmlTree.js 修改向后兼容性验证', () => {
         { line: '<para>', tag: 'para', expected: true },
         { line: '<content>', tag: 'content', expected: true },
         { line: '<emphasis>', tag: 'emphasis', expected: true },
-        { line: '<strong>', tag: 'strong', expected: true },
+        { line: '<strong>', tag: 'strong', expected: true }
       ]
 
       testCases.forEach(({ line, tag, expected }) => {
@@ -94,10 +93,10 @@ describe('xmlTree.js 修改向后兼容性验证', () => {
 
     test('唯一差异：修复了短标签误匹配bug', () => {
       const bugCases = [
-        { line: '<emphasis>', tag: 'em' },   // emphasis不应匹配em
-        { line: '<embed>', tag: 'em' },      // embed不应匹配em
-        { line: '<para>', tag: 'p' },        // para不应匹配p
-        { line: '<info>', tag: 'i' },        // info不应匹配i
+        { line: '<emphasis>', tag: 'em' }, // emphasis不应匹配em
+        { line: '<embed>', tag: 'em' }, // embed不应匹配em
+        { line: '<para>', tag: 'p' }, // para不应匹配p
+        { line: '<info>', tag: 'i' } // info不应匹配i
       ]
 
       bugCases.forEach(({ line, tag }) => {
@@ -125,7 +124,7 @@ describe('xmlTree.js 修改向后兼容性验证', () => {
       const regex = new RegExp('^<' + 'dmCode' + '[\\s>/]')
 
       expect(regex.test('<dmCode modelIdentCode="TEST">')).toBe(true)
-      expect(regex.test('<dmCode   attr="val">')).toBe(true)  // 多空格
+      expect(regex.test('<dmCode   attr="val">')).toBe(true) // 多空格
     })
 
     test('空字符串和null', () => {

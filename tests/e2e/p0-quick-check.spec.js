@@ -13,7 +13,6 @@ const TEST_USER = {
 }
 
 test.describe('P0修复快速验证', () => {
-
   test('环境检查 - 登录并导航到DM列表', async ({ page }) => {
     // 1. 访问登录页
     await page.goto(`${BASE_URL}/user/login`)

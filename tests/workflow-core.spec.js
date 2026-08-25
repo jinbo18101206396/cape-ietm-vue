@@ -33,7 +33,6 @@ let testContext = {
 }
 
 test.describe('工作流信息模块 - 核心功能测试', () => {
-
   // ========== 准备工作 ==========
   test.beforeAll(async ({ browser }) => {
     console.log('========== 测试准备开始 ==========')
@@ -88,7 +87,6 @@ test.describe('工作流信息模块 - 核心功能测试', () => {
           console.log('✓ 流程状态:', testContext.hasWorkflow ? '已启动' : '未启动')
         }
       }
-
     } catch (error) {
       console.error('✗ 测试准备失败:', error.message)
     } finally {
@@ -100,7 +98,6 @@ test.describe('工作流信息模块 - 核心功能测试', () => {
 
   // ========== 测试套件1: "保存意见"按钮显示逻辑 (Issue-4) ==========
   test.describe('Issue-4: "保存意见"按钮显示逻辑', () => {
-
     test('应该根据节点状态精确控制"保存意见"按钮显示', async ({ page }) => {
       if (!testContext.hasWorkflow) {
         test.skip()
@@ -138,7 +135,6 @@ test.describe('工作流信息模块 - 核心功能测试', () => {
 
   // ========== 测试套件2: 删除节点校验逻辑 (Issue-3) ==========
   test.describe('Issue-3: 删除节点校验逻辑', () => {
-
     test('未选中节点时删除按钮应该禁用', async ({ page }) => {
       if (!testContext.hasWorkflow) {
         test.skip()
@@ -261,7 +257,6 @@ test.describe('工作流信息模块 - 核心功能测试', () => {
 
   // ========== 测试套件3: "拿回"按钮禁用状态 (Issue-4优化) ==========
   test.describe('Issue-4优化: "拿回"按钮禁用状态', () => {
-
     test('未选中节点时拿回按钮应该禁用', async ({ page }) => {
       if (!testContext.hasWorkflow) {
         test.skip()
@@ -291,7 +286,6 @@ test.describe('工作流信息模块 - 核心功能测试', () => {
 
   // ========== 测试套件4: 新增节点自动填充当前用户 ==========
   test.describe('新增节点自动填充当前用户', () => {
-
     test('点击新增按钮应该自动填充当前用户（蓝色粗体）', async ({ page }) => {
       if (!testContext.hasWorkflow) {
         test.skip()
@@ -344,7 +338,6 @@ test.describe('工作流信息模块 - 核心功能测试', () => {
           if (cellText.includes(ADMIN_USER.realname) ||
               cellText.includes('当前用户') ||
               cellText.includes(ADMIN_USER.username)) {
-
             console.log('[新增节点] ✓ 找到用户单元格，内容:', cellText.trim())
             foundUserCell = true
 
@@ -387,7 +380,6 @@ test.describe('工作流信息模块 - 核心功能测试', () => {
           await page.waitForTimeout(500)
           console.log('[新增节点] 已取消编辑')
         }
-
       } else {
         console.log('[新增节点] ⚠ 未检测到新行添加')
       }
@@ -460,7 +452,6 @@ test.describe('工作流信息模块 - 核心功能测试', () => {
 
   // ========== 测试套件5: 回归测试 ==========
   test.describe('回归测试', () => {
-
     test('流程信息面板应该能正确加载', async ({ page }) => {
       if (!testContext.dmId) {
         test.skip()

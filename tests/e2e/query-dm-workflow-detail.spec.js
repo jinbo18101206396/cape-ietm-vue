@@ -20,16 +20,16 @@ test('查询DM详细信息', async ({ request }) => {
 
   console.log('\n所有DM详细信息:\n')
   dmData.result.records.forEach((dm, i) => {
-    console.log(`${i+1}. ID: ${dm.id}`)
+    console.log(`${i + 1}. ID: ${dm.id}`)
     console.log(`   DMC: ${dm.dmcCode}`)
     console.log(`   技术名称: ${dm.techName}`)
     console.log(`   签出状态: ${dm.checkoutUser ? '已签出 by ' + dm.checkoutUser : '未签出'}`)
     console.log(`   工作流实例ID: ${dm.workflowInstanceId || 'NULL'}`)
     console.log(`   工作流状态: ${dm.workflowStatus || 'NULL'} (${
-      !dm.workflowStatus ? '未启动' :
-      dm.workflowStatus === '0' ? '已结束' :
-      dm.workflowStatus === '1' ? '流转中' :
-      dm.workflowStatus === '2' ? '已撤销' : '未知'
+      !dm.workflowStatus ? '未启动'
+      : dm.workflowStatus === '0' ? '已结束'
+      : dm.workflowStatus === '1' ? '流转中'
+      : dm.workflowStatus === '2' ? '已撤销' : '未知'
     })`)
     console.log(`   工作流步骤: ${dm.workflowStep || 'NULL'}`)
     console.log(`   工作流处理人: ${dm.workflowHandler || 'NULL'}`)

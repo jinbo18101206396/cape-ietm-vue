@@ -14,7 +14,7 @@ async function runCompleteTest() {
 
   const browser = await chromium.launch({
     headless: false,
-    slowMo: 500  // 放慢操作以便观察
+    slowMo: 500 // 放慢操作以便观察
   })
 
   const context = await browser.newContext({
@@ -234,7 +234,6 @@ async function runCompleteTest() {
     // 保持浏览器打开以便查看
     console.log('\n浏览器将保持打开30秒，请查看页面状态...')
     await page.waitForTimeout(30000)
-
   } catch (error) {
     console.error('\n❌ 测试失败:', error.message)
 

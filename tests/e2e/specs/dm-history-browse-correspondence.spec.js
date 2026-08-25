@@ -37,7 +37,6 @@ test.beforeAll(async () => {
 })
 
 test.describe('浏览DM - DMC与XML一一对应验证', () => {
-
   test('TC-01: 点击浏览DM应传递正确的参数', async ({ page }) => {
     // 1. 注入token
     await page.addInitScript(([tok]) => {

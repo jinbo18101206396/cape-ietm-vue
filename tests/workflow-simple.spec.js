@@ -16,7 +16,6 @@ test.setTimeout(600000) // 10分钟总超时
 let auth = { cookies: null, authenticated: false }
 
 test.describe('工作流UI测试', () => {
-
   test('步骤1：手动登录（请在5分钟内完成）', async ({ page }) => {
     console.log('\n' + '='.repeat(60))
     console.log('   请在打开的浏览器中手动登录')
@@ -119,7 +118,7 @@ test.describe('工作流UI测试', () => {
         for (let i = 0; i < Math.min(5, cells.length); i++) {
           const text = await cells[i].textContent()
           if (text.trim() && text.trim() !== '-' && !text.match(/^\d+$/)) {
-            console.log(`找到用户单元格[列${i+1}]: "${text.trim()}"`)
+            console.log(`找到用户单元格[列${i + 1}]: "${text.trim()}"`)
 
             const blueSpan = cells[i].locator('.new-node-user')
             const hasBlue = await blueSpan.isVisible().catch(() => false)

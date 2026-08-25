@@ -5,7 +5,6 @@
 
 describe('xmlTree.js - BUG #3 词边界修复', () => {
   describe('getNodeByLineno - 闭合标签向上查找开始标签', () => {
-
     test('短标签em不应误匹配emphasis', () => {
       // 模拟XML结构
       const xml = `<dmodule>
@@ -94,15 +93,15 @@ describe('xmlTree.js - BUG #3 词边界修复', () => {
       const regex = new RegExp('^<' + tagName + '[\\s>/]')
 
       // 应该匹配的形式
-      expect(regex.test('<em>')).toBe(true)                    // 开始标签
-      expect(regex.test('<em >')).toBe(true)                   // 带空格
-      expect(regex.test('<em attr="val">')).toBe(true)         // 带属性（空格）
-      expect(regex.test('<em/>')).toBe(true)                   // 自闭合
+      expect(regex.test('<em>')).toBe(true) // 开始标签
+      expect(regex.test('<em >')).toBe(true) // 带空格
+      expect(regex.test('<em attr="val">')).toBe(true) // 带属性（空格）
+      expect(regex.test('<em/>')).toBe(true) // 自闭合
 
       // 不应该匹配的形式
-      expect(regex.test('<emphasis>')).toBe(false)             // 更长标签
-      expect(regex.test('<embed>')).toBe(false)                // 以em开头但不是em
-      expect(regex.test('<emergency>')).toBe(false)            // 以em开头
+      expect(regex.test('<emphasis>')).toBe(false) // 更长标签
+      expect(regex.test('<embed>')).toBe(false) // 以em开头但不是em
+      expect(regex.test('<emergency>')).toBe(false) // 以em开头
     })
   })
 })

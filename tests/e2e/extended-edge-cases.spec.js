@@ -175,7 +175,6 @@ let sharedPage
 let testDmId = '2086304902014750721' // GJB格式测试DM
 
 test.describe('IETM 扩展边界测试', () => {
-
   // ========== 环境准备 ==========
 
   test.beforeAll(async ({ browser }) => {

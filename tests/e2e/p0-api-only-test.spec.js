@@ -7,7 +7,6 @@ const API_BASE = 'http://localhost:9999/jeecg-boot'
 const TEST_USER = { username: 'admin', password: '123456' }
 
 test.describe('P0修复后端API验证', () => {
-
   let authToken = ''
 
   test.beforeAll(async ({ request }) => {
@@ -107,7 +106,7 @@ test.describe('P0修复后端API验证', () => {
       { id: 'test_p0_001', desc: '未启动流程', expectReject: true },
       { id: 'test_p0_002', desc: '流程已结束', expectReject: true },
       { id: 'test_p0_003', desc: '流程已撤销', expectReject: true },
-      { id: 'test_p0_004', desc: '非DM编写节点', expectReject: true },
+      { id: 'test_p0_004', desc: '非DM编写节点', expectReject: true }
     ]
 
     for (const tc of testCases) {

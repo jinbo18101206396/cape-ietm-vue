@@ -19,7 +19,6 @@ let context = {
 }
 
 test.describe('工作流信息模块 - 实战测试', () => {
-
   // ========== 手动登录准备 ==========
   test('SETUP: 手动登录并保存会话', async ({ page }) => {
     console.log('\n========================================')
@@ -46,7 +45,6 @@ test.describe('工作流信息模块 - 实战测试', () => {
 
       // 保存截图
       await page.screenshot({ path: 'test-results/01-logged-in.png' })
-
     } catch (error) {
       console.error('✗ 登录超时，请确保手动登录')
       throw error
@@ -238,7 +236,6 @@ test.describe('工作流信息模块 - 实战测试', () => {
         await page.waitForTimeout(500)
         console.log('[TEST-03] 已取消编辑')
       }
-
     } else {
       console.log('[TEST-03] ✗ 未检测到新行添加')
     }

@@ -268,44 +268,44 @@ const TEST_HTML = `
   </script>
 </body>
 </html>
-`;
+`
 
 test.describe('Preview Legacy Function Fixes - Component Level Tests', () => {
   test('Should fix all legacy function calls and make display:none elements visible', async ({ page }) => {
     // Create a temporary HTML file
-    const fs = require('fs');
-    const testHtmlPath = path.join(__dirname, '../../test-results/preview-test.html');
-    fs.writeFileSync(testHtmlPath, TEST_HTML);
+    const fs = require('fs')
+    const testHtmlPath = path.join(__dirname, '../../test-results/preview-test.html')
+    fs.writeFileSync(testHtmlPath, TEST_HTML)
 
     // Load the test page
-    await page.goto(`file://${testHtmlPath}`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000); // Wait for all auto-tests to complete
+    await page.goto(`file://${testHtmlPath}`)
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(5000) // Wait for all auto-tests to complete
 
     // Take screenshot of results
-    await page.screenshot({ path: 'test-results/preview-legacy-fix-results.png', fullPage: true });
+    await page.screenshot({ path: 'test-results/preview-legacy-fix-results.png', fullPage: true })
 
     // Verify all tests passed by checking for success indicators
-    const test1Log = await page.locator('#test1-log').textContent();
-    const test2Log = await page.locator('#test2-log').textContent();
-    const test3Log = await page.locator('#test3-log').textContent();
-    const test4Log = await page.locator('#test4-log').textContent();
-    const test5Log = await page.locator('#test5-log').textContent();
+    const test1Log = await page.locator('#test1-log').textContent()
+    const test2Log = await page.locator('#test2-log').textContent()
+    const test3Log = await page.locator('#test3-log').textContent()
+    const test4Log = await page.locator('#test4-log').textContent()
+    const test5Log = await page.locator('#test5-log').textContent()
 
-    console.log('\n=== Test Results ===');
-    console.log('Test 1 (display:none):', test1Log.includes('✅ PASS') ? '✅ PASS' : '❌ FAIL');
-    console.log('Test 2 (ShowDmRef):', test2Log.includes('✅ PASS') ? '✅ PASS' : '❌ FAIL');
-    console.log('Test 3 (addShowContentPanel):', test3Log.includes('✅ PASS') ? '✅ PASS' : '❌ FAIL');
-    console.log('Test 4 (showPicture):', test4Log.includes('✅ PASS') ? '✅ PASS' : '❌ FAIL');
-    console.log('Test 5 (Full Integration):', test5Log.includes('Full integration test completed') ? '✅ PASS' : '❌ FAIL');
+    console.log('\n=== Test Results ===')
+    console.log('Test 1 (display:none):', test1Log.includes('✅ PASS') ? '✅ PASS' : '❌ FAIL')
+    console.log('Test 2 (ShowDmRef):', test2Log.includes('✅ PASS') ? '✅ PASS' : '❌ FAIL')
+    console.log('Test 3 (addShowContentPanel):', test3Log.includes('✅ PASS') ? '✅ PASS' : '❌ FAIL')
+    console.log('Test 4 (showPicture):', test4Log.includes('✅ PASS') ? '✅ PASS' : '❌ FAIL')
+    console.log('Test 5 (Full Integration):', test5Log.includes('Full integration test completed') ? '✅ PASS' : '❌ FAIL')
 
     // Assert all tests passed
-    expect(test1Log).toContain('✅ PASS');
-    expect(test2Log).toContain('✅ PASS');
-    expect(test3Log).toContain('✅ PASS');
-    expect(test4Log).toContain('✅ PASS');
-    expect(test5Log).toContain('Full integration test completed');
+    expect(test1Log).toContain('✅ PASS')
+    expect(test2Log).toContain('✅ PASS')
+    expect(test3Log).toContain('✅ PASS')
+    expect(test4Log).toContain('✅ PASS')
+    expect(test5Log).toContain('Full integration test completed')
 
-    console.log('\n✅ All legacy function fix tests passed!');
+    console.log('\n✅ All legacy function fix tests passed!')
   })
 })

@@ -30,12 +30,11 @@ const TEST_USER_2 = {
 }
 
 // 测试数据
-let TEST_DM_WITH_WORKFLOW = null  // 已启动工作流的DM
-let TEST_DM_WITHOUT_WORKFLOW = null  // 未启动工作流的DM
-let TEST_DM_STAGED_WORKFLOW = null  // 分阶段流程的DM
+let TEST_DM_WITH_WORKFLOW = null // 已启动工作流的DM
+let TEST_DM_WITHOUT_WORKFLOW = null // 未启动工作流的DM
+let TEST_DM_STAGED_WORKFLOW = null // 分阶段流程的DM
 
 test.describe('工作流信息模块 - 全面测试', () => {
-
   test.beforeAll(async ({ browser }) => {
     // 准备测试数据（查询或创建测试DM）
     const context = await browser.newContext()
@@ -61,7 +60,6 @@ test.describe('工作流信息模块 - 全面测试', () => {
 
   // ===== 测试套件1: Issue-4 "保存意见"按钮显示逻辑 =====
   test.describe('Issue-4: "保存意见"按钮显示逻辑', () => {
-
     test('TC-01: 有待办节点时不显示"保存意见"按钮', async ({ page }) => {
       await loginAsUser(page, TEST_USER_1)
 
@@ -145,7 +143,6 @@ test.describe('工作流信息模块 - 全面测试', () => {
 
   // ===== 测试套件2: Issue-3 删除节点校验逻辑 =====
   test.describe('Issue-3: 删除节点校验逻辑统一', () => {
-
     test('TC-03: 未选中节点时删除按钮禁用', async ({ page }) => {
       await loginAsUser(page, TEST_USER_1)
 
@@ -256,7 +253,6 @@ test.describe('工作流信息模块 - 全面测试', () => {
 
   // ===== 测试套件3: Issue-1 分阶段规则提示语布局 =====
   test.describe('Issue-1: 分阶段规则提示语布局', () => {
-
     test('TC-06: 分阶段流程显示独立蓝色横幅', async ({ page }) => {
       // 这个测试需要分阶段流程的DM
       // 如果没有，跳过
@@ -312,7 +308,6 @@ test.describe('工作流信息模块 - 全面测试', () => {
 
   // ===== 测试套件4: Issue-4优化 "拿回"按钮禁用状态 =====
   test.describe('Issue-4优化: "拿回"按钮禁用状态', () => {
-
     test('TC-08: 未选中节点时拿回按钮禁用', async ({ page }) => {
       await loginAsUser(page, TEST_USER_1)
 
@@ -367,7 +362,6 @@ test.describe('工作流信息模块 - 全面测试', () => {
 
   // ===== 测试套件5: 新增节点自动填充当前用户 =====
   test.describe('新增节点自动填充当前用户', () => {
-
     test('TC-10: 新增节点自动显示当前用户（蓝色粗体）', async ({ page }) => {
       await loginAsUser(page, TEST_USER_1)
 
@@ -477,7 +471,6 @@ test.describe('工作流信息模块 - 全面测试', () => {
 
   // ===== 测试套件6: 编辑已有节点（不受限制） =====
   test.describe('编辑已有节点（不受限制）', () => {
-
     test('TC-12: 编辑已有节点可以选择其他用户', async ({ page }) => {
       await loginAsUser(page, TEST_USER_1)
 
@@ -529,7 +522,6 @@ test.describe('工作流信息模块 - 全面测试', () => {
 
   // ===== 测试套件7: 后端验证新增节点处理人 =====
   test.describe('后端验证新增节点处理人', () => {
-
     test('TC-13: 后端拒绝userid不等于当前用户的新增节点', async ({ page, request }) => {
       await loginAsUser(page, TEST_USER_1)
 
@@ -563,7 +555,6 @@ test.describe('工作流信息模块 - 全面测试', () => {
 
   // ===== 测试套件8: 回归测试 =====
   test.describe('回归测试', () => {
-
     test('TC-14: 执行处理功能正常', async ({ page }) => {
       await loginAsUser(page, TEST_USER_1)
 
@@ -642,7 +633,6 @@ test.describe('工作流信息模块 - 全面测试', () => {
 
   // ===== 测试套件9: 边界测试 =====
   test.describe('边界测试', () => {
-
     test('TC-16: 无流程实例时正确显示', async ({ page }) => {
       await loginAsUser(page, TEST_USER_1)
 

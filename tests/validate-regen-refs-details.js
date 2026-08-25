@@ -145,7 +145,7 @@ assert(ICN_FILE_EXT.length >= 10, `白名单应至少10种格式 (当前: ${ICN_
 // 检查白名单与 NOTATION 的对应关系
 const missingNotations = []
 for (const ext of ICN_FILE_EXT) {
-  const normalized = ext.substring(1)  // 去掉前导点
+  const normalized = ext.substring(1) // 去掉前导点
   if (!hasNotation(normalized)) {
     // .tif 是 .tiff 的别名，允许缺失
     if (ext !== '.tif') {

@@ -101,8 +101,8 @@ test.describe('P0-19: 工作流钩子接口 - 简化验证', () => {
     // 这个测试只验证代码层面，不需要真实DM
 
     const sourceFiles = [
-      'WorkflowInfoPanel.vue',  // 包含 before-submit, after-submit-success, after-get-back
-      'WfInstanceDtlTable.vue'   // 包含 before-insert-node, before-delete-node, before-save-node
+      'WorkflowInfoPanel.vue', // 包含 before-submit, after-submit-success, after-get-back
+      'WfInstanceDtlTable.vue' // 包含 before-insert-node, before-delete-node, before-save-node
     ]
 
     // 简单验证：文件能被前端加载

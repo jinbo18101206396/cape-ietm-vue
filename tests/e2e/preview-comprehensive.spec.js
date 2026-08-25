@@ -357,37 +357,37 @@ const COMPREHENSIVE_TEST_HTML = `
   </script>
 </body>
 </html>
-`;
+`
 
 test.describe('Comprehensive Preview Legacy Function Fix Tests', () => {
   test('Scenario and boundary tests with edge cases', async ({ page }) => {
     // Write test HTML
-    const testHtmlPath = path.join(__dirname, '../../test-results/comprehensive-preview-test.html');
-    fs.writeFileSync(testHtmlPath, COMPREHENSIVE_TEST_HTML);
+    const testHtmlPath = path.join(__dirname, '../../test-results/comprehensive-preview-test.html')
+    fs.writeFileSync(testHtmlPath, COMPREHENSIVE_TEST_HTML)
 
     // Load test page
-    await page.goto(`file://${testHtmlPath}`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await page.goto(`file://${testHtmlPath}`)
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1000)
 
     // Take screenshot
-    await page.screenshot({ path: 'test-results/comprehensive-preview-results.png', fullPage: true });
+    await page.screenshot({ path: 'test-results/comprehensive-preview-results.png', fullPage: true })
 
     // Extract results
-    const summaryText = await page.locator('.test-group').first().textContent();
-    console.log('\n' + summaryText);
+    const summaryText = await page.locator('.test-group').first().textContent()
+    console.log('\n' + summaryText)
 
     // Check that all tests passed
-    const passCount = summaryText.match(/Pass: (\d+)/);
-    const failCount = summaryText.match(/Fail: (\d+)/);
+    const passCount = summaryText.match(/Pass: (\d+)/)
+    const failCount = summaryText.match(/Fail: (\d+)/)
 
     if (passCount && failCount) {
-      const passed = parseInt(passCount[1]);
-      const failed = parseInt(failCount[1]);
+      const passed = parseInt(passCount[1])
+      const failed = parseInt(failCount[1])
 
-      console.log(`\n✅ Comprehensive tests: ${passed} passed, ${failed} failed`);
+      console.log(`\n✅ Comprehensive tests: ${passed} passed, ${failed} failed`)
 
-      expect(failed).toBe(0); // All tests should pass
+      expect(failed).toBe(0) // All tests should pass
     }
   })
 })

@@ -105,7 +105,6 @@ let sharedPage
 let testDmId = '2086304902014750721'
 
 test.describe('IETM 用户交互完整流程测试', () => {
-
   test.beforeAll(async ({ browser }) => {
     sharedPage = await browser.newPage()
 

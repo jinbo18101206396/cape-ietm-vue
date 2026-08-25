@@ -58,7 +58,6 @@ async function navigateToDmList(page) {
 }
 
 test.describe('工作流前置校验恢复验证', () => {
-
   test.beforeEach(async ({ page }) => {
     await login(page)
     await navigateToDmList(page)

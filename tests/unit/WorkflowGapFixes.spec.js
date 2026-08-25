@@ -600,7 +600,7 @@ describe('流程信息模块遗漏项修复测试', () => {
       const node2Props = rowSelection.getCheckboxProps({ id: 'node2' })
 
       expect(node1Props.disabled).toBe(false) // 编辑中的行不禁用
-      expect(node2Props.disabled).toBe(true)  // 其他行禁用
+      expect(node2Props.disabled).toBe(true) // 其他行禁用
     })
 
     it('未编辑时所有行都可选择', () => {
