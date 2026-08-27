@@ -28,6 +28,12 @@
           :scroll="{ x: 550 }"
           size="small"
           rowKey="id"
+          :bordered="true"
+          :customRow="(record) => ({
+            on: {
+              click: () => handleRowClick('user', record)
+            }
+          })"
         >
           <template slot="realname" slot-scope="text, record">
             <a-icon type="user" style="margin-right: 4px;" />
@@ -56,6 +62,12 @@
           :scroll="{ x: 550 }"
           size="small"
           rowKey="id"
+          :bordered="true"
+          :customRow="(record) => ({
+            on: {
+              click: () => handleRowClick('dept', record)
+            }
+          })"
         >
           <template slot="departName" slot-scope="text, record">
             <a-icon type="apartment" style="margin-right: 4px;" />
@@ -84,6 +96,12 @@
           :scroll="{ x: 550 }"
           size="small"
           rowKey="id"
+          :bordered="true"
+          :customRow="(record) => ({
+            on: {
+              click: () => handleRowClick('role', record)
+            }
+          })"
         >
           <template slot="roleName" slot-scope="text, record">
             <a-icon type="team" style="margin-right: 4px;" />
@@ -112,6 +130,12 @@
           :scroll="{ x: 550 }"
           size="small"
           rowKey="id"
+          :bordered="true"
+          :customRow="(record) => ({
+            on: {
+              click: () => handleRowClick('position', record)
+            }
+          })"
         >
           <template slot="positionName" slot-scope="text, record">
             <a-icon type="idcard" style="margin-right: 4px;" />
@@ -140,6 +164,12 @@
           :scroll="{ x: 550 }"
           size="small"
           rowKey="id"
+          :bordered="true"
+          :customRow="(record) => ({
+            on: {
+              click: () => handleRowClick('group', record)
+            }
+          })"
         >
           <template slot="groupName" slot-scope="text, record">
             <a-icon type="cluster" style="margin-right: 4px;" />
@@ -148,21 +178,6 @@
         </a-table>
       </a-tab-pane>
     </a-tabs>
-
-    <!-- 已选择汇总（简化版） -->
-    <a-divider v-if="selectedItems.length > 0" style="margin: 8px 0;" />
-    <div v-if="selectedItems.length > 0" style="padding: 4px 0;">
-      <a-tag
-        v-for="item in selectedItems"
-        :key="item.id"
-        closable
-        @close="handleRemove(item)"
-        style="margin: 2px 4px;"
-        :color="getTagColor(item.type)"
-      >
-        {{ getTagPrefix(item.type) }}{{ item.name }}
-      </a-tag>
-    </div>
   </a-modal>
 </template>
 
@@ -213,25 +228,25 @@ export default {
 
       // 表格列定义
       userColumns: [
-        { title: '用户名', dataIndex: 'username', width: 150 },
-        { title: '姓名', dataIndex: 'realname', width: 150, scopedSlots: { customRender: 'realname' } },
-        { title: '部门', dataIndex: 'orgCodeTxt', width: 200 }
+        { title: '用户名', dataIndex: 'username', width: 150, align: 'center' },
+        { title: '姓名', dataIndex: 'realname', width: 150, align: 'center', scopedSlots: { customRender: 'realname' } },
+        { title: '部门', dataIndex: 'orgCodeTxt', width: 200, align: 'center' }
       ],
       deptColumns: [
-        { title: '部门编码', dataIndex: 'orgCode', width: 200 },
-        { title: '部门名称', dataIndex: 'departName', width: 300, scopedSlots: { customRender: 'departName' } }
+        { title: '部门编码', dataIndex: 'orgCode', width: 200, align: 'center' },
+        { title: '部门名称', dataIndex: 'departName', width: 300, align: 'center', scopedSlots: { customRender: 'departName' } }
       ],
       roleColumns: [
-        { title: '角色编码', dataIndex: 'roleCode', width: 200 },
-        { title: '角色名称', dataIndex: 'roleName', width: 300, scopedSlots: { customRender: 'roleName' } }
+        { title: '角色编码', dataIndex: 'roleCode', width: 200, align: 'center' },
+        { title: '角色名称', dataIndex: 'roleName', width: 300, align: 'center', scopedSlots: { customRender: 'roleName' } }
       ],
       positionColumns: [
-        { title: '岗位编码', dataIndex: 'code', width: 200 },
-        { title: '岗位名称', dataIndex: 'name', width: 300, scopedSlots: { customRender: 'positionName' } }
+        { title: '岗位编码', dataIndex: 'code', width: 200, align: 'center' },
+        { title: '岗位名称', dataIndex: 'name', width: 300, align: 'center', scopedSlots: { customRender: 'positionName' } }
       ],
       groupColumns: [
-        { title: '群组编码', dataIndex: 'groupCode', width: 200 },
-        { title: '群组名称', dataIndex: 'groupName', width: 300, scopedSlots: { customRender: 'groupName' } }
+        { title: '群组编码', dataIndex: 'groupCode', width: 200, align: 'center' },
+        { title: '群组名称', dataIndex: 'groupName', width: 300, align: 'center', scopedSlots: { customRender: 'groupName' } }
       ],
 
       // 回调函数
@@ -402,6 +417,22 @@ export default {
       this.selectedRecords[type] = selectedRows
     },
 
+    // 点击行选中/取消选中
+    handleRowClick(type, record) {
+      const recordId = record.id
+      const index = this.selectedKeys[type].indexOf(recordId)
+
+      if (index > -1) {
+        // 已选中，取消选中
+        this.selectedKeys[type].splice(index, 1)
+        this.selectedRecords[type] = this.selectedRecords[type].filter(r => r.id !== recordId)
+      } else {
+        // 未选中，添加选中
+        this.selectedKeys[type].push(recordId)
+        this.selectedRecords[type].push(record)
+      }
+    },
+
     // 移除已选项
     handleRemove(item) {
       const type = item.type
@@ -502,5 +533,14 @@ export default {
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 表格行鼠标悬停效果 */
+::v-deep .ant-table-tbody > tr {
+  cursor: pointer;
+}
+
+::v-deep .ant-table-tbody > tr:hover {
+  background-color: #e6f7ff;
 }
 </style>

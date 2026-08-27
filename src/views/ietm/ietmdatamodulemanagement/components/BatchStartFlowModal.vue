@@ -1556,7 +1556,7 @@ export default {
         .filter(n => n._clientId !== record._clientId)
         .map(node => ({
           value: node._clientId,  // 使用稳定的_clientId，后端会映射到真实节点ID
-          label: `${node.seqno === 0 ? '创建节点' : node.seqno} - ${node.nodename}`
+          label: node.nodename  // 只显示节点名称，不显示序号
         }))
     },
 
