@@ -137,7 +137,7 @@
               :scroll="{ x: 900, y: 400 }"
               bordered
               size="small"
-              rowKey="_rid"
+              rowKey="_clientId"
               :rowClassName="getNodeRowClassName"
             >
               <template slot="seqno" slot-scope="text, record">
@@ -161,8 +161,9 @@
                   style="width: 100%"
                   :disabled="record.seqno === 0"
                 >
-                  <a-select-option value="0">所有人必须完成</a-select-option>
-                  <a-select-option value="1">只1人完成</a-select-option>
+                  <a-select-option v-for="item in nodetypeOptions" :key="item.value" :value="item.value">
+                    {{ item.text }}
+                  </a-select-option>
                 </a-select>
               </template>
 
@@ -244,6 +245,11 @@ export default {
       openDate: '', // P2-5：打开弹窗时间（创建时间）
       selectedNodeKeys: [], // 节点表格选中的行（对齐 BatchStartFlowModal 批量删除）
       currentSelectingNode: null, // P0-1：当前正在选择处理人的节点
+      // ✅ P2-26修复：提取节点类型映射
+      nodetypeOptions: [
+        { text: '所有人必须完成', value: '0' },
+        { text: '只1人完成', value: '1' }
+      ],
       model: {
         batchId: '',
         reason: '',
@@ -251,7 +257,7 @@ export default {
         ifurgent: '1',
         nodes: [
           {
-            _rid: generateUUID(), // P0-2：稳定行标识，与可编辑的seqno解耦
+            _clientId: generateUUID(), // ✅ P2-30修复：客户端临时行标识，与可编辑的seqno解耦
             seqno: 0,
             nodename: '创建节点',
             nodetype: '0',
@@ -364,10 +370,11 @@ export default {
       // 仅单DM重启时回填；有oldInstanceId才拉取，失败则保留上面的兜底创建节点
       const oldInstanceId = this.model.dataList.length === 1 ? this.model.dataList[0].oldInstanceId : ''
 
-      // P1-1修复(2026-08-26)：前端提前校验旧实例ID是否为空，避免用户提交后才发现错误
+      // P1-7修复(2026-08-27)：空旧实例ID时阻断操作，关闭弹窗
+      // 原问题：warning提示后不关闭弹窗，用户误以为可以手动配置节点后提交，实际后端会拒绝
       if (this.model.dataList.length === 1 && (!oldInstanceId || oldInstanceId.trim() === '')) {
-        this.$message.warning('该DM没有已结束的流程实例，无法重启流程。您可以手动配置节点后启动新流程。')
-        // 保留兜底的单创建节点，允许用户手动配置
+        this.$message.error('该DM没有已结束的流程实例，无法重启流程')
+        this.handleCancel()  // 关闭弹窗
         return
       }
 
@@ -380,7 +387,7 @@ export default {
     buildDefaultCreateNode(currentUser) {
       const user = currentUser || this.$store.getters.userInfo || {}
       return {
-        _rid: generateUUID(),
+        _clientId: generateUUID(),
         seqno: 0,
         nodename: '创建',
         nodetype: NODE_TYPE.CREATE,
@@ -394,38 +401,33 @@ export default {
     // 回填旧流程实例节点：调后端 /ietm/workflow/dtl/list?instid= 拉取该实例节点
     // 失败或返回空时保留兜底的单创建节点，不阻断弹窗使用
     //
-    // ⚠️ seqno 归一化重编号（对标旧系统 IncludeInstanceAdd.jsp:160-164 的重编号逻辑）：
-    // 不能原样保留旧实例的 seqno，否则会出问题——
-    //   1) 后端 batchRestartFlow 存库时统一 +100(SEQNO_OFFSET)，若旧实例本身已是上次重启产物
-    //      (seqno=100/110/…)，原样回填提交后会再+100 → 200/210/… 每次翻倍膨胀；
-    //   2) validateForm 要求创建节点 seqno=0，而二次重启旧实例的创建节点 seqno=100 → 校验必炸。
-    // 归一化：按 seqno 升序后，重新编号为 0/10/20/30…（首节点=创建节点=0，其余节点依次递增10）
-    // 后端+100后恒为100/110/120…，与旧系统存库意图一致，且不随重启次数膨胀。
+    // P1-8修复(2026-08-27)：节点顺序号处理逻辑说明
+    // - 第1次启动：用户配置0,10,20,30,40 → 存储0,10,20,30,40
+    // - 第1次重启：读取0,10,20,30,40 → 前端显示100,110,120,130,140（+100） → 提交时直接使用显示值 → 后端不加偏移 → 存储100,110,120,130,140
+    // - 第2次重启：读取100,110,120,130,140 → 前端显示200,210,220,230,240（+100） → 提交时直接使用显示值 → 后端不加偏移 → 存储200,210,220,230,240
+    // 用户看到的值 = 数据库最终存储的值，前端+100是为了区分不同批次的历史节点
     loadInstanceNodes(instid, currentUser) {
       this.confirmLoading = true
       getAction('/ietm/workflow/dtl/list', { instid })
         .then(res => {
           if (res.success && Array.isArray(res.result) && res.result.length > 0) {
             const sorted = res.result.slice().sort((a, b) => (a.seqno || 0) - (b.seqno || 0))
-            this.model.nodes = sorted.map((node, index) => ({
-              _rid: generateUUID(),
-              // 归一化：升序首行(创建节点)=0，其余=index*10
-              seqno: index * 10,
+            this.model.nodes = sorted.map(node => ({
+              _clientId: generateUUID(),
+              // 前端显示时+100，让用户看到最终存储的值（提交时会-100还原，然后后端再+100）
+              seqno: (node.seqno || 0) + 100,
               nodename: node.nodename || '',
               nodetype: node.nodetype || NODE_TYPE.CREATE,
               userid: node.userid || '',
               useridname: node.useridname || '',
               stagename: node.stagename || '',
-              // P1-2修复：旧实例的 ifgetback 引用的是旧 seqno，归一化后语义已漂移，
+              // P1-2修复：旧实例的 ifgetback 引用的是旧 seqno，重启后seqno会+100，
               // 重置为空（不限制），要求用户重新配置，避免错误的跳转关系
               ifgetback: ''
             }))
-            // 兜底：升序首行理应是创建节点(seqno已归一化为0)，但若其 nodetype 非创建类型
-            // (旧数据异常)，补一个标准创建节点，避免 validateForm 卡死
-            if (this.model.nodes[0].nodetype !== NODE_TYPE.CREATE) {
+            // 兜底：确保第一个节点是创建节点
+            if (this.model.nodes.length > 0 && this.model.nodes[0].nodetype !== NODE_TYPE.CREATE) {
               this.model.nodes.unshift(this.buildDefaultCreateNode(currentUser))
-              // 重新归一化 seqno（因头部插入了新创建节点）
-              this.model.nodes.forEach((n, i) => { n.seqno = i * 10 })
             }
           }
         })
@@ -442,7 +444,7 @@ export default {
     handleAddNode() {
       const maxSeqno = Math.max(...this.model.nodes.map(n => n.seqno))
       this.model.nodes.push({
-        _rid: generateUUID(),
+        _clientId: generateUUID(),
         seqno: maxSeqno + 10,
         nodename: '',
         nodetype: NODE_TYPE.NORMAL,
@@ -482,13 +484,13 @@ export default {
     // 获取可跳转节点列表
     // 对标旧系统 IncludeInstanceAdd.jsp:465-478 及 BatchStartFlowModal：
     // 返回除当前节点外的所有节点（含前序/创建节点），而非仅后续节点
-    // P0-2：seqno可编辑后用_rid判定"自己"，避免seqno临时重复导致误过滤
-    // 方案C修复：改用_rid作为value，对齐后端雪花ID数据契约
+    // P0-2：seqno可编辑后用_clientId判定"自己"，避免seqno临时重复导致误过滤
+    // 方案C修复：改用_clientId作为value，对齐后端雪花ID数据契约
     getJumpableNodes(currentNode) {
       return this.model.nodes
-        .filter(node => node._rid !== currentNode._rid)
+        .filter(node => node._clientId !== currentNode._clientId)
         .map(node => ({
-          value: node._rid, // 使用稳定的_rid，后端会映射到真实节点ID
+          value: node._clientId, // 使用稳定的_clientId，后端会映射到真实节点ID
           label: `${node.seqno === 0 ? '创建节点' : node.seqno} - ${node.nodename}`
         }))
     },
@@ -588,7 +590,7 @@ export default {
         onOk: () => {
           // 创建节点(seqno=0)不可删除
           this.model.nodes = this.model.nodes.filter(
-            node => !this.selectedNodeKeys.includes(node._rid) || node.seqno === 0
+            node => !this.selectedNodeKeys.includes(node._clientId) || node.seqno === 0
           )
           this.selectedNodeKeys = []
           this.$message.success('已删除选中节点')
@@ -601,6 +603,31 @@ export default {
       this.selectedNodeKeys = selectedRowKeys
     },
 
+    // 自动调整创建节点的seqno为最小值
+    // Bug修复：用户删除/调整节点后，创建节点可能不再是最小seqno，导致后端校验失败
+    // 解决方案：提交前自动调整创建节点seqno为所有节点中的最小值
+    adjustCreateNodeSeqno() {
+      if (!this.model.nodes || this.model.nodes.length === 0) {
+        return
+      }
+
+      // 1. 找到创建节点
+      const createNode = this.model.nodes.find(n => n.nodetype === NODE_TYPE.CREATE)
+      if (!createNode) {
+        console.warn('[批量重启] 未找到创建节点')
+        return
+      }
+
+      // 2. 计算所有节点中的最小seqno
+      const minSeqno = Math.min(...this.model.nodes.map(n => n.seqno))
+
+      // 3. 如果创建节点的seqno不是最小值，自动调整
+      if (createNode.seqno !== minSeqno) {
+        console.log(`[批量重启] 自动调整创建节点seqno: ${createNode.seqno} → ${minSeqno}`)
+        createNode.seqno = minSeqno
+      }
+    },
+
     // 提交
     handleOk() {
       // 前端表单验证
@@ -609,6 +636,11 @@ export default {
         this.$message.warning(errors[0])
         return
       }
+
+      // ✅ Bug修复：自动调整创建节点的seqno为最小值
+      // 问题：用户删除/调整节点后，创建节点可能不再是最小seqno，导致后端校验失败
+      // 解决：提交前自动调整创建节点seqno为所有节点中的最小值
+      this.adjustCreateNodeSeqno()
 
       // UX优化：批量操作超过50条时二次确认
       const dmCount = this.selectedRecords.length
@@ -633,8 +665,8 @@ export default {
     doSubmit() {
       this.confirmLoading = true
 
-      // 防御性转换：ifgetback统一为后端格式（''/-1/_rid列表）
-      // 方案C：_rid会被后端resolveFrontendIfgetback映射为真实节点ID
+      // 防御性转换：ifgetback统一为后端格式（''/-1/_clientId列表）
+      // 方案C：_clientId会被后端resolveFrontendIfgetback映射为真实节点ID
       const params = {
         batchId: this.model.batchId,
         reason: this.model.reason,
@@ -652,19 +684,21 @@ export default {
           } else if (ifgetback === '__NO_JUMP__') {
             ifgetback = '-1'
           }
-          // 方案C：保留_rid供后端映射为真实节点ID
+          // 方案C：保留_clientId供后端映射为真实节点ID
+          // 方案A：前端显示值即最终存储值，直接提交，后端不加偏移
           return {
-            seqno: node.seqno,
+            seqno: node.seqno,  // 直接使用显示值（前端已+100，后端不再加）
             nodename: node.nodename,
             nodetype: node.nodetype,
             userid: node.userid,
             useridname: node.useridname,
             stagename: node.stagename || '',
             ifgetback: ifgetback || '',
-            _rid: node._rid // 前端稳定标识，后端用于映射
+            _clientId: node._clientId // 前端稳定标识，后端用于映射
           }
         }),
-        ifurgent: this.model.ifurgent
+        ifurgent: this.model.ifurgent,
+        stagenames: this.model.stagenames || ''  // 添加stagenames字段
       }
 
       // 接口路径需与后端 WfInstanceController 一致：类级 @RequestMapping("/ietm/workflow") + 方法级 @PostMapping("/batchRestartFlow")
@@ -780,10 +814,8 @@ export default {
         // C-003修复：使用常量替代magic number
         if (node.nodetype === NODE_TYPE.CREATE) {
           hasCreateNode = true
-          if (node.seqno !== 0) {
-            errors.push('创建节点的顺序号必须为0')
-            break
-          }
+          // 重启流程时，创建节点的seqno可能不是最小值（例如第2次重启时创建节点seqno=200）
+          // 只需确保有创建节点即可，不校验seqno大小
         }
       }
 

@@ -217,7 +217,10 @@ export default {
     // 当前登录用户（还原旧 currUserid / currUsername）
     currentUserId() {
       const u = this.$store.getters.userInfo
-      return u ? u.id : null
+      // 🔴 P0修复：强制转为字符串，防止19位雪花ID精度丢失导致类型不匹配
+      // 问题：LocalStorage反序列化可能将长ID转为数字，导致 String('1825043362301001729') vs 1825043362301001700
+      // 影响：追加意见等功能的处理人校验失败（字符串 vs 数字永远不相等）
+      return u && u.id != null ? String(u.id) : null
     },
     currentUsername() {
       const u = this.$store.getters.userInfo
@@ -225,6 +228,12 @@ export default {
     },
     instanceId() {
       return this.instance ? this.instance.id : null
+    },
+    // 🔴 修复历史节点重复问题：统一过滤历史节点
+    // 原因：listWithHistory接口返回历史节点+当前节点，流程重启后会有重复
+    // 解决：创建计算属性统一过滤，避免在多处重复过滤逻辑
+    currentNodes() {
+      return this.nodes.filter(n => !n.isHistory)
     },
     // 流程是否已结束/终止（还原旧 instover）
     instOver() {
@@ -276,32 +285,76 @@ export default {
     // 跳转目标候选（排除待办节点自身）
     // 🔴 遗漏15修复：根据ifgetback字段过滤可跳转节点（还原旧系统 Line 251-270）
     jumpTargets() {
-      if (!this.todoNode) return []
+      console.log('[jumpTargets] ===== 开始计算 =====')
+      console.log('[jumpTargets] todoNode:', this.todoNode)
+      console.log('[jumpTargets] nodes总数:', this.nodes.length)
+      console.log('[jumpTargets] currentNodes总数:', this.currentNodes.length)
+
+      if (!this.todoNode) {
+        console.log('[jumpTargets] todoNode为空，返回空数组')
+        return []
+      }
 
       const getback = this.todoNode.ifgetback
-      let candidates = this.nodes.filter(n => n.id !== this.todoNode.id)
+      console.log('[jumpTargets] todoNode.ifgetback:', getback, '(类型:', typeof getback, ')')
+
+      let candidates = this.currentNodes.filter(n => n.id !== this.todoNode.id)
+      console.log('[jumpTargets] 排除待办节点后的候选节点数:', candidates.length)
 
       // 根据ifgetback过滤
       if (getback === '-1') {
         // 不可跳转
+        console.log('[jumpTargets] ifgetback="-1"，不可跳转，返回空数组')
         return []
       } else if (getback && getback !== '' && getback !== null) {
         // 只能跳转到指定节点
+        console.log('[jumpTargets] 有限制条件，开始过滤...')
         const allowedIds = getback.split(',').map(id => id.trim()).filter(id => id)
-        candidates = candidates.filter(n =>
-          allowedIds.includes(n.id) ||
-          allowedIds.includes(n.id.toString()) ||
-          allowedIds.includes('0') && n.seqno === 0 // 0代表创建节点
-        )
+        console.log('[jumpTargets] allowedIds:', allowedIds)
+
+        // 🔴 修复：使用Set去重，避免重复的ID导致节点重复显示
+        const uniqueIds = [...new Set(allowedIds)]
+        console.log('[jumpTargets] uniqueIds (去重后):', uniqueIds)
+
+        candidates = candidates.filter(n => {
+          // 检查节点ID是否在允许列表中（同时兼容字符串和数字类型）
+          const matched = uniqueIds.some(id =>
+            id === n.id || id === n.id.toString() || id === String(n.id)
+          )
+          // 或者是创建节点（seqno=0）且allowedIds包含'0'
+          const isCreationNode = uniqueIds.includes('0') && (n.seqno === 0 || n.seqno === '0')
+          const result = matched || isCreationNode
+
+          console.log(`[jumpTargets] 节点 ${n.nodename}(id=${n.id}, seqno=${n.seqno}): matched=${matched}, isCreationNode=${isCreationNode}, result=${result}`)
+
+          return result
+        })
+
+        console.log('[jumpTargets] 过滤后的候选节点数:', candidates.length)
+      } else {
+        console.log('[jumpTargets] 无限制条件，返回全部候选节点')
       }
       // else: 不限制，返回全部候选节点
 
+      console.log('[jumpTargets] 最终返回节点数:', candidates.length)
+
+      // 🔴 诊断：检查是否有重复ID
+      const ids = candidates.map(n => n.id)
+      const uniqueCheckIds = [...new Set(ids)]
+      console.log('[jumpTargets] 返回的节点ID列表:', ids)
+      console.log('[jumpTargets] ID去重后数量:', uniqueCheckIds.length)
+      if (ids.length !== uniqueCheckIds.length) {
+        console.error('[jumpTargets] ⚠️ 警告：返回的节点中包含重复ID！')
+        console.error('[jumpTargets] 重复的ID:', ids.filter((id, idx) => ids.indexOf(id) !== idx))
+      }
+
+      console.log('[jumpTargets] ===== 计算结束 =====')
       return candidates
     },
     // 待办是否为最后一个节点（还原旧 lastnodenote）
     isLastTodo() {
-      if (!this.todoNode || this.nodes.length === 0) return false
-      const last = this.nodes[this.nodes.length - 1]
+      if (!this.todoNode || this.currentNodes.length === 0) return false
+      const last = this.currentNodes[this.currentNodes.length - 1]
       return last && last.id === this.todoNode.id
     },
     // 是否允许编辑节点（还原旧 iscreator：编制人 或 待办人，且流程未结束）
@@ -318,17 +371,17 @@ export default {
     // 检查是否存在自己已通过（ifexec=Y）且是自己处理的节点
     // 🔧 优化2：使用提取的方法简化判断
     hasGetbackNode() {
-      if (this.instOver || !this.nodes || this.nodes.length === 0) return false
-      return this.nodes.some(node => node.ifexec === 'Y' && this.isCurrentUserNode(node))
+      if (this.instOver || !this.currentNodes || this.currentNodes.length === 0) return false
+      return this.currentNodes.some(node => node.ifexec === 'Y' && this.isCurrentUserNode(node))
     },
     // 🔧 Issue-4修复: 是否有可追加意见的节点
     // 只有存在【已处理】且【非创建节点】且【处理人为自己】的节点时才显示"保存意见"按钮
     // 🔧 优化2：使用提取的方法简化判断
     hasAddOpinionableNode() {
       if (!this.instance || this.instOver) return false
-      if (!this.nodes || this.nodes.length === 0) return false
+      if (!this.currentNodes || this.currentNodes.length === 0) return false
 
-      return this.nodes.some(node => {
+      return this.currentNodes.some(node => {
         // 必须已处理
         if (node.ifexec !== 'Y') return false
         // 不能是创建节点
@@ -345,9 +398,9 @@ export default {
       // 待办节点不能删
       if (this.todoNode && this.todoNode.id === this.selectedNode.id) return false
       // 后续有已处理节点不能删
-      const idx = this.nodes.findIndex(n => n.id === this.selectedNode.id)
+      const idx = this.currentNodes.findIndex(n => n.id === this.selectedNode.id)
       if (idx !== -1) {
-        const hasProcessedAfter = this.nodes
+        const hasProcessedAfter = this.currentNodes
           .slice(idx + 1)
           .some(n => n.ifexec === 'Y' || n.ifexec === 'J')
         if (hasProcessedAfter) return false
@@ -374,7 +427,7 @@ export default {
     // 各阶段的第一处理人 [{stage: '0', user: 'xxx', seqno: 1}, ...]
     // 🔴 缺陷6修复：过滤创建节点，避免空stagename污染stageUsers
     stageUsers() {
-      if (!this.existStage || !this.nodes || this.nodes.length === 0) return []
+      if (!this.existStage || !this.currentNodes || this.currentNodes.length === 0) return []
 
       // 缓存机制：nodes 未变化时复用缓存
       if (this._stageUsersCache && this._nodesVersion === this.nodes.length) {
@@ -384,7 +437,7 @@ export default {
       const users = []
       const seen = new Set()
 
-      this.nodes.forEach(node => {
+      this.currentNodes.forEach(node => {
         // ✅ 跳过创建节点(seqno=0)，其stagename通常为空
         if (node.seqno === 0 || node.seqno === '0') return
 
@@ -413,7 +466,7 @@ export default {
 
     // 各阶段的执行状态 [{stage: '0', ifexec: 'N'/'Y'}, ...]
     stageExecutionStatus() {
-      if (!this.existStage || !this.nodes || this.nodes.length === 0) return []
+      if (!this.existStage || !this.currentNodes || this.currentNodes.length === 0) return []
 
       // 缓存机制：nodes 未变化时复用缓存
       if (this._stageStatusCache && this._nodesVersion === this.nodes.length) {
@@ -421,10 +474,10 @@ export default {
       }
 
       const status = []
-      const stages = new Set(this.nodes.map(n => n.stagename).filter(s => s != null && s !== ''))
+      const stages = new Set(this.currentNodes.map(n => n.stagename).filter(s => s != null && s !== ''))
 
       stages.forEach(stage => {
-        const stageNodes = this.nodes.filter(n => n.stagename === stage)
+        const stageNodes = this.currentNodes.filter(n => n.stagename === stage)
         const allExecuted = stageNodes.length > 0 && stageNodes.every(n => n.ifexec === 'Y')
         status.push({
           stage: stage,
@@ -441,17 +494,15 @@ export default {
     // 🔴 问题1修复：改为遍历所有节点，任何节点处理人都能获得阶段
     // 🔴 缺陷1修复：过滤创建节点(seqno=0)，其stagename通常为空
     currentUserStage() {
-      if (!this.existStage || !this.nodes || this.nodes.length === 0) return null
+      if (!this.existStage || !this.currentNodes || this.currentNodes.length === 0) return null
 
       // ✅ 遍历所有节点，找到当前用户是处理人的节点
       // 对齐旧系统 IncludeWfInstanceExec.jsp Line 234-236, Line 430
-      const found = this.nodes.find(node => {
+      const found = this.currentNodes.find(node => {
         // 跳过创建节点(seqno=0)，对齐旧系统特殊处理
         if (node.seqno === 0 || node.seqno === '0') return false
 
-        if (!node.userid) return false
-        const users = node.userid.split(',').map(u => u.trim()).filter(u => u)
-        return users.includes(this.currentUserId) || users.includes(this.currentUsername)
+        return this.isCurrentUserNode(node) // ✅ P2-21修复：使用统一方法
       })
 
       return found ? found.stagename : null  // ✅ 返回该节点的阶段
@@ -470,9 +521,7 @@ export default {
       if (!this.existStage || !this.stageUsers || this.stageUsers.length === 0) return false
 
       const found = this.stageUsers.find(s => {
-        if (!s.user) return false
-        const users = s.user.split(',').map(u => u.trim()).filter(u => u)
-        return users.includes(this.currentUserId) || users.includes(this.currentUsername)
+        return this.isCurrentUserInList(s.user) // ✅ P2-21修复：使用统一方法
       })
 
       return !!found
@@ -501,10 +550,19 @@ export default {
   },
   methods: {
     // 🔧 优化2：提取处理人检查逻辑，避免重复代码
+    // ✅ P2-21修复：统一用户匹配逻辑
+    isCurrentUserInList(useridStr) {
+      if (!useridStr) return false
+      const userids = useridStr.split(',').map(u => u.trim()).filter(u => u)
+      // 🔴 修复：确保类型一致性，将所有值转为字符串进行比较（避免数字ID vs 字符串userid的类型不匹配）
+      const currentUserIdStr = String(this.currentUserId || '')
+      const currentUsernameStr = String(this.currentUsername || '')
+      return userids.includes(currentUserIdStr) || userids.includes(currentUsernameStr)
+    },
+
     isCurrentUserNode(node) {
-      if (!node || !node.userid) return false
-      const userids = node.userid.split(',').map(u => u.trim()).filter(u => u)
-      return userids.includes(this.currentUserId) || userids.includes(this.currentUsername)
+      if (!node) return false
+      return this.isCurrentUserInList(node.userid)
     },
 
     // P3-1: 钩子命名兼容（同时支持kebab-case和驼峰命名）
@@ -570,8 +628,9 @@ export default {
 
     handleNodesLoaded(nodes) {
       this.nodes = nodes || []
-      // 🔧 优化1：节点变化时清空缓存
-      this._nodesVersion = this.nodes.length
+      // P1-4修复：使用时间戳作为版本号，确保节点内容变更时缓存失效
+      // 原问题：节点数量不变但内容变化（如节点状态从N→Y）时缓存不会失效
+      this._nodesVersion = Date.now()
       this._stageUsersCache = null
       this._stageStatusCache = null
     },
@@ -631,6 +690,11 @@ export default {
 
     // 🔧 方案A：显示追加意见弹窗
     showAddOpinionModal() {
+      // 🔴 调试日志：输出关键信息用于诊断
+      console.log('[追加意见] 选中节点:', this.selectedNode)
+      console.log('[追加意见] 当前用户ID:', this.currentUserId, '(类型:', typeof this.currentUserId, ')')
+      console.log('[追加意见] 当前用户名:', this.currentUsername, '(类型:', typeof this.currentUsername, ')')
+
       if (!this.selectedNode) {
         this.$message.warning('请先选择一个节点')
         return
@@ -643,7 +707,13 @@ export default {
         this.$message.warning('创建节点不能追加意见！')
         return
       }
-      if (!this.isCurrentUserNode(this.selectedNode)) {
+
+      // 🔴 调试日志：校验前输出节点处理人信息
+      console.log('[追加意见] 节点处理人(userid):', this.selectedNode.userid, '(类型:', typeof this.selectedNode.userid, ')')
+      const checkResult = this.isCurrentUserNode(this.selectedNode)
+      console.log('[追加意见] 处理人校验结果:', checkResult)
+
+      if (!checkResult) {
         this.$message.warning('请选择一个处理人为自己的节点！')
         return
       }
@@ -733,7 +803,7 @@ export default {
       }
 
       // 🟠 遗漏10修复：检查节点是否仍存在
-      const exists = this.nodes.some(n => n.id === this.selectedNode.id)
+      const exists = this.currentNodes.some(n => n.id === this.selectedNode.id)
       if (!exists) {
         this.$message.error('选中的节点已被删除，请刷新后重试')
         this.selectedNode = null
@@ -914,17 +984,17 @@ export default {
           fd.append('targetDtlid', this.form.targetDtlid)
 
           // ✅ P1-5: 跳转时自动添加"[第X次退回]"或"跳过"前缀（对齐旧系统 Line 1273-1289）
-          const todoIdx = this.nodes.findIndex(n => n.id === this.todoNode.id)
-          const targetIdx = this.nodes.findIndex(n => n.id === this.form.targetDtlid)
+          const todoIdx = this.currentNodes.findIndex(n => n.id === this.todoNode.id)
+          const targetIdx = this.currentNodes.findIndex(n => n.id === this.form.targetDtlid)
           const isReturn = todoIdx !== -1 && targetIdx !== -1 && todoIdx > targetIdx
 
           // 计算当前最大退回次数（借用ifjump字段）
-          const maxIfjump = Math.max(0, ...this.nodes.map(n => parseInt(n.ifjump || 0, 10)))
+          const maxIfjump = Math.max(0, ...this.currentNodes.map(n => parseInt(n.ifjump || 0, 10)))
           const returnNo = maxIfjump + 1
 
           // 构造意见前缀
           const typePrefix = isReturn ? `[第${returnNo}次退回]` : '跳过'
-          const targetNode = this.nodes.find(n => n.id === this.form.targetDtlid)
+          const targetNode = this.currentNodes.find(n => n.id === this.form.targetDtlid)
           const targetName = targetNode ? targetNode.nodename : ''
           const opinionPrefix = `${typePrefix}到节点"${targetName}"`
           const userOpinion = (this.form.opinion || '').trim()

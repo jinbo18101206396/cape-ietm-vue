@@ -58,8 +58,9 @@
           size="small"
           style="width: 130px"
         >
-          <a-select-option value="0">所有人必完成</a-select-option>
-          <a-select-option value="1">只1人完成</a-select-option>
+          <a-select-option v-for="item in nodetypeOptions" :key="item.value" :value="item.value">
+            {{ item.text }}
+          </a-select-option>
         </a-select>
         <span v-else>{{ getNodetypeText(text) }}</span>
       </template>
@@ -198,7 +199,12 @@ export default {
       // 正在编辑的行ID（单行编辑，还原旧 indexEditing）
       editingRowId: null,
       // 编辑前快照（取消时还原）
-      editSnapshot: null
+      editSnapshot: null,
+      // ✅ P2-26修复：提取节点类型映射
+      nodetypeOptions: [
+        { text: '所有人必完成', value: '0' },
+        { text: '只1人完成', value: '1' }
+      ]
     }
   },
   computed: {
@@ -359,8 +365,9 @@ export default {
       if (!this.instanceId) return
       this.loading = true
       // 1) 节点列表——独立加载，是列表能否显示的关键，不与执行历史耦合
+      // 使用 listWithHistory 接口获取历史节点+当前节点
       try {
-        const nodesRes = await getAction('/ietm/workflow/dtl/list', { instid: this.instanceId })
+        const nodesRes = await getAction('/ietm/workflow/dtl/listWithHistory', { instid: this.instanceId })
         if (nodesRes.success) {
           this.dataSource = nodesRes.result || []
           this.$emit('nodes-loaded', this.dataSource)
@@ -381,20 +388,18 @@ export default {
       try {
         // 🆕 使用新接口查询历史审批信息（包含重启前的记录）
         const execRes = await getAction('/ietm/workflow/execute/listWithHistory', { instid: this.instanceId })
+
         const map = {}
         if (execRes.success && Array.isArray(execRes.result)) {
-          // 🆕 构建当前实例的节点ID集合，用于标记历史记录
-          const currentNodeIds = new Set(this.dataSource.map(n => n.id))
-
+          // 现在节点列表已经包含历史节点，每个节点直接对应自己的执行记录
+          // 不需要复杂的映射逻辑，直接用instdtlid匹配即可
           execRes.result.forEach(e => {
-            const k = e.instdtlid
-            if (!map[k]) map[k] = []
-
-            // 🆕 标记是否为历史记录（旧实例的执行记录）
-            e.isHistory = !currentNodeIds.has(k)
-
-            map[k].push(e)
+            const dtlId = e.instdtlid
+            if (!map[dtlId]) map[dtlId] = []
+            map[dtlId].push(e)
           })
+
+          // 每个节点的记录按时间升序排序
           Object.keys(map).forEach(k => {
             map[k].sort((a, b) => new Date(a.createTime) - new Date(b.createTime))
           })
@@ -894,17 +899,15 @@ export default {
         // 优先 createName(显示名，对齐旧 CREATED_NAME)，fallback createBy(用户名)
         const who = this.escapeHtml(item.createName || item.createBy || '')
 
-        // 🆕 历史记录标识（橙色"历史"标签）
-        const historyTag = item.isHistory
-          ? '<span style="display:inline-block;padding:0 4px;margin-right:4px;background:#ff9800;color:#fff;font-size:11px;border-radius:2px;">历史</span>'
-          : ''
-
-        const line = historyTag + jumpPrefix + '【' + who + '】于【' + time + '】' + this.getIfpassText(item.ifpass, item.ifjump) + ideas
+        const line = jumpPrefix + '【' + who + '】于【' + time + '】' + this.getIfpassText(item.ifpass, item.ifjump) + ideas
 
         // 追加意见红字
-        return item.ifpass === '4'
+        const coloredLine = item.ifpass === '4'
           ? '<span style="color:red">' + line + '</span>'
           : line
+
+        // 🆕 修复：使用div包裹每条记录，确保强制换行（避免<br/>被CSS影响）
+        return '<div style="line-height:1.8;margin:2px 0;">' + coloredLine + '</div>'
       })
 
       // P2-UI-01修复：渲染附件链接（使用data属性存储下载信息）
@@ -919,10 +922,10 @@ export default {
                      data-filename="${escapedFilename}"
                      title="点击下载：${escapedFilename}">${escapedFilename}</a>`
         }).join(' ')
-        parts.push('<br/>📎 附件：' + fileHtml)
+        parts.push('<div style="line-height:1.8;margin:2px 0;">📎 附件：' + fileHtml + '</div>')
       }
 
-      return parts.join('<br/>')
+      return parts.join('')
     },
 
     // P2-UI-01修复：绑定附件下载事件（使用事件委托）
@@ -1003,7 +1006,9 @@ export default {
 
     // 处理结果（还原旧 formateIfpass：含退回次数前缀）
     getIfpassText(ifpass, ifjump) {
-      const jump = (ifjump != null && ifjump !== '') ? '[第' + ifjump + '次退回]' : ''
+      // 🔴 修复：仅当退回次数>0时才显示"[第X次退回]"前缀，避免创建节点显示"[第0次退回]"
+      const jumpNum = parseInt(ifjump)
+      const jump = (!isNaN(jumpNum) && jumpNum > 0) ? '[第' + jumpNum + '次退回]' : ''
       const map = { '1': '通过', '2': '发表不同意见', '3': '流程跳转', '4': '追加意见', '5': '拿回', '9': '流程终止' }
       return jump + (map[ifpass] || '')
     },
@@ -1118,10 +1123,9 @@ export default {
     },
 
     getNodetypeText(nodetype) {
-      // 🔴 修复问题1：对齐旧系统，nodetype表示"处理方式"而非"节点类型"
-      // 旧系统: '0'=所有人必完成, '1'=只1人完成
-      const map = { '0': '所有人必完成', '1': '只1人完成' }
-      return map[nodetype] || nodetype
+      // ✅ P2-26修复：使用统一的nodetypeOptions数组
+      const item = this.nodetypeOptions.find(opt => opt.value === nodetype)
+      return item ? item.text : nodetype
     },
     getIfexecText(ifexec) {
       const map = { 'N': '未执行', 'Y': '已执行', 'J': '跳过', 'R': '退回' }

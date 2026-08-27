@@ -158,7 +158,7 @@
               :scroll="{ x: 900, y: 400 }"
               bordered
               size="small"
-              rowKey="_rid"
+              rowKey="_clientId"
               :rowClassName="getNodeRowClassName"
             >
           <!-- 顺序号 -->
@@ -531,7 +531,7 @@ export default {
       const currentUser = this.$store.getters.userInfo
       this.model.nodes = [
         {
-          _rid: generateUUID(), // 稳定行标识（rowKey/选择用），与可编辑的 seqno 解耦
+          _clientId: generateUUID(), // ✅ P2-30修复：客户端临时行标识（rowKey/选择用），与可编辑的 seqno 解耦
           seqno: 0,
           nodename: '创建节点',
           nodetype: '0', // 默认"所有人必完成"
@@ -841,7 +841,7 @@ export default {
         console.warn('批量启动流程：创建节点不存在，自动初始化')
         const currentUser = this.$store.getters.userInfo
         createNode = {
-          _rid: generateUUID(),
+          _clientId: generateUUID(),
           seqno: 0,
           nodename: '创建节点',
           nodetype: '0',
@@ -856,7 +856,7 @@ export default {
       const formattedNodes = templateNodes
         .filter(n => n.seqno !== 0) // 过滤掉创建节点（如果模板中包含）
         .map(node => ({
-          _rid: generateUUID(),
+          _clientId: generateUUID(),
           seqno: node.seqno,
           nodename: node.nodename,
           // 🔧 修复：如果模板中nodetype为空或undefined，默认设置为'0'（所有人必须完成）
@@ -923,7 +923,7 @@ export default {
       const newSeqno = maxSeqno + 10
 
       this.model.nodes.push({
-        _rid: generateUUID(),
+        _clientId: generateUUID(),
         seqno: newSeqno,
         nodename: '',
         nodetype: '0', // 默认"所有人必完成"
@@ -949,7 +949,7 @@ export default {
         content: '删除的数据不能恢复，您确定要删除当前所选的数据？',
         onOk: () => {
           this.model.nodes = this.model.nodes.filter(
-            node => !this.selectedNodeKeys.includes(node._rid) || node.seqno === 0 || node.ifexec === 'Y'
+            node => !this.selectedNodeKeys.includes(node._clientId) || node.seqno === 0 || node.ifexec === 'Y'
           )
           this.selectedNodeKeys = []
           this.$message.success('已删除选中节点')
@@ -1033,7 +1033,7 @@ export default {
             useridname: prepared.useridname || '',
             stagename: prepared.stagename || '',
             ifgetback: prepared.ifgetback || '',
-            _rid: prepared._rid  // 方案C：前端稳定标识，后端用于映射
+            _clientId: prepared._clientId  // 方案C：前端稳定标识，后端用于映射
           }
         }),
         ifurgent: this.model.ifurgent,
@@ -1547,15 +1547,15 @@ export default {
      * 对标：旧系统 IncludeInstanceAdd.jsp:465-478
      * 🐛 BUG修复：
      *   1. 使用 this.model.nodes 而不是不存在的 this.nodeList
-     *   2. 使用 _rid 而不是 id（新系统节点没有id字段，只有_rid）
+     *   2. 使用 _clientId 而不是 id（新系统节点没有id字段，只有_clientId）
      *   3. 返回所有其他节点（包括创建节点seqno=0），用于可跳转节点选择
-     * 方案C修复：改用_rid作为value，对齐后端雪花ID数据契约
+     * 方案C修复：改用_clientId作为value，对齐后端雪花ID数据契约
      */
     getJumpableNodes(record) {
       return this.model.nodes
-        .filter(n => n._rid !== record._rid)
+        .filter(n => n._clientId !== record._clientId)
         .map(node => ({
-          value: node._rid,  // 使用稳定的_rid，后端会映射到真实节点ID
+          value: node._clientId,  // 使用稳定的_clientId，后端会映射到真实节点ID
           label: `${node.seqno === 0 ? '创建节点' : node.seqno} - ${node.nodename}`
         }))
     },
@@ -1637,7 +1637,7 @@ export default {
      * 🔧 修复4: 提交前转换（防御性编程）
      * 正常情况下，onIfgetbackChange已将数据转换为后端格式
      * 此方法用于防御性处理可能残留的UI格式标记
-     * 方案C：_rid会被后端resolveFrontendIfgetback映射为真实节点ID
+     * 方案C：_clientId会被后端resolveFrontendIfgetback映射为真实节点ID
      */
     prepareNodeDataForSubmit(node) {
       const prepared = { ...node }
@@ -1648,8 +1648,8 @@ export default {
       } else if (prepared.ifgetback === '__NO_JUMP__') {
         prepared.ifgetback = '-1'
       }
-      // 其他情况：已是后端格式（空字符串/-1/_rid列表），保持不变
-      // _rid会被后端映射为真实节点ID
+      // 其他情况：已是后端格式（空字符串/-1/_clientId列表），保持不变
+      // _clientId会被后端映射为真实节点ID
 
       return prepared
     },

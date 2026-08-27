@@ -149,8 +149,19 @@
 
           <a-row :gutter="20">
             <a-col :span="12">
-              <a-form-model-item label="版本类型">
-                <a-input v-model="versionTypeDisplayName" disabled />
+              <a-form-model-item label="版本类型" prop="issueType">
+                <a-select
+                  v-model="model.issueType"
+                  :disabled="isViewMode"
+                  placeholder="请选择版本类型"
+                  style="width: 100%"
+                >
+                  <a-select-option value="new">new（新建）</a-select-option>
+                  <a-select-option value="changed">changed（变更，10%-30%）</a-select-option>
+                  <a-select-option value="revised">revised（修订，30%以上）</a-select-option>
+                  <a-select-option value="status">status（仅状态变更）</a-select-option>
+                  <a-select-option value="deleted">deleted（删除）</a-select-option>
+                </a-select>
               </a-form-model-item>
             </a-col>
             <a-col :span="12">
@@ -214,10 +225,6 @@ export default {
     // 数据模块类型显示名称（优先使用字典文本，如果不存在则使用原始值）
     dmTypeDisplayName() {
       return this.model.dmType_dictText || this.model.dmType || ''
-    },
-    // 版本类型显示名称（直接使用数据库字段）
-    versionTypeDisplayName() {
-      return this.model.issueType || '-'
     }
   },
   methods: {
@@ -266,7 +273,8 @@ export default {
           this.confirmLoading = true
           const formData = {
             techName: this.model.techName,
-            infoName: this.model.infoName
+            infoName: this.model.infoName,
+            issueType: this.model.issueType
           }
           httpAction(`${this.url.edit}/${this.model.id}`, formData, 'put')
             .then(res => {
