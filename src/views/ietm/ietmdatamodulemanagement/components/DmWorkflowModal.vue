@@ -77,9 +77,73 @@ export default {
       this.loadWorkflowInfo()
     },
     loadWorkflowInfo() {
-      // TODO: 加载工作流信息
-      this.workflowInfo = {}
-      this.workflowHistory = []
+      // 加载工作流信息
+      if (!this.dmId) {
+        return
+      }
+
+      this.loading = true
+
+      // 查询DM的工作流实例信息
+      getAction('/ietm/workflow/instance/getByFormid', { formid: this.dmId })
+        .then(res => {
+          if (res.success && res.result) {
+            const instance = res.result
+            this.workflowInfo = {
+              instanceId: instance.id,
+              status: instance.status,
+              currentStep: instance.workflowStep || '-',
+              currentHandler: instance.workflowHandler || '-'
+            }
+
+            // 如果有实例ID，加载流程历史
+            if (instance.id) {
+              this.loadWorkflowHistory(instance.id)
+            }
+          } else {
+            // 没有工作流实例
+            this.workflowInfo = {}
+            this.workflowHistory = []
+          }
+        })
+        .catch(err => {
+          console.error('加载工作流信息失败', err)
+          this.$message.error('加载工作流信息失败')
+          this.workflowInfo = {}
+          this.workflowHistory = []
+        })
+        .finally(() => {
+          this.loading = false
+        })
+    },
+
+    loadWorkflowHistory(instanceId) {
+      // 加载工作流执行历史
+      getAction('/ietm/workflow/execute/listByInstId', { instid: instanceId })
+        .then(res => {
+          if (res.success && res.result) {
+            this.workflowHistory = res.result.map(item => ({
+              id: item.id,
+              step: item.nodename || '未知节点',
+              handler: item.createName || item.createBy || '系统',
+              time: item.createTime || '-',
+              comment: item.opinion || '',
+              color: this.getHistoryColor(item.ifagree)
+            }))
+          }
+        })
+        .catch(err => {
+          console.error('加载流程历史失败', err)
+          this.workflowHistory = []
+        })
+    },
+
+    getHistoryColor(ifagree) {
+      // 根据审批结果返回时间轴颜色
+      if (ifagree === '1') return 'green'  // 同意
+      if (ifagree === '2') return 'red'    // 不同意
+      if (ifagree === '3') return 'blue'   // 跳转
+      return 'gray'  // 其他
     },
     getStatusBadge() {
       const status = this.workflowInfo.status

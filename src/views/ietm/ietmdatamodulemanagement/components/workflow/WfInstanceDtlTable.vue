@@ -379,12 +379,20 @@ export default {
       }
       // 2) 执行历史——单独加载，失败仅置空处理情况列，不清空节点列表
       try {
-        const execRes = await getAction('/ietm/workflow/execute/list', { instid: this.instanceId })
+        // 🆕 使用新接口查询历史审批信息（包含重启前的记录）
+        const execRes = await getAction('/ietm/workflow/execute/listWithHistory', { instid: this.instanceId })
         const map = {}
         if (execRes.success && Array.isArray(execRes.result)) {
+          // 🆕 构建当前实例的节点ID集合，用于标记历史记录
+          const currentNodeIds = new Set(this.dataSource.map(n => n.id))
+
           execRes.result.forEach(e => {
             const k = e.instdtlid
             if (!map[k]) map[k] = []
+
+            // 🆕 标记是否为历史记录（旧实例的执行记录）
+            e.isHistory = !currentNodeIds.has(k)
+
             map[k].push(e)
           })
           Object.keys(map).forEach(k => {
@@ -869,7 +877,8 @@ export default {
       if (!list || list.length === 0) {
         // 查找对应的节点记录
         const node = this.dataSource.find(n => n.id === dtlid)
-        if (node && (node.seqno === 0 || node.seqno === '0') && node.ifexec === 'Y') {
+        // 🔧 问题3修复：使用nodetype判断创建节点，避免重启流程后seqno+100导致判断失效
+        if (node && node.nodetype === '0' && node.ifexec === 'Y') {
           // 这是已执行的创建节点，生成默认处理情况（对齐旧系统）
           const who = this.escapeHtml(node.useridname || node.userid || '系统')
           const time = node.createTime ? moment(node.createTime).format('YYYY-MM-DD HH:mm:ss') : ''
@@ -884,7 +893,14 @@ export default {
         const ideas = item.opinion ? '，意见为:【' + this.escapeHtml(item.opinion) + '】' : ''
         // 优先 createName(显示名，对齐旧 CREATED_NAME)，fallback createBy(用户名)
         const who = this.escapeHtml(item.createName || item.createBy || '')
-        const line = jumpPrefix + '【' + who + '】于【' + time + '】' + this.getIfpassText(item.ifpass, item.ifjump) + ideas
+
+        // 🆕 历史记录标识（橙色"历史"标签）
+        const historyTag = item.isHistory
+          ? '<span style="display:inline-block;padding:0 4px;margin-right:4px;background:#ff9800;color:#fff;font-size:11px;border-radius:2px;">历史</span>'
+          : ''
+
+        const line = historyTag + jumpPrefix + '【' + who + '】于【' + time + '】' + this.getIfpassText(item.ifpass, item.ifjump) + ideas
+
         // 追加意见红字
         return item.ifpass === '4'
           ? '<span style="color:red">' + line + '</span>'

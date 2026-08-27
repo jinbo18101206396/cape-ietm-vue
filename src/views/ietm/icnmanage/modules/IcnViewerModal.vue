@@ -232,17 +232,30 @@ export default {
           'X-Access-Token': token || ''
         }
       }).then(response => {
+        // 🆕 检查Content-Type，防止把JSON错误当作Blob处理
+        const contentType = response.headers.get('content-type') || ''
+        if (contentType.includes('application/json')) {
+          // 返回的是JSON错误响应（如token失效），需要解析错误信息
+          return response.json().then(json => {
+            throw new Error(json.message || 'HTTP ' + response.status)
+          })
+        }
+
         if (!response.ok) {
           throw new Error('HTTP ' + response.status)
         }
         return response.blob()
       }).then(blob => {
+        // 🆕 检查Blob大小，防止空文件
+        if (blob.size === 0) {
+          throw new Error('文件为空或不存在')
+        }
         this.blobUrl = URL.createObjectURL(blob)
       }).catch(err => {
         console.error('文件预览加载失败:', err)
         console.error('文件URL:', this.previewInfo.fileUrl)
         this.loadError = true
-        this.errorMessage = '文件加载失败，请检查文件是否存在或稍后重试'
+        this.errorMessage = err.message || '文件加载失败，请检查文件是否存在或稍后重试'
       })
     },
 

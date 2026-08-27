@@ -76,7 +76,7 @@
           <a-radio-group v-model="form.ifpass" size="small" @change="onIfpassChange">
             <a-radio value="1">通过</a-radio>
             <a-radio value="2">发表不同意见</a-radio>
-            <a-radio value="9">流程终止</a-radio>
+            <a-radio value="9" v-if="isCreator">流程终止</a-radio>
             <a-radio value="3">跳转</a-radio>
           </a-radio-group>
           <a-select
@@ -524,19 +524,32 @@ export default {
     // 加载实例 + 待办（还原旧 getTodo + 主表加载）
     async loadInstance() {
       if (!this.formid) return
+      console.log('[WorkflowInfoPanel] loadInstance - formid:', this.formid)
       try {
         const [instRes, todoRes] = await Promise.all([
           getAction('/ietm/workflow/instance/getByFormid', { formid: this.formid }),
           getAction('/ietm/workflow/instance/getTodo', { formid: this.formid })
         ])
+
+        console.log('[WorkflowInfoPanel] getByFormid响应:', instRes)
+        console.log('[WorkflowInfoPanel] getTodo响应:', todoRes)
+
         this.instance = (instRes.success && instRes.result) ? instRes.result : null
         this.urgent = this.instance ? (this.instance.ifurgent || '1') : '1'
         this.todoNode = (todoRes.success && todoRes.result) ? todoRes.result : null
+
+        console.log('[WorkflowInfoPanel] instance已设置:', this.instance)
+        console.log('[WorkflowInfoPanel] todoNode已设置:', this.todoNode)
+
+        if (!this.todoNode) {
+          console.warn('[WorkflowInfoPanel] ⚠️ todoNode为空 - 处理表单将不显示')
+        }
+
         // 有待办时预置提交表单 instdtlid
         this.resetForm()
       } catch (e) {
         console.error('[WorkflowInfoPanel] 加载失败:', e)
-        this.$message.error('加载流程信息失败：' + e.message)
+        this.handleError(e, '加载流程信息')  // ✅ P1-3修复
       }
     },
 
@@ -612,7 +625,7 @@ export default {
           this.$message.error(res.message || '更新失败')
         }
       } catch (e) {
-        this.$message.error('更新失败：' + e.message)
+        this.handleError(e, '更新紧急程度')  // ✅ P1-3修复
       }
     },
 
@@ -657,7 +670,7 @@ export default {
           this.$message.error(res.message || '追加意见失败')
         }
       } catch (e) {
-        this.$message.error('追加意见失败：' + e.message)
+        this.handleError(e, '追加意见')  // ✅ P1-3修复
       }
     },
 
@@ -708,7 +721,7 @@ export default {
           this.$message.error(res.message || '追加意见失败')
         }
       } catch (e) {
-        this.$message.error('追加意见失败：' + e.message)
+        this.handleError(e, '追加意见')  // ✅ P1-3修复
       }
     },
 
@@ -764,7 +777,7 @@ export default {
               this.$message.error(res.message || '拿回失败')
             }
           } catch (e) {
-            this.$message.error('拿回失败：' + e.message)
+            this.handleError(e, '拿回')  // ✅ P1-3修复
           }
         }
       })
@@ -802,6 +815,24 @@ export default {
 
     // 提交处理（还原旧 saveExecute + submitexec 的前端校验）
     handleSubmit() {
+      // 🔴 新增：调试日志 - 排查404问题
+      console.log('[WorkflowInfoPanel] 提交处理 - 开始')
+      console.log('[WorkflowInfoPanel] instance:', this.instance)
+      console.log('[WorkflowInfoPanel] todoNode:', this.todoNode)
+      console.log('[WorkflowInfoPanel] formid:', this.formid)
+
+      // 🔴 新增：校验todoNode是否存在（防止404）
+      if (!this.todoNode) {
+        console.error('[WorkflowInfoPanel] todoNode为null，无法提交')
+        this.$message.error('未找到待办任务！请确认：1）流程已启动 2）您是当前节点的处理人 3）节点未被处理。请刷新页面后重试。')
+        return
+      }
+      if (!this.todoNode.id) {
+        console.error('[WorkflowInfoPanel] todoNode.id为空:', this.todoNode)
+        this.$message.error('待办任务数据异常（缺少节点ID），请联系管理员检查数据')
+        return
+      }
+
       // 🔴 P0-X: 签出状态校验（对齐旧系统：该DM还是签出状态,请签入后再提交后续流程处理）
       if (this.checkoutUser) {
         this.$message.warning('该DM还是签出状态,请签入后再提交后续流程处理。')
@@ -852,6 +883,7 @@ export default {
     },
 
     async doSubmit() {
+      console.log('[WorkflowInfoPanel] doSubmit - 执行提交')
       this.submitting = true
       try {
         // ✅ P0-3: 提交处理前先保存节点（对齐旧系统 Line 1267）
@@ -871,6 +903,11 @@ export default {
         }
 
         const fd = new FormData()
+
+        // 🔴 新增：构建请求参数前再次校验
+        console.log('[WorkflowInfoPanel] 构建FormData - todoNode.id:', this.todoNode.id)
+        console.log('[WorkflowInfoPanel] 构建FormData - ifpass:', this.form.ifpass)
+
         fd.append('instdtlid', this.todoNode.id)
         fd.append('ifpass', this.form.ifpass)
         if (this.form.ifpass === '3' && this.form.targetDtlid) {
@@ -901,7 +938,17 @@ export default {
         }
         if (this.fileList.length > 0) fd.append('file', this.fileList[0])
 
+        // 🔴 新增：打印FormData内容用于调试
+        console.log('[WorkflowInfoPanel] 即将提交，FormData内容:')
+        for (let pair of fd.entries()) {
+          console.log('  ' + pair[0] + ':', pair[1])
+        }
+        console.log('[WorkflowInfoPanel] 请求URL: /ietm/workflow/execute/submit')
+
         const res = await uploadAction('/ietm/workflow/execute/submit', fd)
+
+        console.log('[WorkflowInfoPanel] 提交响应:', res)
+
         if (res.success) {
           this.$message.success('成功处理！')
           this.resetForm() // P0-1修复：提交成功后清空表单和附件
@@ -946,7 +993,7 @@ export default {
           this.$message.error(res.message || '处理失败')
         }
       } catch (e) {
-        this.$message.error('处理失败：' + e.message)
+        this.handleError(e, '提交处理')  // ✅ P1-3修复
       } finally {
         this.submitting = false
       }
@@ -957,6 +1004,34 @@ export default {
       this.form.targetDtlid = undefined
       this.form.opinion = ''
       this.fileList = []
+    },
+
+    /**
+     * ✅ P1-3修复：统一错误处理，区分HTTP状态码
+     * @param {Error} e - 错误对象
+     * @param {String} action - 操作名称（如"更新紧急程度"）
+     */
+    handleError(e, action) {
+      // 判断是否是HTTP错误
+      if (e.response) {
+        const status = e.response.status
+        if (status === 403) {
+          this.$message.error(`您无权限执行此操作：${action}`)
+          return
+        } else if (status === 401) {
+          this.$message.error('登录已过期，请重新登录')
+          return
+        } else if (status === 404) {
+          this.$message.error(`${action}失败：接口不存在`)
+          return
+        } else if (status >= 500) {
+          this.$message.error(`${action}失败：服务器错误`)
+          return
+        }
+      }
+
+      // 其他错误（网络错误、业务错误等）
+      this.$message.error(`${action}失败：${e.message || '未知错误'}`)
     }
   }
 }

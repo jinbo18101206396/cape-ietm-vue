@@ -61,6 +61,8 @@
                       :disabled="autoMatchedTemplate"
                       @change="handleTemplateChange"
                       allowClear
+                      show-search
+                      :filter-option="filterTemplateOption"
                       size="default"
                     >
                       <a-select-option v-for="tmpl in templateList" :key="tmpl.id" :value="tmpl.id">
@@ -271,9 +273,9 @@
             >
               <a-select-option value="__UNLIMITED__">《不限制》</a-select-option>
               <a-select-option value="__NO_JUMP__">《不可跳转》</a-select-option>
-              <!-- 🔧 修复：移除固定的《创建》选项，避免与动态生成的创建节点重复 -->
-              <a-select-option v-for="node in getJumpableNodes(record)" :key="node._rid" :value="String(node.seqno)">
-                {{ node.nodename }}
+              <!-- 🔧 修复：使用 getJumpableNodes 返回的 value 和 label -->
+              <a-select-option v-for="option in getJumpableNodes(record)" :key="option.value" :value="option.value">
+                {{ option.label }}
               </a-select-option>
             </a-select>
           </template>
@@ -409,6 +411,13 @@ export default {
     // 动态计算表格列（按需求文档4.1节顺序）
     nodeColumns() {
       return [
+        // ✅ P2-2修复：添加序号列
+        {
+          title: '序号',
+          width: 60,
+          align: 'center',
+          customRender: (text, record, index) => index + 1
+        },
         this.userColumn,
         ...this.basicColumns,
         this.actionColumn
@@ -632,12 +641,8 @@ export default {
       this.templateLoading = true
 
       try {
-        // 🔧 临时Mock数据（后端接口可用后删除useMockData开关）
-        const useMockData = false // 设置为false启用真实接口
-
-        const templates = useMockData
-          ? await this.loadMockTemplates()
-          : await this.loadRealTemplates()
+        // P3-2修复：直接使用真实接口，删除Mock开关
+        const templates = await this.loadRealTemplates()
 
         this.processTemplateList(templates)
       } catch (err) {
@@ -746,14 +751,8 @@ export default {
 
       this.confirmLoading = true
 
-      // 🔧 MOCK: 临时数据，后端就绪后删除
-      const useMockData = false
-
-      if (useMockData) {
-        this.loadMockTemplateNodes(templateId)
-      } else {
-        this.loadRealTemplateNodes(templateId)
-      }
+      // P3-2修复：直接使用真实接口，删除Mock开关
+      this.loadRealTemplateNodes(templateId)
     },
 
     /**
@@ -878,6 +877,7 @@ export default {
     handleTemplateChange(templateId) {
       if (!templateId) {
         this.model.stagenames = ''
+        this.resetNodes()  // ✅ P1-1修复：清空旧节点
         return
       }
 
@@ -885,7 +885,15 @@ export default {
       if (template) {
         // 自动填充阶段名称
         this.model.stagenames = template.stagenames || ''
+        // ✅ P1-1修复：切换模板时清空旧节点，等待用户点击"加载模板"
+        this.resetNodes()
       }
+    },
+
+    // ✅ P3-1修复：模板下拉搜索过滤
+    filterTemplateOption(input, option) {
+      const text = option.componentOptions.children[1].text
+      return text.toLowerCase().indexOf(input.toLowerCase()) >= 0
     },
 
     // 确定模板（加载模板节点配置）
@@ -1024,7 +1032,8 @@ export default {
             userid: prepared.userid,
             useridname: prepared.useridname || '',
             stagename: prepared.stagename || '',
-            ifgetback: prepared.ifgetback || ''
+            ifgetback: prepared.ifgetback || '',
+            _rid: prepared._rid  // 方案C：前端稳定标识，后端用于映射
           }
         }),
         ifurgent: this.model.ifurgent,
@@ -1033,15 +1042,18 @@ export default {
       }
 
       // 🐛 调试日志：打印提交数据
-      console.log('========== 批量启动流程提交数据 ==========')
-      console.log('批次ID:', submitData.batchId)
-      console.log('DM数量:', submitData.dmIds.length)
-      console.log('节点总数:', submitData.nodes.length)
-      console.log('节点详情:')
-      submitData.nodes.forEach((node, index) => {
-        console.log(`  [${index}] seqno=${node.seqno}, nodename='${node.nodename}', nodetype='${node.nodetype}', userid=${node.userid}`)
-      })
-      console.log('==========================================')
+      // P3-1修复：使用条件日志，生产环境不输出
+      if (process.env.NODE_ENV === 'development') {
+        console.log('========== 批量启动流程提交数据 ==========')
+        console.log('批次ID:', submitData.batchId)
+        console.log('DM数量:', submitData.dmIds.length)
+        console.log('节点总数:', submitData.nodes.length)
+        console.log('节点详情:')
+        submitData.nodes.forEach((node, index) => {
+          console.log(`  [${index}] seqno=${node.seqno}, nodename='${node.nodename}', nodetype='${node.nodetype}', userid=${node.userid}`)
+        })
+        console.log('==========================================')
+      }
 
       return submitData
     },
@@ -1077,24 +1089,38 @@ export default {
      * @param {Object} res - 后端响应对象
      */
     handleSubmitSuccess(res) {
-      console.log('🔍 [启动流程调试] 后端返回:', res)
-      console.log('🔍 [启动流程调试] res.success:', res.success)
+      // P3-1修复：使用条件日志
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [启动流程调试] 后端返回:', res)
+        console.log('🔍 [启动流程调试] res.success:', res.success)
+      }
 
       if (res.success) {
-        console.log('✅ [启动流程调试] 进入成功分支，准备发射ok事件')
-        this.$message.success('保存成功！')
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ [启动流程调试] 进入成功分支，准备发射ok事件')
+        }
+        // ✅ P2-3修复：详细的成功提示信息
+        const dmCount = this.selectedDmIds.length
+        const nodeCount = this.model.nodes.length
+        this.$message.success(`成功启动${dmCount}条DM的流程，共${nodeCount}个节点`)
 
         // ✅ 修复：先触发事件，再关闭弹窗（确保父组件能够正确接收事件）
         this.$emit('ok')
-        console.log('✅ [启动流程调试] 已发射ok事件')
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ [启动流程调试] 已发射ok事件')
+        }
 
         // 延迟关闭弹窗，确保事件已完全处理
         this.$nextTick(() => {
           this.handleCancel()
-          console.log('✅ [启动流程调试] 弹窗已关闭')
+          if (process.env.NODE_ENV === 'development') {
+            console.log('✅ [启动流程调试] 弹窗已关闭')
+          }
         })
       } else {
-        console.log('❌ [启动流程调试] 进入失败分支，res.message:', res.message)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('❌ [启动流程调试] 进入失败分支，res.message:', res.message)
+        }
         this.$message.error(res.message || '批量启动失败')
         this.confirmLoading = false
       }
@@ -1112,9 +1138,19 @@ export default {
         if (status === 400) {
           this.$message.error('请求参数错误：' + (err.response.data.message || ''))
         } else if (status === 401) {
-          this.$message.error('未登录或登录已过期，请重新登录')
+          this.$message.error('登录已过期，请重新登录')
+          // P0-同族-1修复：401自动跳转登录页（对齐BatchRestartFlowModal）
+          setTimeout(() => {
+            this.$router.push('/user/login')
+          }, 1500)
+        } else if (status === 403) {
+          this.$message.error('无权限执行此操作，请联系管理员')
+        } else if (status === 404) {
+          this.$message.error('接口不存在，请联系管理员')
         } else if (status === 500) {
           this.$message.error('服务器错误：' + (err.response.data.message || ''))
+        } else if (status === 502 || status === 503) {
+          this.$message.error('服务暂时不可用，请稍后重试')
         } else {
           this.$message.error('操作失败：' + (err.message || '未知错误'))
         }
@@ -1128,18 +1164,11 @@ export default {
     },
 
     /**
-     * 提交批量启动流程（根据配置选择Mock或真实API）
+     * 提交批量启动流程
      * @param {Object} params - 提交参数
      */
     submitBatchFlow(params) {
-      const useMockData = false // 设置为false启用真实接口
-
-      if (useMockData) {
-        this.handleMockSubmit()
-        return
-      }
-
-      // 真实接口调用
+      // P3-2修复：直接使用真实接口，删除Mock开关
       postAction('/ietm/workflow/batchStartFlow', params)
         .then(res => this.handleSubmitSuccess(res))
         .catch(err => this.handleSubmitError(err))
@@ -1158,6 +1187,28 @@ export default {
       if (this.confirmLoading) {
         return
       }
+
+      // UX优化：批量操作超过50条时二次确认
+      const dmCount = this.model.dmIds.length
+      if (dmCount > 50) {
+        this.$confirm({
+          title: '批量操作确认',
+          content: `您选择了 ${dmCount} 条DM进行启动流程操作，处理可能需要较长时间（预计${Math.ceil(dmCount / 10)}秒），是否继续？`,
+          okText: '继续',
+          cancelText: '取消',
+          onOk: () => {
+            this.doSubmitFlow()
+          }
+        })
+        return
+      }
+
+      // 少于50条直接提交
+      this.doSubmitFlow()
+    },
+
+    // 执行提交流程
+    doSubmitFlow() {
       this.confirmLoading = true
 
       // 3. 准备提交数据
@@ -1212,6 +1263,19 @@ export default {
         return errors
       }
 
+      // ✅ P1-2修复：节点数量限制
+      if (nodes.length > 100) {
+        errors.push(`节点数量不能超过100个，当前：${nodes.length}`)
+        return errors
+      }
+
+      // ✅ P1-2修复：必须包含创建节点
+      const hasCreateNode = nodes.some(n => n.seqno === 0 && n.nodetype === '0')
+      if (!hasCreateNode) {
+        errors.push('节点配置中必须包含创建节点（顺序号=0）')
+        return errors
+      }
+
       // 检查2：顺序号不能重复
       const seqnoSet = new Set()
       for (const node of nodes) {
@@ -1261,15 +1325,82 @@ export default {
         const node = sortedNodes[i]
         const rowNum = i + 1
 
+        // ✅ P1-2修复：seqno范围校验
+        if (node.seqno < 0) {
+          errors.push(`第 ${rowNum} 行的顺序号不能为负数：${node.seqno}`)
+          return errors
+        }
+        if (node.seqno > 9999) {
+          errors.push(`第 ${rowNum} 行的顺序号不能超过9999：${node.seqno}`)
+          return errors
+        }
+
+        // ✅ P1-2修复：创建节点seqno必须为0
+        if (node.nodetype === '0' && node.seqno !== 0) {
+          errors.push(`第 ${rowNum} 行是创建节点，顺序号必须为0`)
+          return errors
+        }
+
+        // ✅ P1-2修复：非创建节点seqno必须>0
+        if (node.nodetype !== '0' && node.seqno <= 0) {
+          errors.push(`第 ${rowNum} 行不是创建节点，顺序号必须大于0`)
+          return errors
+        }
+
         // 检查3：处理人不能为空
         if (!node.userid || node.userid.trim() === '') {
           errors.push(`不能保存，请选择第 ${rowNum} 行的处理人.`)
           return errors
         }
 
+        // ✅ P1-2修复：处理人字段长度限制
+        if (node.userid.length > 500) {
+          errors.push(`第 ${rowNum} 行的处理人ID长度不能超过500个字符`)
+          return errors
+        }
+        if (node.useridname && node.useridname.length > 500) {
+          errors.push(`第 ${rowNum} 行的处理人姓名长度不能超过500个字符`)
+          return errors
+        }
+
+        // ✅ P1-2修复：userid与useridname数量一致
+        const userids = node.userid.split(',')
+        const useridnames = (node.useridname || '').split(',')
+        if (userids.length !== useridnames.length) {
+          errors.push(`第 ${rowNum} 行的处理人ID数量（${userids.length}）与姓名数量（${useridnames.length}）不一致`)
+          return errors
+        }
+
+        // ✅ P1-2修复：userid格式校验（对齐后端WfValidatorUtil）
+        // 支持：纯数字ID、带前缀ID（dpt_/rol_/pst_/grp_）
+        const useridPattern = /^[a-zA-Z0-9_,\-]+$/
+        if (!useridPattern.test(node.userid)) {
+          errors.push(`第 ${rowNum} 行的处理人ID格式不正确（只能包含字母、数字、下划线、逗号和短横线）`)
+          return errors
+        }
+
+        // 验证每个ID的前缀格式（如果包含下划线）
+        const useridList = node.userid.split(',')
+        for (let uid of useridList) {
+          const trimmedId = uid.trim()
+          if (trimmedId.includes('_')) {
+            const prefixPattern = /^(dpt|rol|pst|grp)_[a-zA-Z0-9\-]+$/
+            if (!prefixPattern.test(trimmedId)) {
+              errors.push(`第 ${rowNum} 行的处理人ID前缀格式错误：${trimmedId}（支持的前缀：dpt_/rol_/pst_/grp_）`)
+              return errors
+            }
+          }
+        }
+
         // 检查4：节点名称不能为空
         if (!node.nodename || node.nodename.trim() === '') {
           errors.push(`不能保存，请填写第 ${rowNum} 行的节点名称.`)
+          return errors
+        }
+
+        // ✅ P1-2修复：节点名称长度限制
+        if (node.nodename.length > 100) {
+          errors.push(`第 ${rowNum} 行的节点名称长度不能超过100个字符`)
           return errors
         }
 
@@ -1282,6 +1413,12 @@ export default {
         // 检查6：处理方式不能为空
         if (!node.nodetype || node.nodetype === '') {
           errors.push(`不能保存，请选择第 ${rowNum} 行的处理方式.`)
+          return errors
+        }
+
+        // ✅ P1-2修复：nodetype枚举值校验
+        if (!['0', '1', '2'].includes(node.nodetype)) {
+          errors.push(`第 ${rowNum} 行的处理方式无效（允许值：0=创建,1=审核,2=审批）`)
           return errors
         }
 
@@ -1412,10 +1549,15 @@ export default {
      *   1. 使用 this.model.nodes 而不是不存在的 this.nodeList
      *   2. 使用 _rid 而不是 id（新系统节点没有id字段，只有_rid）
      *   3. 返回所有其他节点（包括创建节点seqno=0），用于可跳转节点选择
+     * 方案C修复：改用_rid作为value，对齐后端雪花ID数据契约
      */
     getJumpableNodes(record) {
-      // 🐛 修复：返回所有其他节点（排除当前节点自己）
-      return this.model.nodes.filter(n => n._rid !== record._rid)
+      return this.model.nodes
+        .filter(n => n._rid !== record._rid)
+        .map(node => ({
+          value: node._rid,  // 使用稳定的_rid，后端会映射到真实节点ID
+          label: `${node.seqno === 0 ? '创建节点' : node.seqno} - ${node.nodename}`
+        }))
     },
 
     /**
@@ -1495,6 +1637,7 @@ export default {
      * 🔧 修复4: 提交前转换（防御性编程）
      * 正常情况下，onIfgetbackChange已将数据转换为后端格式
      * 此方法用于防御性处理可能残留的UI格式标记
+     * 方案C：_rid会被后端resolveFrontendIfgetback映射为真实节点ID
      */
     prepareNodeDataForSubmit(node) {
       const prepared = { ...node }
@@ -1505,7 +1648,8 @@ export default {
       } else if (prepared.ifgetback === '__NO_JUMP__') {
         prepared.ifgetback = '-1'
       }
-      // 其他情况：已是后端格式（空字符串/-1/节点ID列表），保持不变
+      // 其他情况：已是后端格式（空字符串/-1/_rid列表），保持不变
+      // _rid会被后端映射为真实节点ID
 
       return prepared
     },

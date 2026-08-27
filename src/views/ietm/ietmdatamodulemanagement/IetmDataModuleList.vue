@@ -202,7 +202,7 @@
     <dm-resource-modal ref="resourceModal" @ok="handleResourceModalOk" />
     <dm-edit-prop-modal ref="editPropModal" @ok="handleEditPropModalOk" />
     <batch-start-flow-modal ref="batchStartFlowModal" @ok="handleFlowStarted" @mock-updated="handleMockFlowUpdated" />
-    <batch-restart-flow-modal ref="batchRestartFlowModal" @ok="loadData" />  <!-- ⚠️ 新增：重启流程对话框 -->
+    <batch-restart-flow-modal ref="batchRestartFlowModal" @ok="handleFlowStarted" />  <!-- P0-1修复：使用handleFlowStarted确保签出状态正确刷新 -->
     <!-- DmImportModal 已删除：无 UI 入口，属于死代码 -->
   </div>
 </template>
@@ -851,8 +851,47 @@ export default {
 
       // 确保有树节点选中
       if (!this.queryParam.projectId && !this.queryParam.cmNodeId) {
-        console.warn('⚠️ [流程启动成功回调] 没有选中树节点，无法刷新')
-        this.$message.warning('流程启动成功，但请选择项目或构型节点以查看列表')
+        console.warn('⚠️ [流程启动成功回调] 没有选中树节点，尝试单记录刷新')
+
+        // ⭐ 修复：即使没有树节点，也要刷新当前选中记录的状态
+        if (this.selectedRowKeys.length > 0) {
+          const selectedId = this.selectedRowKeys[0]
+          console.log('🔍 [流程启动成功回调] 单记录刷新，ID:', selectedId)
+
+          // 重新查询这条记录的最新状态
+          getAction('/ietm/data-module/queryById', { id: selectedId }).then(res => {
+            if (res.success && res.result) {
+              console.log('✅ [流程启动成功回调] 单记录查询成功')
+
+              // 更新dataSource中的记录
+              const index = this.dataSource.findIndex(item => item.id === selectedId)
+              if (index !== -1) {
+                this.$set(this.dataSource, index, res.result)
+                console.log('✅ [流程启动成功回调] dataSource已更新')
+              }
+
+              // 更新selectedRows
+              this.selectedRows = [res.result]
+              console.log('✅ [流程启动成功回调] selectedRows已更新')
+
+              // 手动触发按钮状态更新
+              this.$nextTick(() => {
+                this.updateButtonStates()
+                console.log('✅ [流程启动成功回调] 按钮状态已更新')
+              })
+
+              this.$message.success('流程重启成功，状态已更新')
+            } else {
+              console.error('❌ [流程启动成功回调] 单记录查询失败:', res.message)
+              this.$message.warning('流程重启成功，但刷新状态失败。请手动刷新页面。')
+            }
+          }).catch(err => {
+            console.error('❌ [流程启动成功回调] 单记录查询异常:', err)
+            this.$message.warning('流程重启成功，但刷新状态失败。请手动刷新页面。')
+          })
+        } else {
+          this.$message.warning('流程启动成功，但请选择项目或构型节点以查看列表')
+        }
         return
       }
 
@@ -1231,7 +1270,7 @@ export default {
       const currentVersion = `${selectedDm.issueNo || '001'}-${selectedDm.inWork || '00'}`
       const nextVersion = `${that.calculateNextVersion(selectedDm.issueNo)}-00`
 
-      // ✅ 优化：参照标准Modal样式的发布确认对话框
+      // ✅ 优化：对齐新建Modal样式的发布确认对话框
       this.$confirm({
         title: '确认发布',
         content: (h) => (
@@ -1240,7 +1279,7 @@ export default {
               您即将发布以下数据模块，请确认版本信息：
             </p>
 
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+            <table style="width: 100%; border-collapse: collapse;">
               <tr style="background: #fafafa;">
                 <td style="padding: 12px; border: 1px solid #e8e8e8; width: 100px; font-size: 14px; color: rgba(0, 0, 0, 0.85); font-weight: 500;">当前版本</td>
                 <td style="padding: 12px; border: 1px solid #e8e8e8; font-family: Consolas, Monaco, monospace; font-size: 14px; color: rgba(0, 0, 0, 0.65);">
@@ -1254,17 +1293,12 @@ export default {
                 </td>
               </tr>
             </table>
-
-            <p style="margin: 0; font-size: 14px; color: rgba(0, 0, 0, 0.45);">
-              <a-icon type="exclamation-circle" style="color: #faad14; margin-right: 4px;" />
-              发布后状态将变更为"已发布"，此操作不可撤销。
-            </p>
           </div>
         ),
         width: 520,
-        okText: '确认发布',
+        okText: '确认',
         cancelText: '取消',
-        okType: 'danger',
+        okType: 'primary',
         onOk() {
           // 显示加载状态
           that.publishLoading = true

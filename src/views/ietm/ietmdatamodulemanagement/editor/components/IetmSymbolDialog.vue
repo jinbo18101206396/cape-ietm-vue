@@ -203,9 +203,26 @@ export default {
     },
 
     onRowSelect(row) {
-      if (!row || !row.id) return
+      // 🔍 调试日志（开发环境）
+      if (process.env.NODE_ENV === 'development') {
+        console.log('=== 图符选择 ===')
+        console.log('1. onRowSelect 触发')
+        console.log('2. row =', row)
+        console.log('3. row.id =', row ? row.id : 'row为空')
+      }
+
+      if (!row || !row.id) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ row 或 row.id 为空，预览中止')
+        }
+        this.$message.warning('该记录数据异常，无法预览')
+        return
+      }
 
       // 预览：把ICN ID交给预览面板，面板自行按类型（图片/CGM）鉴权加载
+      if (process.env.NODE_ENV === 'development') {
+        console.log('4. 设置 previewIcnId =', row.id)
+      }
       this.previewIcnId = row.id
 
       // 根据后端返回的needDimension标志位判断是否加载尺寸
