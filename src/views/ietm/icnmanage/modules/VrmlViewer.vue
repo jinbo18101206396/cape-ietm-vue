@@ -133,6 +133,7 @@ export default {
 
     /**
      * 加载 VRML 模型
+     * 支持纯文本VRML和Base64编码的VRML文件
      */
     loadModel() {
       if (!this.fileUrl) return
@@ -140,44 +141,94 @@ export default {
       this.loading = true
       this.error = false
 
-      const loader = new VRMLLoader()
+      // ✅ 修复：先获取文件内容，检查是否为Base64编码
+      fetch(this.fileUrl)
+        .then(response => response.text())
+        .then(text => {
+          // 去除首尾空白
+          const trimmedText = text.trim()
 
-      loader.load(
-        this.fileUrl,
-        (object) => {
-          // 加载成功
-          this.loading = false
+          // 检查是否为Base64编码
+          // Base64特征：只包含[A-Za-z0-9+/=]和换行符
+          const isBase64 = /^[A-Za-z0-9+/=\s]+$/.test(trimmedText) && !trimmedText.startsWith('#VRML')
 
-          // 移除旧模型
-          if (this.model) {
-            this.scene.remove(this.model)
+          let vrmlText = trimmedText
+
+          if (isBase64) {
+            try {
+              // Base64解码
+              const decoded = atob(trimmedText.replace(/\s/g, ''))
+              vrmlText = decoded
+              console.log('[VRML] 检测到Base64编码，已自动解码')
+            } catch (e) {
+              console.warn('[VRML] Base64解码失败，尝试使用原始文本', e)
+            }
           }
 
-          // 添加新模型
-          this.model = object
-          this.scene.add(object)
-
-          // 自动调整相机位置以适应模型
-          this.fitCameraToModel(object)
-
-          this.$emit('loaded')
-        },
-        (progress) => {
-          // 加载进度
-          if (progress.lengthComputable) {
-            const percent = (progress.loaded / progress.total * 100).toFixed(2)
-            console.log('加载进度:', percent + '%')
+          // 验证VRML格式
+          if (!vrmlText.startsWith('#VRML')) {
+            throw new Error('不是有效的VRML文件格式（文件必须以 #VRML 开头）')
           }
-        },
-        (error) => {
-          // 加载失败
+
+          // 创建Blob URL
+          const blob = new Blob([vrmlText], { type: 'model/vrml' })
+          const blobUrl = URL.createObjectURL(blob)
+
+          // 使用VRMLLoader加载
+          const loader = new VRMLLoader()
+
+          loader.load(
+            blobUrl,
+            (object) => {
+              // 加载成功
+              this.loading = false
+
+              // 移除旧模型
+              if (this.model) {
+                this.scene.remove(this.model)
+              }
+
+              // 添加新模型
+              this.model = object
+              this.scene.add(object)
+
+              // 自动调整相机位置以适应模型
+              this.fitCameraToModel(object)
+
+              this.$emit('loaded')
+
+              // 清理临时Blob URL
+              URL.revokeObjectURL(blobUrl)
+            },
+            (progress) => {
+              // 加载进度
+              if (progress.lengthComputable) {
+                const percent = (progress.loaded / progress.total * 100).toFixed(2)
+                console.log('加载进度:', percent + '%')
+              }
+            },
+            (error) => {
+              // 加载失败
+              this.loading = false
+              this.error = true
+              this.errorMessage = '3D模型加载失败：' + (error.message || '未知错误')
+              console.error('VRML加载失败:', error)
+              console.error('文件内容预览:', vrmlText.substring(0, 200))
+              this.$emit('error', error)
+
+              // 清理临时Blob URL
+              URL.revokeObjectURL(blobUrl)
+            }
+          )
+        })
+        .catch(error => {
+          // 文件读取失败
           this.loading = false
           this.error = true
-          this.errorMessage = '3D模型加载失败：' + (error.message || '未知错误')
-          console.error('VRML加载失败:', error)
+          this.errorMessage = '文件读取失败：' + (error.message || '未知错误')
+          console.error('文件读取失败:', error)
           this.$emit('error', error)
-        }
-      )
+        })
     },
 
     /**

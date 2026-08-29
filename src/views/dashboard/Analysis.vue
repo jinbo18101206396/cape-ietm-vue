@@ -8,7 +8,8 @@
           </a-card>
         </a-col>
         <a-col :span="12" style="height: 100%">
-          <a-card title="我的待办" style="height: 100%">
+          <a-card title="我的待办" style="height: 100%; display: flex; flex-direction: column;">
+            <todo-list style="flex: 1; min-height: 0;"></todo-list>
           </a-card>
         </a-col>
       </a-row>
@@ -16,7 +17,8 @@
     <div style="height: 50%">
       <a-row style="height: 100%">
         <a-col :span="12" style="height: 100%">
-          <a-card title="数据模块列表" style="height: 100%">
+          <a-card title="数据模块列表" style="height: 100%; display: flex; flex-direction: column;">
+            <data-module-list style="flex: 1; min-height: 0;"></data-module-list>
           </a-card>
         </a-col>
         <a-col :span="12" style="height: 100%">
@@ -33,12 +35,16 @@ import '@/assets/less/TableExpand.less'
 import { mixinDevice } from '@/utils/mixin'
 import { deleteAction, getAction } from '@api/manage'
 import ProjectList from '@views/ietm/dashboard/ProjectList.vue'
+import TodoList from '@views/ietm/dashboard/TodoList.vue'
+import DataModuleList from '@views/ietm/dashboard/DataModuleList.vue'
 
 export default {
   name: 'Analysis',
   mixins: [mixinDevice],
   components: {
-    ProjectList
+    ProjectList,
+    TodoList,
+    DataModuleList
   },
   props: {
   },

@@ -13,6 +13,12 @@ export const asyncRouterMap = [
     meta: { title: '首页' },
     redirect: '/dashboard/analysis',
     children: [
+      {
+        path: '/dashboard/todo',
+        name: 'TodoList',
+        component: () => import('@/views/ietm/dashboard/TodoList'),
+        meta: { title: '我的待办', keepAlive: false }
+      }
     ]
   },
   {
