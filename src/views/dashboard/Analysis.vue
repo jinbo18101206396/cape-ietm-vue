@@ -22,7 +22,8 @@
           </a-card>
         </a-col>
         <a-col :span="12" style="height: 100%">
-          <a-card title="数据实体ICN列表" style="height: 100%">
+          <a-card title="实体ICN列表" style="height: 100%; display: flex; flex-direction: column;">
+            <icn-list style="flex: 1; min-height: 0;"></icn-list>
           </a-card>
         </a-col>
       </a-row>
@@ -37,6 +38,7 @@ import { deleteAction, getAction } from '@api/manage'
 import ProjectList from '@views/ietm/dashboard/ProjectList.vue'
 import TodoList from '@views/ietm/dashboard/TodoList.vue'
 import DataModuleList from '@views/ietm/dashboard/DataModuleList.vue'
+import IcnList from '@views/ietm/dashboard/IcnList.vue'
 
 export default {
   name: 'Analysis',
@@ -44,7 +46,8 @@ export default {
   components: {
     ProjectList,
     TodoList,
-    DataModuleList
+    DataModuleList,
+    IcnList
   },
   props: {
   },

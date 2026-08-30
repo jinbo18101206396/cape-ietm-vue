@@ -25,7 +25,7 @@
               {{ previewInfo.issueNo || '-' }}
             </a-descriptions-item>
             <a-descriptions-item label="密级">
-              {{ previewInfo.security || '-' }}
+              {{ getSecurityText(previewInfo.security) }}
             </a-descriptions-item>
             <a-descriptions-item label="创建时间">
               {{ previewInfo.createTime || '-' }}
@@ -307,6 +307,14 @@ export default {
     getSmgViewerUrl() {
       const baseUrl = process.env.VUE_APP_API_BASE_URL || window._CONFIG['domianURL']
       return `${baseUrl}/viewer/smg.html?file=${encodeURIComponent(this.previewInfo.fileUrl)}`
+    },
+
+    /**
+     * 获取密级文本
+     */
+    getSecurityText(security) {
+      const textMap = { 1: '公开', 2: '内部', 3: '秘密', 4: '机密' }
+      return textMap[security] || '-'
     },
 
     /**

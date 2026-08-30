@@ -4,13 +4,19 @@ import store from './store'
 import NProgress from 'nprogress' // progress bar
 import 'nprogress/nprogress.css' // progress bar style
 import notification from 'ant-design-vue/es/notification'
-import { ACCESS_TOKEN,INDEX_MAIN_PAGE_PATH, OAUTH2_LOGIN_PAGE_PATH } from '@/store/mutation-types'
-import { generateIndexRouter, isOAuth2AppEnv } from '@/utils/util'
+import { ACCESS_TOKEN, USER_INFO, INDEX_MAIN_PAGE_PATH, OAUTH2_LOGIN_PAGE_PATH } from '@/store/mutation-types'
+import { generateIndexRouter, isOAuth2AppEnv, welcome } from '@/utils/util'
 
 NProgress.configure({ showSpinner: false }) // NProgress Configuration
 
 const whiteList = ['/user/login', '/user/register', '/user/register-result','/user/alteration'] // no redirect whitelist
 whiteList.push(OAUTH2_LOGIN_PAGE_PATH)
+
+// ========== 🔧 修复：应用启动时从localStorage恢复用户状态到Vuex Store ==========
+// 问题：浏览器刷新后，Vuex Store重置，但localStorage中的用户信息仍然存在
+// 解决：在路由守卫前恢复Store状态，确保所有组件能正确读取username
+// 注意：Vue.ls 在 main.js 中初始化，此时尚未可用，需延迟到 router.beforeEach 中执行
+// =========================================================================
 
 router.beforeEach((to, from, next) => {
   //update-begin---author:scott ---date:2022-10-13  for：[jeecg-boot/issues/4091]多级路由缓存问题 #4091-----------
@@ -21,8 +27,24 @@ router.beforeEach((to, from, next) => {
     to.matched.splice(2, to.matched.length - 3)
   }
   //update-end---author:scott ---date::2022-10-13  for：[jeecg-boot/issues/4091]多级路由缓存问题 #4091--------------
-  
-  
+
+  // ========== 🔧 修复：首次执行时恢复Store状态（仅执行一次）==========
+  if (!store.state.user.username && Vue.ls && Vue.ls.get(ACCESS_TOKEN)) {
+    const userInfo = Vue.ls.get(USER_INFO)
+    if (userInfo && userInfo.username) {
+      store.commit('SET_TOKEN', Vue.ls.get(ACCESS_TOKEN))
+      store.commit('SET_INFO', userInfo)
+      store.commit('SET_NAME', {
+        username: userInfo.username,
+        realname: userInfo.realname || '',
+        welcome: welcome()
+      })
+      store.commit('SET_AVATAR', userInfo.avatar || '')
+      console.log('✅ 用户状态已恢复到Store:', userInfo.username)
+    }
+  }
+  // ===================================================================
+
   NProgress.start() // start progress bar
 
   if (Vue.ls.get(ACCESS_TOKEN)) {
