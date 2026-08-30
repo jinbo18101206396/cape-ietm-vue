@@ -52,9 +52,10 @@
       <a-table
         ref="table"
         size="middle"
+        bordered
         rowKey="id"
-        class="j-table-force-nowrap"
-        :scroll="{x:true,y:scrollY}"
+        class="j-table-force-nowrap ietm-project-config-table"
+        :scroll="{y:scrollY}"
         :columns="columns"
         :dataSource="dataSource"
         :pagination="false"
@@ -177,14 +178,13 @@
           {
             title:'密级',
             align:"center",
-            width: 100,
+            width: 80,
             dataIndex: 'security_dictText'
           },
           {
             title: '操作',
             dataIndex: 'action',
             align:"center",
-            fixed:"right",
             width:147,
             scopedSlots: { customRender: 'action' },
           }
@@ -212,24 +212,7 @@
         loadParent: false,
         superFieldList:[],
         isLoadingData: false,  // ✅ 添加防重入锁
-      }
-    },
-    computed: {
-      ...mapState({
-        currentProject: state => state.project.currentProject
-      }),
-      importExcelUrl(){
-        return `${window._CONFIG['domianURL']}/${this.url.importExcelUrl}`;
-      },
-      tableProps() {
-        let _this = this
-        return {
-          // 列表项是否可选择
-          rowSelection: {
-            selectedRowKeys: _this.selectedRowKeys,
-            onChange: (selectedRowKeys) => _this.selectedRowKeys = selectedRowKeys
-          }
-        }
+        borderAlignmentObserver: null,  // ResizeObserver实例
       }
     },
     created() {
@@ -244,15 +227,24 @@
       this.setScrollY()
       //窗口变化时重新计算
       window.addEventListener('resize',this.setScrollY)
+
+      // 修复表格边框对齐问题
+      this.$nextTick(() => {
+        this.fixTableBorderAlignment()
+        this.startBorderAlignmentObserver()
+      })
     },
     beforeDestroy() {
       window.removeEventListener('resize',this.setScrollY)
+      // 清理观察器
+      if (this.borderAlignmentObserver) {
+        this.borderAlignmentObserver.disconnect()
+      }
     },
     watch: {
       // 监听 Vuex 中的当前项目变化
       currentProject: {
         handler(newVal, oldVal) {
-          console.log('当前项目变化:', { newVal, oldVal })
           if (newVal && newVal.projectId) {
             // 项目切换时，重新加载数据
             if (this.currentProjectId !== newVal.projectId) {
@@ -262,7 +254,6 @@
             }
           } else if (!newVal) {
             // 项目被关闭时，清空数据
-            console.log('项目已关闭，清空列表')
             this.currentProjectId = ''
             this.currentProjectInfo = null
             this.dataSource = []
@@ -280,11 +271,16 @@
       importExcelUrl(){
         return `${window._CONFIG['domianURL']}/${this.url.importExcelUrl}`;
       },
+      // 各列宽度之和 + 勾选列宽度（暂未使用，为后续横向滚动预留）
+      scrollX() {
+        return this.columns.reduce((sum, col) => sum + (col.width || 0), 0) + 60
+      },
       tableProps() {
         let _this = this
         return {
           // 列表项是否可选择
           rowSelection: {
+            columnWidth: 60,
             selectedRowKeys: _this.selectedRowKeys,
             onChange: (selectedRowKeys) => _this.selectedRowKeys = selectedRowKeys
           }
@@ -295,14 +291,89 @@
       setScrollY(){
         this.scrollY = window.innerHeight - 330
       },
+      // 修复表格边框对齐问题
+      fixTableBorderAlignment() {
+        const headerTable = this.$el.querySelector('.ant-table-header table')
+        const bodyTable = this.$el.querySelector('.ant-table-body table')
+
+        if (!headerTable || !bodyTable) {
+          return
+        }
+
+        // 获取表体的实际列宽（作为基准）
+        const bodyRow = bodyTable.querySelector('tbody tr')
+        if (!bodyRow) {
+          return
+        }
+
+        const bodyCells = Array.from(bodyRow.querySelectorAll('td'))
+        const colWidths = bodyCells.map(td => td.offsetWidth)
+
+        // 创建或更新表头的colgroup
+        let headerColgroup = headerTable.querySelector('colgroup')
+        if (!headerColgroup) {
+          headerColgroup = document.createElement('colgroup')
+          headerTable.insertBefore(headerColgroup, headerTable.firstChild)
+        }
+
+        // 清空并重新填充col
+        headerColgroup.innerHTML = ''
+        colWidths.forEach(width => {
+          const col = document.createElement('col')
+          col.style.width = width + 'px'
+          col.style.minWidth = width + 'px'
+          headerColgroup.appendChild(col)
+        })
+
+        // 同时也给表体添加colgroup（确保固定布局）
+        let bodyColgroup = bodyTable.querySelector('colgroup')
+        if (!bodyColgroup) {
+          bodyColgroup = document.createElement('colgroup')
+          bodyTable.insertBefore(bodyColgroup, bodyTable.firstChild)
+        }
+
+        bodyColgroup.innerHTML = ''
+        colWidths.forEach(width => {
+          const col = document.createElement('col')
+          col.style.width = width + 'px'
+          col.style.minWidth = width + 'px'
+          bodyColgroup.appendChild(col)
+        })
+      },
+      // 启动持续监控边框对齐
+      startBorderAlignmentObserver() {
+        const tableBody = this.$el.querySelector('.ant-table-body')
+        if (!tableBody) {
+          return
+        }
+
+        // 使用ResizeObserver监控表体大小变化
+        this.borderAlignmentObserver = new ResizeObserver(() => {
+          this.fixTableBorderAlignment()
+        })
+
+        this.borderAlignmentObserver.observe(tableBody)
+
+        // 同时监听数据变化
+        this.$watch('dataSource', () => {
+          this.$nextTick(() => {
+            this.fixTableBorderAlignment()
+          })
+        }, { deep: true })
+
+        // 监听展开/折叠
+        this.$watch('expandedRowKeys', () => {
+          this.$nextTick(() => {
+            this.fixTableBorderAlignment()
+          })
+        })
+      },
       // 初始化当前项目信息
       initCurrentProject() {
         // 从后端接口获取当前打开的项目
         getAction('/ietmproject/ietmProject/getCurrentProject').then(res => {
-          console.log('getCurrentProject接口返回:', res)
           if (res.success && res.result) {
             const currentProject = res.result
-            console.log('当前项目信息:', currentProject)
             this.currentProjectId = currentProject.projectId
             this.currentProjectInfo = currentProject
 
@@ -539,12 +610,6 @@
       handleAddChild(record){
         // 检查层级限制（根节点=0级，最多到7级）
         let currentLevel = this.getNodeLevel(record)
-        console.log('点击添加下级:', {
-          record: record,
-          path: record.path,
-          code: record.code,
-          calculatedLevel: currentLevel
-        })
 
         if(currentLevel >= 7) {
           this.$message.warning('已达到最大层级（7级），不能继续添加下级节点！')
@@ -555,7 +620,6 @@
         obj[this.pidField] = record['id']
         obj.projectId = this.currentProjectId
         obj.parentLevel = currentLevel // 传递父节点层级
-        console.log('传递给模态框的数据:', obj)
         this.$refs.modalForm.add(obj);
       },
       /**
@@ -570,12 +634,6 @@
 
         // 检查层级限制（与当前节点同级）
         let currentLevel = this.getNodeLevel(record)
-        console.log('点击添加平级:', {
-          record: record,
-          path: record.path,
-          code: record.code,
-          calculatedLevel: currentLevel
-        })
 
         if(currentLevel >= 7) {
           this.$message.warning('已达到最大层级（7级），不能继续添加节点！')
@@ -589,14 +647,12 @@
         obj.projectId = this.currentProjectId
         // ✅ 传递当前节点的层级（平级节点层级相同）
         obj.parentLevel = currentLevel - 1 // 父节点层级 = 当前层级 - 1
-        console.log('传递给模态框的数据（添加平级）:', obj)
         this.$refs.modalForm.add(obj);
       },
       // 根据节点的level字段或path计算层级（根节点=0级，A=1级，00=2级，以此类推）
       getNodeLevel(record) {
         // ✅ 优先使用后端返回的 level 字段
         if (record && record.level !== undefined && record.level !== null) {
-          console.log('[getNodeLevel] 使用后端返回的层级:', record.level, 'path:', record.path)
           return record.level
         }
 
@@ -621,7 +677,6 @@
           }
         }
 
-        console.log('[getNodeLevel] path:', record.path, '→ level:', level)
         return level
       },
       handleDeleteNode(id) {
@@ -851,8 +906,6 @@
           return
         }
 
-        console.log('开始创建根节点,项目信息：', this.currentProjectInfo)
-
         let rootNode = {
           pid: '0',
           projectId: this.currentProjectId,
@@ -863,10 +916,7 @@
           security: 1  // 默认密级
         }
 
-        console.log('准备发送的根节点数据：', rootNode)
-
         postAction(this.url.add, rootNode).then(res => {
-          console.log('创建根节点响应：', res)
           if(res.success) {
             this.$message.success('根节点自动创建成功')
             // 重新加载数据
@@ -962,4 +1012,48 @@
 </script>
 <style scoped>
   @import '~@assets/less/common.less';
+</style>
+
+<style>
+  /* 修复项目构型管理表格边框对齐问题 */
+  /* 核心：强制表头和表体使用固定表格布局 + 同步列宽 */
+  .ietm-project-config-table.ant-table-bordered table {
+    table-layout: fixed !important;
+  }
+
+  /* 表体需要纵向滚动，隐藏横向滚动 */
+  .ietm-project-config-table .ant-table-body {
+    overflow-y: scroll !important;
+    overflow-x: hidden !important;
+  }
+
+  /* 修复表头和表体之间缺失的横向边框线 */
+  /* 关键：给表体第一行顶部添加边框 */
+  .ietm-project-config-table.ant-table-bordered .ant-table-tbody > tr:first-child > td {
+    border-top: 1px solid #e8e8e8 !important;
+  }
+
+  /* 表体内部行的横向边框 */
+  .ietm-project-config-table.ant-table-bordered .ant-table-tbody > tr > td {
+    border-bottom: 1px solid #e8e8e8;
+  }
+
+  /* 表头单元格的底部边框 */
+  .ietm-project-config-table.ant-table-bordered .ant-table-thead > tr > th {
+    border-bottom: 1px solid #e8e8e8;
+  }
+
+  /* 统一表头和表体的行高 */
+  .ietm-project-config-table.ant-table-middle .ant-table-thead > tr > th,
+  .ietm-project-config-table.ant-table-middle .ant-table-tbody > tr > td {
+    padding: 12px 8px;
+    height: 46px;
+  }
+
+  /* 确保表头和表体使用相同的字体大小和行高 */
+  .ietm-project-config-table .ant-table-thead > tr > th,
+  .ietm-project-config-table .ant-table-tbody > tr > td {
+    font-size: 14px;
+    line-height: 1.5715;
+  }
 </style>

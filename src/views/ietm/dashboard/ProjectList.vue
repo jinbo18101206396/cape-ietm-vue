@@ -84,6 +84,7 @@ import { getAction, postAction } from '@/api/manage'
 import { mixinDevice } from '@/utils/mixin'
 import { JeecgListMixin } from '@/mixins/JeecgListMixin'
 import { mapState, mapActions } from 'vuex'
+import debounce from 'lodash.debounce'
 
 export default {
   name: 'ProjectList',
@@ -158,20 +159,28 @@ export default {
     // 先加载当前项目状态（不阻塞列表加载）
     this.LoadCurrentProject().catch(err => {
       console.error('加载当前项目失败', err)
-      // 不阻塞列表加载
+      if (process.env.NODE_ENV !== 'production') {
+        this.$message.warning('加载当前项目状态失败')
+      }
     })
     // 加载项目列表
     this.loadData()
   },
   mounted() {
     this.calcScrollHeight()
-    window.addEventListener('resize', this.calcScrollHeight)
+    // 使用防抖处理resize事件，避免频繁计算
+    this.calcScrollHeightDebounced = debounce(this.calcScrollHeight, 150)
+    window.addEventListener('resize', this.calcScrollHeightDebounced)
   },
   beforeDestroy() {
-    window.removeEventListener('resize', this.calcScrollHeight)
+    if (this.calcScrollHeightDebounced) {
+      window.removeEventListener('resize', this.calcScrollHeightDebounced)
+      this.calcScrollHeightDebounced.cancel() // 取消待执行的防抖
+    }
   },
   methods: {
     ...mapActions(['LoadCurrentProject', 'OpenProject']),
+
     calcScrollHeight() {
       this.$nextTick(() => {
         const container = this.$el
@@ -265,9 +274,7 @@ export default {
           that.OpenProject(record)
             .then(result => {
               that.$message.success('项目打开成功')
-              if (that.$bus) {
-                that.$bus.$emit('project-changed', result)
-              }
+              // 项目状态已由Vuex管理，无需事件总线
             })
             .catch(error => {
               that.$message.error(error || '打开项目失败')

@@ -43,13 +43,14 @@
           <a-table
             ref="table"
             size="middle"
+            bordered
             rowKey="id"
-            class="j-table-force-nowrap"
+            class="j-table-force-nowrap template-import-table"
             :columns="columns"
             :dataSource="templateData"
             :pagination="false"
             :loading="templateLoading"
-            :scroll="{ x: true, y: 400 }"
+            :scroll="{ y: 400 }"
             :expandedRowKeys="expandedRowKeys"
             @expand="handleExpand">
           </a-table>
@@ -114,10 +115,108 @@ export default {
       ],
       url: {
         importFromTemplate: '/projectconfigurationmanagement/ietmProjectConfigurationManagement/importFromTemplate'
-      }
+      },
+      borderAlignmentObserver: null  // ResizeObserver实例
+    }
+  },
+  mounted() {
+    // 在挂载时初始化边框对齐
+    this.$nextTick(() => {
+      this.startBorderAlignmentObserver()
+    })
+  },
+  beforeDestroy() {
+    // 清理观察器
+    if (this.borderAlignmentObserver) {
+      this.borderAlignmentObserver.disconnect()
     }
   },
   methods: {
+    // 修复表格边框对齐问题
+    fixTableBorderAlignment() {
+      if (!this.$refs.table) return
+      const tableEl = this.$refs.table.$el
+      if (!tableEl) return
+
+      const headerTable = tableEl.querySelector('.ant-table-header table')
+      const bodyTable = tableEl.querySelector('.ant-table-body table')
+
+      if (!headerTable || !bodyTable) {
+        return
+      }
+
+      // 获取表体的实际列宽（作为基准）
+      const bodyRow = bodyTable.querySelector('tbody tr')
+      if (!bodyRow) {
+        return
+      }
+
+      const bodyCells = Array.from(bodyRow.querySelectorAll('td'))
+      const colWidths = bodyCells.map(td => td.offsetWidth)
+
+      // 创建或更新表头的colgroup
+      let headerColgroup = headerTable.querySelector('colgroup')
+      if (!headerColgroup) {
+        headerColgroup = document.createElement('colgroup')
+        headerTable.insertBefore(headerColgroup, headerTable.firstChild)
+      }
+
+      // 清空并重新填充col
+      headerColgroup.innerHTML = ''
+      colWidths.forEach(width => {
+        const col = document.createElement('col')
+        col.style.width = width + 'px'
+        col.style.minWidth = width + 'px'
+        headerColgroup.appendChild(col)
+      })
+
+      // 同时也给表体添加colgroup（确保固定布局）
+      let bodyColgroup = bodyTable.querySelector('colgroup')
+      if (!bodyColgroup) {
+        bodyColgroup = document.createElement('colgroup')
+        bodyTable.insertBefore(bodyColgroup, bodyTable.firstChild)
+      }
+
+      bodyColgroup.innerHTML = ''
+      colWidths.forEach(width => {
+        const col = document.createElement('col')
+        col.style.width = width + 'px'
+        col.style.minWidth = width + 'px'
+        bodyColgroup.appendChild(col)
+      })
+    },
+    // 启动持续监控边框对齐
+    startBorderAlignmentObserver() {
+      if (!this.$refs.table) return
+      const tableEl = this.$refs.table.$el
+      if (!tableEl) return
+
+      const tableBody = tableEl.querySelector('.ant-table-body')
+      if (!tableBody) {
+        return
+      }
+
+      // 使用ResizeObserver监控表体大小变化
+      this.borderAlignmentObserver = new ResizeObserver(() => {
+        this.fixTableBorderAlignment()
+      })
+
+      this.borderAlignmentObserver.observe(tableBody)
+
+      // 同时监听数据变化
+      this.$watch('templateData', () => {
+        this.$nextTick(() => {
+          this.fixTableBorderAlignment()
+        })
+      }, { deep: true })
+
+      // 监听展开/折叠
+      this.$watch('expandedRowKeys', () => {
+        this.$nextTick(() => {
+          this.fixTableBorderAlignment()
+        })
+      })
+    },
     /**
      * 打开模态框
      * @param {String} projectId - 项目ID
@@ -230,6 +329,11 @@ export default {
           this.expandAllNodes(this.templateData)
 
           console.log('✅ 树形结构构建完成，总耗时:', Date.now() - startTime, 'ms')
+
+          // ✅ 数据加载完成后修复边框对齐
+          this.$nextTick(() => {
+            this.fixTableBorderAlignment()
+          })
         } else {
           this.$message.warning(res.message || '查询模板构型失败')
           this.templateData = []
@@ -410,4 +514,62 @@ export default {
 </script>
 
 <style scoped>
+</style>
+
+<style>
+  /* 模板导入表格样式 */
+  .template-import-table.ant-table-bordered table {
+    table-layout: fixed !important;
+  }
+
+  /* 表体纵向滚动，隐藏横向滚动 */
+  .template-import-table .ant-table-body {
+    overflow-y: scroll !important;
+    overflow-x: hidden !important;
+  }
+
+  /* 修复表头和表体之间的横向边框线 - 关键修复 */
+  .template-import-table.ant-table-bordered .ant-table-tbody > tr:first-child > td {
+    border-top: 1px solid #e8e8e8 !important;
+  }
+
+  /* 备选方案：给表头容器添加底部边框 */
+  .template-import-table .ant-table-header {
+    border-bottom: 1px solid #e8e8e8 !important;
+  }
+
+  /* 表体容器移除顶部边框避免重复 */
+  .template-import-table .ant-table-body {
+    border-top: none !important;
+  }
+
+  /* 表体内部行的横向边框 */
+  .template-import-table.ant-table-bordered .ant-table-tbody > tr > td {
+    border-bottom: 1px solid #e8e8e8;
+  }
+
+  /* 表头单元格的底部边框 */
+  .template-import-table.ant-table-bordered .ant-table-thead > tr > th {
+    border-bottom: 1px solid #e8e8e8;
+  }
+
+  /* 统一表头和表体的行高 */
+  .template-import-table.ant-table-middle .ant-table-thead > tr > th,
+  .template-import-table.ant-table-middle .ant-table-tbody > tr > td {
+    padding: 12px 8px;
+    height: 46px;
+  }
+
+  /* 确保表头和表体使用相同的字体大小和行高 */
+  .template-import-table .ant-table-thead > tr > th,
+  .template-import-table .ant-table-tbody > tr > td {
+    font-size: 14px;
+    line-height: 1.5715;
+  }
+
+  /* 所有列内容居中对齐 */
+  .template-import-table .ant-table-thead > tr > th,
+  .template-import-table .ant-table-tbody > tr > td {
+    text-align: center !important;
+  }
 </style>

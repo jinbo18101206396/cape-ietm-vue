@@ -114,6 +114,7 @@ import { getAction, postAction } from '@/api/manage'
 import { mapState } from 'vuex'
 import { USER_INFO } from '@/store/mutation-types'
 import BatchApproveModal from './modules/BatchApproveModal'
+import debounce from 'lodash.debounce'
 
 export default {
   name: 'TodoList',
@@ -177,12 +178,12 @@ export default {
       // 多选
       selectedRowKeys: [],
 
-      // 搜索（后端支持字段：title/nodename/createdName/creationDate）
+      // 搜索（前端过滤）
       searchField: 'title',
       searchValue: '',
 
-      // 是否开启调试日志（生产环境应为false）
-      debugMode: process.env.NODE_ENV !== 'production'
+      // 完整数据（用于前端过滤）
+      allData: []
     }
   },
   computed: {
@@ -238,14 +239,20 @@ export default {
   },
   mounted() {
     this.calcScrollHeight()
-    window.addEventListener('resize', this.calcScrollHeight)
+    // 使用防抖处理resize事件，避免频繁计算
+    this.calcScrollHeightDebounced = debounce(this.calcScrollHeight, 150)
+    window.addEventListener('resize', this.calcScrollHeightDebounced)
   },
   beforeDestroy() {
     // 移除窗口大小监听
-    window.removeEventListener('resize', this.calcScrollHeight)
+    if (this.calcScrollHeightDebounced) {
+      window.removeEventListener('resize', this.calcScrollHeightDebounced)
+      this.calcScrollHeightDebounced.cancel() // 取消待执行的防抖
+    }
 
     // 清理数据
     this.dataSource = []
+    this.allData = []
     this.selectedRowKeys = []
     this.searchValue = ''
   },
@@ -273,70 +280,45 @@ export default {
     },
 
     /**
-     * 工具方法：记录调试日志
-     */
-    debugLog(message, ...args) {
-      if (this.debugMode) {
-        console.log(message, ...args)
-      }
-    },
-
-    /**
      * 加载待办列表
      */
     loadTodoList() {
       if (!this.currentProject || !this.currentProject.projectId) {
         this.$message.warning('请先选择项目')
         this.dataSource = []
+        this.allData = []
         return
       }
 
       this.loading = true
 
       const params = {
-        projectId: this.currentProject.projectId,
-        searchField: this.searchValue ? this.searchField : null,
-        searchValue: this.searchValue || null
+        projectId: this.currentProject.projectId
+        // 移除搜索参数，改为前端过滤
       }
 
-      this.debugLog('=== 我的待办列表查询 ===')
-      this.debugLog('当前项目ID:', this.currentProject.projectId)
-      this.debugLog('当前项目名称:', this.currentProject.projectName)
-      this.debugLog('查询参数:', params)
-
-      // v1.1修正：直接使用getAction，不单独封装API
+      // 直接加载全部数据，不传搜索参数
       getAction('/ietm/workflow/myTodoList', params)
         .then(res => {
           if (res.success) {
             let todos = res.result || []
 
-            this.debugLog('返回待办数量:', todos.length)
-            this.debugLog('待办列表详情:', todos.map(item => ({
-              dmcCode: item.title,
-              formId: item.formId,
-              type: item.type,
-              nodeName: item.nodeName,
-              instId: item.instId,
-              seqno: item.seqno
-            })))
+            // 保存完整数据
+            this.allData = todos
 
-            // v1.5修正：后端已通过JOIN v_wf_instance过滤，前端直接使用
-            // 后端SQL已确保：t.nodename = wf.activityalias_（节点名称=流程当前步骤）
-            this.dataSource = todos
-
-            this.debugLog('待办数量:', this.dataSource.length)
-
-            // 加载签出状态
+            // 加载签出状态（会更新allData）
             this.loadCheckoutStatus()
           } else {
             this.$message.error(res.message || '查询待办列表失败')
             this.dataSource = []
+            this.allData = []
           }
         })
         .catch(err => {
           console.error('查询待办列表失败', err)
           this.$message.error('查询待办列表失败，请稍后重试')
           this.dataSource = []
+          this.allData = []
         })
         .finally(() => {
           this.loading = false
@@ -348,14 +330,15 @@ export default {
      */
     loadCheckoutStatus() {
       // 只提取DM类型的ID（PM类型暂不支持签出状态查询）
-      const dmIds = this.dataSource
+      const dmIds = this.allData
         .filter(item => item.type === '1')
         .map(item => item.formId)
         .filter(id => id)
 
       if (dmIds.length === 0) {
         // 如果没有DM类型，所有记录标记为已签入
-        this.dataSource = this.setDefaultCheckoutStatus(this.dataSource)
+        this.allData = this.setDefaultCheckoutStatus(this.allData)
+        this.applySearchFilter()
         return
       }
 
@@ -367,7 +350,6 @@ export default {
         .then(res => {
           // 只处理最新的请求（防止快速切换项目时显示错误数据）
           if (currentSeq !== this.checkoutRequestSeq) {
-            this.debugLog('⏭️ 忽略过期的签出状态响应')
             return
           }
 
@@ -380,15 +362,14 @@ export default {
             if (!currentUsername) {
               console.error('❌ Store中无用户信息，这不应该发生')
               this.$message.error('用户状态异常，请刷新页面')
-              this.dataSource = this.setDefaultCheckoutStatus(this.dataSource)
+              this.allData = this.setDefaultCheckoutStatus(this.allData)
+              this.applySearchFilter()
               this.checkoutLoading = false
               return
             }
 
-            this.debugLog('📌 当前用户:', currentUsername, '| 签出状态数量:', Object.keys(statusMap).length)
-
-            // 使用map创建新数组，触发Vue响应式更新
-            this.dataSource = this.dataSource.map(item => {
+            // 使用map创建新数组，更新allData
+            this.allData = this.allData.map(item => {
               // PM类型默认标记为已签入
               if (item.type === '2') {
                 return {
@@ -429,6 +410,9 @@ export default {
                 }
               }
             })
+
+            // 应用搜索过滤
+            this.applySearchFilter()
           } else {
             this.$message.warning('查询签出状态失败：' + (res.message || '未知错误'))
             this.dataSource = this.setDefaultCheckoutStatus(this.dataSource)
@@ -515,6 +499,23 @@ export default {
     },
 
     /**
+     * 应用搜索过滤（前端过滤）
+     */
+    applySearchFilter() {
+      if (!this.searchValue || !this.searchValue.trim()) {
+        // 无搜索条件，显示全部
+        this.dataSource = this.allData
+        return
+      }
+
+      const keyword = this.searchValue.toLowerCase()
+      this.dataSource = this.allData.filter(item => {
+        const value = item[this.searchField]
+        return value && String(value).toLowerCase().includes(keyword)
+      })
+    },
+
+    /**
      * 搜索
      */
     handleSearch() {
@@ -522,6 +523,16 @@ export default {
       if (!this.searchValue || this.searchValue.trim() === '') {
         this.searchValue = ''
       }
+      // 前端过滤，不需要重新加载数据
+      this.applySearchFilter()
+    },
+
+    /**
+     * 刷新列表
+     */
+    handleRefresh() {
+      this.searchValue = ''
+      this.searchField = 'title'
       this.loadTodoList()
     },
 
@@ -541,7 +552,12 @@ export default {
 
       // 1. 检查签出状态（对标旧系统：必须先签入才能审批）
       const notCheckedInItems = selectedItems
-        .filter(item => item.type === '1' && item.checkoutStatus !== 'CHECKED_IN')
+        .filter(item => {
+          // 只检查数据模块类型，且签出状态必须存在且不为CHECKED_IN
+          return item.type === '1' &&
+                 item.checkoutStatus &&
+                 item.checkoutStatus !== 'CHECKED_IN'
+        })
         .map(item => item.title || item.dmcCode || '(无标题)')
 
       if (notCheckedInItems.length > 0) {

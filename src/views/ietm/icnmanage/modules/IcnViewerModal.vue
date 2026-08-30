@@ -70,12 +70,9 @@
             />
           </div>
 
-          <!-- Flash预览 -->
+          <!-- Flash预览 (使用Ruffle模拟器) -->
           <div v-else-if="previewInfo.previewType === 'FLASH'" class="flash-preview">
-            <object :data="fileUrl" type="application/x-shockwave-flash" width="100%" height="100%">
-              <param name="movie" :value="fileUrl" />
-              您的浏览器不支持Flash播放
-            </object>
+            <iframe :src="getRuffleViewerUrl()" frameborder="0"></iframe>
           </div>
 
           <!-- SMG预览 -->
@@ -310,6 +307,16 @@ export default {
     },
 
     /**
+     * 获取Ruffle Flash查看器URL
+     */
+    getRuffleViewerUrl() {
+      const baseUrl = process.env.VUE_APP_API_BASE_URL || window._CONFIG['domianURL']
+      const token = Vue.ls.get(ACCESS_TOKEN)
+      // 通过URL参数传递token作为fallback（iframe内获取可能失败）
+      return `/ruffle-stub.html?file=${encodeURIComponent(baseUrl + this.previewInfo.fileUrl)}&token=${encodeURIComponent(token || '')}`
+    },
+
+    /**
      * 获取密级文本
      */
     getSecurityText(security) {
@@ -495,10 +502,15 @@ export default {
       }
     }
 
-    // Flash预览
+    // Flash预览 (iframe容器)
     .flash-preview {
       width: 100%;
       height: 100%;
+
+      iframe {
+        width: 100%;
+        height: 100%;
+      }
     }
 
     // 不支持预览

@@ -79,6 +79,7 @@
 import { mapState } from 'vuex'
 import { getAction } from '@/api/manage'
 import IcnViewerModal from '@/views/ietm/icnmanage/modules/IcnViewerModal'
+import debounce from 'lodash.debounce'
 
 export default {
   name: 'IcnList',
@@ -170,11 +171,16 @@ export default {
 
   mounted() {
     this.calcScrollHeight()
-    window.addEventListener('resize', this.calcScrollHeight)
+    // 使用防抖处理resize事件，避免频繁计算
+    this.calcScrollHeightDebounced = debounce(this.calcScrollHeight, 150)
+    window.addEventListener('resize', this.calcScrollHeightDebounced)
   },
 
   beforeDestroy() {
-    window.removeEventListener('resize', this.calcScrollHeight)
+    if (this.calcScrollHeightDebounced) {
+      window.removeEventListener('resize', this.calcScrollHeightDebounced)
+      this.calcScrollHeightDebounced.cancel() // 取消待执行的防抖
+    }
     // 清理数据，防止内存泄漏
     this.dataSource = []
     this.allData = []
@@ -209,6 +215,7 @@ export default {
       }
 
       if (!this.currentProject.cmRootNodeId) {
+        this.$message.warning('当前项目未配置图符根节点')
         this.dataSource = []
         this.allData = []
         return
