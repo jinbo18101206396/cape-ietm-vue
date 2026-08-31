@@ -125,6 +125,7 @@ export default {
           key: 'dmcCode',
           width: 350,
           align: 'center',
+          ellipsis: true,
           scopedSlots: { customRender: 'dmcCode' }
         },
         {
@@ -132,21 +133,24 @@ export default {
           dataIndex: 'techName',
           key: 'techName',
           width: 120,
-          align: 'center'
+          align: 'center',
+          ellipsis: true
         },
         {
           title: '信息名称',
           dataIndex: 'infoName',
           key: 'infoName',
           width: 120,
-          align: 'center'
+          align: 'center',
+          ellipsis: true
         },
         {
           title: 'DM类型',
           dataIndex: 'dmType_dictText',
           key: 'dmType_dictText',
           width: 90,
-          align: 'center'
+          align: 'center',
+          ellipsis: true
         },
         {
           title: '版本',
@@ -607,6 +611,8 @@ export default {
     padding: 12px 16px !important;
     word-break: keep-all;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: 14px !important;
     border-bottom: 1px solid #f0f0f0;
     vertical-align: middle;

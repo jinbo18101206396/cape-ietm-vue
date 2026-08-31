@@ -1,193 +1,63 @@
 <template>
   <a-modal
     title="ICN引用关系"
-    :width="1100"
+    :width="1000"
     :visible="visible"
     :footer="null"
     :destroyOnClose="true"
     @cancel="handleCancel"
     class="icn-reference-modal"
+    :bodyStyle="{ padding: '24px' }"
   >
     <a-spin :spinning="loading">
       <!-- 当前ICN信息展示 -->
       <div class="icn-info-section">
-        <a-descriptions :column="2" size="small" bordered>
-          <a-descriptions-item label="ICN编码">
-            <strong>{{ currentIcnCode }}</strong>
+        <a-descriptions :column="3" bordered size="middle">
+          <a-descriptions-item label="ICN编码" :span="1">
+            <span class="icn-code">{{ currentIcnCode }}</span>
           </a-descriptions-item>
-          <a-descriptions-item label="文件名称">
+          <a-descriptions-item label="文件名称" :span="2">
             {{ currentFileName || '-' }}
           </a-descriptions-item>
         </a-descriptions>
       </div>
 
-      <!-- 统计信息 -->
-      <div class="statistics-section">
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-card size="small" class="stat-card">
-              <a-statistic
-                title="引用其他ICN"
-                :value="referencedList.length"
-                :value-style="{ color: '#1890ff' }"
-              >
-                <template #prefix>
-                  <a-icon type="arrow-right" />
-                </template>
-              </a-statistic>
-            </a-card>
-          </a-col>
-          <a-col :span="12">
-            <a-card size="small" class="stat-card">
-              <a-statistic
-                title="被其他ICN引用"
-                :value="referencingList.length"
-                :value-style="{ color: '#52c41a' }"
-              >
-                <template #prefix>
-                  <a-icon type="arrow-left" />
-                </template>
-              </a-statistic>
-            </a-card>
-          </a-col>
-        </a-row>
-      </div>
+      <!-- DM引用列表 -->
+      <div class="dm-reference-section">
+        <div class="section-header">
+          <div class="header-left">
+            <a-icon type="file-text" class="header-icon" />
+            <span class="header-title">引用该ICN的DM模块</span>
+            <a-tag v-if="dmReferenceList.length > 0" color="blue" style="margin-left: 12px;">
+              {{ dmReferenceList.length }} 条
+            </a-tag>
+          </div>
+        </div>
 
-      <!-- 引用关系标签页 -->
-      <div class="tabs-section">
-        <a-tabs default-active-key="1" type="card">
-          <!-- Tab1: 引用其他ICN -->
-          <a-tab-pane key="1" tab="引用其他ICN">
-            <div class="tab-content">
-              <a-alert
-                message="该ICN引用了以下其他ICN"
-                type="info"
-                show-icon
-                style="margin-bottom: 12px;"
-              />
-              <a-table
-                :columns="referenceColumns"
-                :data-source="referencedList"
-                :pagination="paginationConfig"
-                :loading="loading"
-                size="middle"
-                rowKey="id"
-                :scroll="{ x: 800 }"
-              >
-                <template #icn="text">
-                  <span class="icn-code">{{ text }}</span>
-                </template>
-                <template #fileName="text">
-                  <a-tooltip :title="text">
-                    <span>{{ text || '-' }}</span>
-                  </a-tooltip>
-                </template>
-                <template #action="text, record">
-                  <a-button
-                    type="link"
-                    size="small"
-                    @click="viewDetail(record)"
-                  >
-                    查看详情
-                  </a-button>
-                </template>
-              </a-table>
-              <a-empty
-                v-if="referencedList.length === 0"
-                description="暂无引用关系"
-                :image="simpleImage"
-              />
-            </div>
-          </a-tab-pane>
-
-          <!-- Tab2: 被其他ICN引用 -->
-          <a-tab-pane key="2" tab="被其他ICN引用">
-            <div class="tab-content">
-              <a-alert
-                message="以下ICN引用了该ICN"
-                type="success"
-                show-icon
-                style="margin-bottom: 12px;"
-              />
-              <a-table
-                :columns="referenceColumns"
-                :data-source="referencingList"
-                :pagination="paginationConfig"
-                :loading="loading"
-                size="middle"
-                rowKey="id"
-                :scroll="{ x: 800 }"
-              >
-                <template #icn="text">
-                  <span class="icn-code">{{ text }}</span>
-                </template>
-                <template #fileName="text">
-                  <a-tooltip :title="text">
-                    <span>{{ text || '-' }}</span>
-                  </a-tooltip>
-                </template>
-                <template #action="text, record">
-                  <a-button
-                    type="link"
-                    size="small"
-                    @click="viewDetail(record)"
-                  >
-                    查看详情
-                  </a-button>
-                </template>
-              </a-table>
-              <a-empty
-                v-if="referencingList.length === 0"
-                description="暂无引用关系"
-                :image="simpleImage"
-              />
-            </div>
-          </a-tab-pane>
-
-          <!-- Tab3: 被DM引用 -->
-          <a-tab-pane key="3" tab="被DM引用">
-            <div class="tab-content">
-              <a-alert
-                message="以下DM模块引用了该ICN"
-                type="warning"
-                show-icon
-                style="margin-bottom: 12px;"
-              />
-              <a-table
-                :columns="dmReferenceColumns"
-                :data-source="dmReferenceList"
-                :pagination="paginationConfig"
-                :loading="loading"
-                size="middle"
-                rowKey="id"
-                :scroll="{ x: 800 }"
-              >
-                <template #dmCode="text">
-                  <span class="dm-code">{{ text }}</span>
-                </template>
-                <template #dmTitle="text">
-                  <a-tooltip :title="text">
-                    <span>{{ text || '-' }}</span>
-                  </a-tooltip>
-                </template>
-                <template #action="text, record">
-                  <a-button
-                    type="link"
-                    size="small"
-                    @click="viewDmDetail(record)"
-                  >
-                    查看详情
-                  </a-button>
-                </template>
-              </a-table>
-              <a-empty
-                v-if="dmReferenceList.length === 0"
-                description="暂无DM引用"
-                :image="simpleImage"
-              />
-            </div>
-          </a-tab-pane>
-        </a-tabs>
+        <a-table
+          :columns="dmReferenceColumns"
+          :data-source="dmReferenceList"
+          :pagination="paginationConfig"
+          :loading="loading"
+          :locale="{ emptyText: '暂无DM引用此ICN' }"
+          size="middle"
+          bordered
+          rowKey="id"
+          class="dm-table"
+        >
+          <template #dmCode="text, record">
+            <a
+              class="dm-code-link"
+              href="javascript:void(0);"
+              role="link"
+              tabindex="0"
+              :title="text"
+              @click="handleOpenDmDetail(record)"
+              @keyup.enter="handleOpenDmDetail(record)">
+              {{ text }}
+            </a>
+          </template>
+        </a-table>
       </div>
     </a-spin>
   </a-modal>
@@ -195,7 +65,6 @@
 
 <script>
 import { getAction } from '@/api/manage'
-import { Empty } from 'ant-design-vue'
 
 export default {
   name: 'IcnReferenceModal',
@@ -206,59 +75,27 @@ export default {
       currentIcnId: '',
       currentIcnCode: '',
       currentFileName: '',
-      referencedList: [],  // 该ICN引用的其他ICN
-      referencingList: [], // 引用该ICN的其他ICN
       dmReferenceList: [], // 引用该ICN的DM列表
-      simpleImage: Empty.PRESENTED_IMAGE_SIMPLE,
 
-      // 表格分页配置
+      // 表格分页配置（与ICN实体列表保持一致）
       paginationConfig: {
+        current: 1,
         pageSize: 10,
-        showSizeChanger: true,
+        pageSizeOptions: ['10', '20', '30'],
+        showTotal: (total, range) => {
+          return range[0] + "-" + range[1] + " 共" + total + "条"
+        },
         showQuickJumper: true,
-        pageSizeOptions: ['10', '20', '50'],
-        showTotal: (total) => `共 ${total} 条记录`
-      },
-
-      // ICN引用表格列
-      referenceColumns: [
-        {
-          title: '序号',
-          width: 70,
-          align: 'center',
-          customRender: (text, record, index) => index + 1
+        showSizeChanger: true,
+        onChange: (page, pageSize) => {
+          this.paginationConfig.current = page
+          this.paginationConfig.pageSize = pageSize
         },
-        {
-          title: 'ICN编码',
-          dataIndex: 'icn',
-          width: 200,
-          scopedSlots: { customRender: 'icn' }
-        },
-        {
-          title: '文件名称',
-          dataIndex: 'fileName',
-          ellipsis: true,
-          scopedSlots: { customRender: 'fileName' }
-        },
-        {
-          title: '版本号',
-          dataIndex: 'issueNo',
-          width: 100,
-          align: 'center'
-        },
-        {
-          title: '创建时间',
-          dataIndex: 'createTime',
-          width: 160,
-          align: 'center'
-        },
-        {
-          title: '操作',
-          width: 100,
-          align: 'center',
-          scopedSlots: { customRender: 'action' }
+        onShowSizeChange: (current, size) => {
+          this.paginationConfig.current = 1
+          this.paginationConfig.pageSize = size
         }
-      ],
+      },
 
       // DM引用表格列
       dmReferenceColumns: [
@@ -266,45 +103,35 @@ export default {
           title: '序号',
           width: 70,
           align: 'center',
-          customRender: (text, record, index) => index + 1
+          customRender: (text, record, index) => {
+            return (this.paginationConfig.current - 1) * this.paginationConfig.pageSize + index + 1
+          }
         },
         {
           title: 'DM编码',
           dataIndex: 'dmCode',
-          width: 180,
+          align: 'center',
+          ellipsis: true,
           scopedSlots: { customRender: 'dmCode' }
         },
         {
-          title: 'DM标题',
-          dataIndex: 'dmTitle',
-          ellipsis: true,
-          scopedSlots: { customRender: 'dmTitle' }
-        },
-        {
-          title: '信息名称',
-          dataIndex: 'infoName',
-          width: 150,
-          ellipsis: true
-        },
-        {
-          title: 'DM类型',
-          dataIndex: 'dmType',
-          width: 120,
-          align: 'center'
-        },
-        {
-          title: '版本',
-          dataIndex: 'issueNo',
-          width: 100,
-          align: 'center'
-        },
-        {
-          title: '操作',
-          width: 100,
+          title: '引用时间',
+          dataIndex: 'createTime',
+          width: 180,
           align: 'center',
-          scopedSlots: { customRender: 'action' }
+          customRender: (text) => {
+            return text ? text.substring(0, 16).replace('T', ' ') : '-'
+          }
         }
       ]
+    }
+  },
+  computed: {
+    /**
+     * 当前登录用户名
+     */
+    currentUser() {
+      return (this.$store.getters.userInfo && this.$store.getters.userInfo.username) || ''
     }
   },
   methods: {
@@ -383,49 +210,20 @@ export default {
     loadReferenceData() {
       this.loading = true
 
-      // 同时加载三种引用数据
-      Promise.all([
-        getAction('/icnmanage/ietmIcnManage/getReferencedList', { icnId: this.currentIcnId }),
-        getAction('/icnmanage/ietmIcnManage/getReferencingList', { icnId: this.currentIcnId }),
-        getAction('/icnmanage/ietmIcnManage/getReferencedByDmList', { icnId: this.currentIcnId })
-      ])
-        .then(([referencedRes, referencingRes, dmRes]) => {
-          // 处理ICN引用数据
-          if (referencedRes.success) {
-            this.referencedList = referencedRes.result || []
-          }
-
-          // 处理被ICN引用数据
-          if (referencingRes.success) {
-            this.referencingList = referencingRes.result || []
-          }
-
-          // 处理DM引用数据
-          if (dmRes.success) {
-            this.dmReferenceList = dmRes.result || []
+      // 只加载DM引用数据
+      getAction('/icnmanage/ietmIcnManage/getReferencedByDmList', { icnId: this.currentIcnId })
+        .then(res => {
+          if (res.success) {
+            this.dmReferenceList = res.result || []
           }
         })
         .catch(err => {
-          console.error('加载引用关系失败', err)
-          this.$message.error('加载引用关系失败')
+          console.error('加载DM引用关系失败', err)
+          this.$message.error('加载DM引用关系失败')
         })
         .finally(() => {
           this.loading = false
         })
-    },
-
-    /**
-     * 查看ICN详情
-     */
-    viewDetail(record) {
-      this.$emit('view-detail', record)
-    },
-
-    /**
-     * 查看DM详情
-     */
-    viewDmDetail(record) {
-      this.$emit('view-dm-detail', record)
     },
 
     /**
@@ -436,9 +234,39 @@ export default {
       this.currentIcnId = ''
       this.currentIcnCode = ''
       this.currentFileName = ''
-      this.referencedList = []
-      this.referencingList = []
       this.dmReferenceList = []
+    },
+
+    /**
+     * 打开DM详情页
+     * @param {Object} record - DM引用记录
+     */
+    handleOpenDmDetail(record) {
+      if (!record.dmId) {
+        this.$message.warning('无法获取DM信息')
+        return
+      }
+
+      // 判断模式：如果是当前用户签出，则为编辑模式；否则为浏览模式
+      const isMyCheckOut = record.checkoutUser &&
+                          record.checkoutUser.trim() !== '' &&
+                          record.checkoutUser === this.currentUser
+      const mode = isMyCheckOut ? 'edit' : 'browse'
+
+      // 在系统Tab页签中打开编辑器
+      this.$router.push({
+        path: `/ietm/dm-content-editor/${record.dmId}`,
+        query: {
+          mode: mode,
+          dmc: record.dmCode || ''
+        }
+      }).catch(err => {
+        // 忽略导航重复错误
+        if (err.name !== 'NavigationDuplicated') {
+          console.error('打开DM详情失败:', err)
+          this.$message.error('打开DM详情失败，请稍后重试')
+        }
+      })
     }
   }
 }
@@ -446,92 +274,152 @@ export default {
 
 <style lang="less" scoped>
 .icn-reference-modal {
-  // ICN信息区域
+  // ICN信息区域（使用Descriptions组件，统一样式）
   .icn-info-section {
     margin-bottom: 16px;
 
-    ::v-deep .ant-descriptions-bordered .ant-descriptions-item-label {
-      width: 120px;
-      font-weight: 500;
-      background-color: #fafafa;
-    }
-
-    ::v-deep .ant-descriptions-bordered .ant-descriptions-item-content {
-      background-color: #ffffff;
-    }
-  }
-
-  // 统计信息区域
-  .statistics-section {
-    margin-bottom: 20px;
-
-    .stat-card {
-      text-align: center;
-
-      ::v-deep .ant-statistic-title {
-        font-size: 14px;
-        color: rgba(0, 0, 0, 0.65);
-      }
-
-      ::v-deep .ant-statistic-content {
-        font-size: 24px;
-        font-weight: 600;
-      }
-
-      ::v-deep .anticon {
-        margin-right: 4px;
-      }
-    }
-  }
-
-  // 标签页区域
-  .tabs-section {
-    ::v-deep .ant-tabs-nav {
-      margin-bottom: 16px;
-    }
-
-    ::v-deep .ant-tabs-tab {
-      padding: 8px 16px;
-      font-size: 14px;
-
-      &:hover {
-        color: #1890ff;
-      }
-    }
-
-    .tab-content {
-      min-height: 300px;
-    }
-  }
-
-  // 表格样式
-  ::v-deep .ant-table {
+    // ICN编码高亮
     .icn-code {
       color: #1890ff;
       font-weight: 500;
     }
+  }
 
-    .dm-code {
-      color: #fa8c16;
-      font-weight: 500;
+  // DM引用区域
+  .dm-reference-section {
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: #fafafa;
+      border: 1px solid #e8e8e8;
+      border-bottom: none;
+      margin-bottom: 0;
+
+      .header-left {
+        display: flex;
+        align-items: center;
+
+        .header-icon {
+          font-size: 16px;
+          color: #1890ff;
+          margin-right: 8px;
+        }
+
+        .header-title {
+          font-size: 14px;
+          font-weight: 500;
+          color: #262626;
+        }
+      }
     }
 
-    thead th {
-      background-color: #fafafa;
-      font-weight: 600;
-      white-space: nowrap;
-    }
+    // 表格样式（与ICN实体列表保持一致）
+    .dm-table {
+      ::v-deep .ant-table {
+        // 表头样式
+        .ant-table-thead > tr > th {
+          background: #fafafa;
+          font-weight: 500;
+          color: #262626;
+          padding: 12px 8px;
+        }
 
-    tbody tr {
-      &:hover {
-        background-color: #f5f7fa;
+        // 表体样式
+        .ant-table-tbody > tr > td {
+          padding: 10px 8px;
+        }
+
+        // hover效果
+        .ant-table-tbody > tr:hover {
+          background: #e6f7ff;
+        }
+
+        // DM编码链接样式
+        .dm-code-link {
+          color: #1890ff;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: inline-block;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+
+          &:hover,
+          &:focus {
+            color: #40a9ff;
+            text-decoration: underline;
+            outline: 2px solid #91d5ff;
+            outline-offset: 2px;
+          }
+
+          &:active {
+            color: #096dd9;
+          }
+        }
       }
     }
   }
 
-  // Empty组件样式
-  ::v-deep .ant-empty {
-    padding: 40px 0;
+  // Loading优化
+  ::v-deep .ant-spin {
+    .ant-spin-dot {
+      font-size: 32px;
+    }
+
+    .ant-spin-text {
+      padding-top: 12px;
+      color: #8c8c8c;
+      font-size: 14px;
+    }
+  }
+
+  // Tag优化
+  ::v-deep .ant-tag {
+    border-radius: 4px;
+    font-size: 12px;
+    padding: 2px 10px;
+    font-weight: 500;
+  }
+}
+
+// 弹窗整体优化
+::v-deep .ant-modal {
+  .ant-modal-header {
+    border-radius: 8px 8px 0 0;
+    border-bottom: 1px solid #e1e4e8;
+    padding: 16px 24px;
+
+    .ant-modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #262626;
+    }
+  }
+
+  .ant-modal-body {
+    padding: 24px;
+  }
+
+  .ant-modal-close {
+    top: 16px;
+    right: 16px;
+
+    .ant-modal-close-x {
+      width: 48px;
+      height: 48px;
+      line-height: 48px;
+      font-size: 16px;
+      color: #8c8c8c;
+      transition: all 0.2s ease;
+
+      &:hover {
+        color: #262626;
+        transform: rotate(90deg);
+      }
+    }
   }
 }
 </style>
