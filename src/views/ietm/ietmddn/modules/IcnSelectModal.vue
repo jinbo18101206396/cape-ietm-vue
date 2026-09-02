@@ -1,24 +1,24 @@
 <template>
   <a-modal
-    title="插入图符"
+    title="选择实体"
     :visible="visible"
     :width="1200"
     :mask="false"
     :maskClosable="false"
     :destroyOnClose="true"
-    wrapClassName="symbol-dialog"
+    wrapClassName="icn-select-dialog"
     @cancel="handleClose">
 
-    <div class="symbol-dialog-body">
+    <div class="icn-select-dialog-body">
       <!-- 上区：三栏 -->
-      <div class="symbol-main">
+      <div class="icn-select-main">
         <!-- 西区：构型树 -->
-        <div class="symbol-west">
+        <div class="icn-select-west">
           <config-tree @select="onTreeSelect"/>
         </div>
 
         <!-- 中区：ICN列表 -->
-        <div class="symbol-center">
+        <div class="icn-select-center">
           <a-table
             :columns="columns"
             :data-source="tableData"
@@ -27,21 +27,21 @@
             :loading="loading"
             :custom-row="customRow"
             :scroll="{ y: 320 }"
-            :locale="{ emptyText: '该节点下暂无图符文件' }"
+            :locale="{ emptyText: '该节点下暂无ICN文件' }"
             row-key="id"
             size="small"
             @change="onTableChange"/>
         </div>
 
         <!-- 东区：预览 -->
-        <div class="symbol-east">
+        <div class="icn-select-east">
           <div class="preview-title">预览</div>
           <icn-preview-pane :icn-id="previewIcnId" class="preview-pane"/>
         </div>
       </div>
 
       <!-- 下区：底部表单 -->
-      <div class="symbol-form">
+      <div class="icn-select-form">
         <div class="original-size" v-if="originalSize">原始尺寸 {{ originalSize }}</div>
         <a-form layout="inline">
           <a-form-item label="宽">
@@ -65,18 +65,16 @@
 </template>
 
 <script>
-import ConfigTree from '../../components/ConfigTree'
-import IcnPreviewPane from './IcnPreviewPane'
+import ConfigTree from '../../ietmdatamodulemanagement/components/ConfigTree'
+import IcnPreviewPane from '../../ietmdatamodulemanagement/editor/components/IcnPreviewPane'
 import { getAction } from '@/api/manage'
 
 export default {
-  name: 'IetmSymbolDialog',
+  name: 'IcnSelectModal',
   components: { ConfigTree, IcnPreviewPane },
-  props: {
-    visible: { type: Boolean, default: false }
-  },
   data() {
     return {
+      visible: false,
       loading: false,
       tableData: [],
       selectedRow: null,
@@ -114,15 +112,13 @@ export default {
       }
     }
   },
-  watch: {
-    visible(val) {
-      if (val) {
-        // 打开弹窗时：清空历史状态
-        this.resetState()
-      }
-    }
-  },
   methods: {
+    show(projectId) {
+      this.visible = true
+      this.projectId = projectId
+      this.resetState()
+    },
+
     resetState() {
       this.tableData = []
       this.selectedRow = null
@@ -203,26 +199,11 @@ export default {
     },
 
     onRowSelect(row) {
-      // 🔍 调试日志（开发环境）
-      if (process.env.NODE_ENV === 'development') {
-        console.log('=== 图符选择 ===')
-        console.log('1. onRowSelect 触发')
-        console.log('2. row =', row)
-        console.log('3. row.id =', row ? row.id : 'row为空')
-      }
-
       if (!row || !row.id) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('❌ row 或 row.id 为空，预览中止')
-        }
         this.$message.warning('该记录数据异常，无法预览')
         return
       }
-
-      // 预览：把ICN ID交给预览面板，面板自行按类型（图片/CGM）鉴权加载
-      if (process.env.NODE_ENV === 'development') {
-        console.log('4. 设置 previewIcnId =', row.id)
-      }
+      // 预览：把ICN ID交给预览面板
       this.previewIcnId = row.id
 
       // 根据后端返回的needDimension标志位判断是否加载尺寸
@@ -296,61 +277,45 @@ export default {
       this.clearForm()
     },
 
-    escapeXml(str) {
-      if (!str && str !== 0) return ''
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;')
-    },
-
     handleConfirm() {
       if (!this.selectedRow) {
-        this.$message.warning('请选择一个图符文件')
+        this.$message.warning('请选择一个ICN')
         return
       }
 
-      // 校验必填属性：infoEntityIdent（ICN编码）
+      // 校验必填属性：ICN编码
       if (!this.selectedRow.icn) {
-        this.$message.error('图符ICN编码为空，无法插入')
+        this.$message.error('ICN编码为空，无法添加')
         return
       }
 
-      // 生成 XML（符合S1000D 4.0 schema + XML转义防注入）
-      let xml = `<symbol infoEntityIdent="${this.escapeXml(this.selectedRow.icn)}"`
-      if (this.form.width) xml += ` reproductionWidth="${this.escapeXml(this.form.width)}"`
-      if (this.form.height) xml += ` reproductionHeight="${this.escapeXml(this.form.height)}"`
-      if (this.form.scale) xml += ` reproductionScale="${this.escapeXml(this.form.scale)}"`
-      xml += `></symbol>`
-
-      this.$emit('insert', xml)
+      // 返回完整的ICN对象给父组件
+      this.$emit('ok', this.selectedRow)
       this.handleClose()
     },
 
     handleClose() {
       this.resetState()
-      this.$emit('update:visible', false)
+      this.visible = false
     }
   }
 }
 </script>
 
 <style lang="less" scoped>
-.symbol-dialog-body {
+.icn-select-dialog-body {
   display: flex;
   flex-direction: column;
   height: 520px;
 }
 
-.symbol-main {
+.icn-select-main {
   flex: 1;
   display: flex;
   min-height: 0;
 }
 
-.symbol-west {
+.icn-select-west {
   width: 220px;
   flex-shrink: 0;
   border-right: 1px solid #e8e8e8;
@@ -359,13 +324,13 @@ export default {
   overflow: hidden;
 }
 
-.symbol-center {
+.icn-select-center {
   flex: 1;
   min-width: 0;
   padding: 0 12px;
 }
 
-.symbol-east {
+.icn-select-east {
   width: 260px;
   flex-shrink: 0;
   border-left: 1px solid #e8e8e8;
@@ -386,7 +351,7 @@ export default {
   min-height: 0;
 }
 
-.symbol-form {
+.icn-select-form {
   height: 80px;
   flex-shrink: 0;
   padding: 12px;
@@ -412,5 +377,13 @@ export default {
 
 /deep/ .ant-table-tbody > tr > td {
   padding: 6px 8px;
+}
+
+/deep/ .ant-table-tbody > tr {
+  cursor: pointer;
+}
+
+/deep/ .ant-table-tbody > tr:hover {
+  background-color: #e6f7ff !important;
 }
 </style>
