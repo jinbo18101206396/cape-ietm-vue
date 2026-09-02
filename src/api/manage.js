@@ -154,6 +154,24 @@ export function downFile(url,parameter, method='get'){
  */
 export function downloadFile(url, fileName, parameter) {
   return downFile(url, parameter).then((data) => {
+    // 检查是否是JSON错误响应（后端返回错误时可能返回JSON而不是Blob）
+    if (data && data.type && data.type.includes('application/json')) {
+      // 读取JSON内容
+      const reader = new FileReader()
+      reader.onload = function() {
+        try {
+          const json = JSON.parse(reader.result)
+          console.error('后端返回的错误：', json)
+          Vue.prototype['$message'].error(json.message || '下载失败')
+        } catch (e) {
+          console.error('无法解析JSON响应', e)
+          Vue.prototype['$message'].error('文件下载失败')
+        }
+      }
+      reader.readAsText(data)
+      return
+    }
+
     if (!data || data.size === 0) {
       Vue.prototype['$message'].warning('文件下载失败')
       return
@@ -171,6 +189,9 @@ export function downloadFile(url, fileName, parameter) {
       document.body.removeChild(link) //下载完成移除元素
       window.URL.revokeObjectURL(url) //释放掉blob对象
     }
+  }).catch(err => {
+    console.error('downloadFile 发生错误：', err)
+    throw err
   })
 }
 

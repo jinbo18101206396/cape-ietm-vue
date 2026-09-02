@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Ruffle Flash Player</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #f0f0f0;
+    }
+    #container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #loading {
+      color: #666;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    ruffle-player {
+      width: 100%;
+      height: 100%;
+    }
+    .error-message {
+      color: #d32f2f;
+      padding: 20px;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      background: #fff;
+      border: 2px solid #d32f2f;
+      border-radius: 8px;
+      max-width: 500px;
+    }
+    .error-message h3 {
+      margin-top: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="loading">加载中...</div>
+  </div>
+
+  <!-- Ruffle Flash模拟器 (CDN) -->
+  <script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
+
+  <script>
+    (function() {
+      console.log('=== Ruffle Flash Player 启动 ===');
+
+      // 全局错误捕获
+      window.addEventListener('error', function(e) {
+        console.error('❌ 全局错误:', e.message);
+      });
+
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error('❌ Promise拒绝:', e.reason);
+      });
+
+      // 从URL获取参数
+      const urlParams = new URLSearchParams(window.location.search);
+      const swfUrl = urlParams.get('file');
+      const urlToken = urlParams.get('token');
+
+      console.log('📂 SWF URL:', swfUrl);
+      console.log('🔑 Token:', urlToken ? '已提供 (长度:' + urlToken.length + ')' : '未提供');
+
+      const container = document.getElementById('container');
+      const loading = document.getElementById('loading');
+
+      // 检查URL参数
+      if (!swfUrl) {
+        showError('未指定SWF文件', 'URL参数中缺少file参数');
+        return;
+      }
+
+      // 等待Ruffle加载
+      let checkCount = 0;
+      const checkRuffle = setInterval(function() {
+        checkCount++;
+
+        if (typeof window.RufflePlayer !== 'undefined') {
+          clearInterval(checkRuffle);
+          console.log('✅ Ruffle已加载');
+          initPlayer();
+        } else if (checkCount > 50) {
+          clearInterval(checkRuffle);
+          showError('Ruffle加载超时', '无法从CDN加载Ruffle，请检查网络连接');
+        }
+      }, 100);
+
+      function initPlayer() {
+        try {
+          // 配置Ruffle
+          window.RufflePlayer.config = {
+            autoplay: "on",
+            unmuteOverlay: "hidden",
+            backgroundColor: "#FFFFFF",
+            letterbox: "fullscreen",
+            logLevel: "warn",
+            allowScriptAccess: false,
+            quality: "high",
+            wmode: "opaque",
+            // 启用循环播放
+            loopPlayback: true
+          };
+
+          const ruffle = window.RufflePlayer.newest();
+          const player = ruffle.createPlayer();
+
+          console.log('✅ 播放器创建成功');
+
+          // 监听panic（Ruffle崩溃）
+          player.addEventListener('panic', function(e) {
+            console.error('❌❌❌ Ruffle Panic:', e);
+            const detail = e.detail || e;
+            showError(
+              'Ruffle播放器崩溃',
+              'SWF文件可能格式不兼容或包含Ruffle不支持的功能<br>错误: ' + (detail.message || JSON.stringify(detail))
+            );
+          });
+
+          // 监听加载完成
+          player.addEventListener('loadeddata', function() {
+            console.log('✅ SWF数据加载完成');
+          });
+
+          // 监听播放结束（用于循环）
+          let loopEnabled = true;
+          player.addEventListener('ended', function() {
+            if (loopEnabled) {
+              console.log('🔄 播放结束，立即重新播放');
+              // 立即重播，不延迟
+              setTimeout(function() {
+                try {
+                  player.play();
+                  console.log('🔄 循环播放已启动');
+                } catch (e) {
+                  console.error('❌ 重新播放失败:', e);
+                  // 如果play()失败，尝试重新加载
+                  console.log('⚠️ 尝试重新加载SWF...');
+                }
+              }, 50);
+            }
+          });
+
+          // 定期检查播放状态（主要循环机制 - 因为ended事件不可靠）
+          let checkCount = 0;
+          setInterval(function() {
+            try {
+              checkCount++;
+              // 检查播放器是否暂停或结束
+              if (player.paused && loopEnabled) {
+                console.log('🔄 [' + checkCount + '] 检测到播放暂停，立即重新播放');
+                player.play();
+              }
+            } catch (e) {
+              console.error('循环检查失败:', e);
+            }
+          }, 100); // 每100ms检查一次，确保及时重播
+
+          console.log('✅ 循环播放已启用');
+
+          // 清除loading，添加播放器到DOM
+          loading.style.display = 'none';
+          container.appendChild(player);
+
+          // 获取Token
+          const token = urlToken || getTokenFromParent();
+          if (!token) {
+            console.warn('⚠️ 未找到Token，文件访问可能失败');
+          } else {
+            console.log('✅ Token获取成功');
+          }
+
+          // 加载SWF文件
+          console.log('📥 开始下载SWF文件...');
+          fetch(swfUrl, {
+            headers: token ? { 'X-Access-Token': token } : {}
+          })
+          .then(function(response) {
+            console.log('📊 HTTP状态:', response.status, response.statusText);
+
+            if (!response.ok) {
+              throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+            }
+
+            return response.arrayBuffer();
+          })
+          .then(function(data) {
+            console.log('✅ SWF文件下载完成，大小:', data.byteLength, '字节');
+
+            if (data.byteLength === 0) {
+              throw new Error('SWF文件为空');
+            }
+
+            // 检查SWF文件头
+            const header = new Uint8Array(data.slice(0, 3));
+            const signature = String.fromCharCode.apply(null, header);
+            console.log('📄 SWF签名:', signature);
+
+            if (signature !== 'FWS' && signature !== 'CWS' && signature !== 'ZWS') {
+              throw new Error('无效的SWF文件格式，签名: ' + signature);
+            }
+
+            // 加载到播放器
+            console.log('🎬 加载到Ruffle播放器...');
+            player.load({ data: new Uint8Array(data) });
+            console.log('✅ 加载完成，开始播放');
+
+            // SWF文件已内置循环逻辑(ActionScript gotoAndPlay)，无需外部重载
+            console.log('✅ SWF数据加载完成，内置循环播放');
+          })
+          .catch(function(err) {
+            console.error('❌ 加载失败:', err);
+            showError('SWF文件加载失败', err.message);
+          });
+
+        } catch (e) {
+          console.error('❌ 初始化失败:', e);
+          showError('播放器初始化失败', e.message);
+        }
+      }
+
+      function getTokenFromParent() {
+        try {
+          // 方法1: Vue.ls
+          if (window.parent && window.parent !== window) {
+            const parentVue = window.parent.Vue;
+            if (parentVue && parentVue.ls) {
+              const token = parentVue.ls.get('ACCESS_TOKEN');
+              if (token) {
+                console.log('Token来源: parent.Vue.ls');
+                return token;
+              }
+            }
+          }
+
+          // 方法2: localStorage
+          if (window.parent && window.parent !== window) {
+            const token = window.parent.localStorage.getItem('ACCESS_TOKEN');
+            if (token) {
+              console.log('Token来源: parent.localStorage');
+              return token;
+            }
+          }
+
+          // 方法3: 当前窗口
+          const token = localStorage.getItem('ACCESS_TOKEN');
+          if (token) {
+            console.log('Token来源: localStorage');
+            return token;
+          }
+        } catch (e) {
+          console.error('获取Token异常:', e);
+        }
+        return null;
+      }
+
+      function showError(title, message) {
+        container.innerHTML =
+          '<div class="error-message">' +
+          '<h3>❌ ' + title + '</h3>' +
+          '<p>' + message + '</p>' +
+          '<p style="font-size: 12px; color: #666;">请查看Console获取详细信息</p>' +
+          '</div>';
+      }
+    })();
+  </script>
+</body>
+</html>

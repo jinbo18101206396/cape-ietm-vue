@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Token测试工具</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .test-section {
+      border: 1px solid #ddd;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+    .success { color: green; font-weight: bold; }
+    .error { color: red; font-weight: bold; }
+    .info { color: #666; }
+    button {
+      padding: 8px 16px;
+      background: #1890ff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background: #40a9ff;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    .token-display {
+      word-break: break-all;
+      background: #fffbe6;
+      padding: 10px;
+      border-left: 3px solid #faad14;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔐 Token获取测试工具</h1>
+  <p class="info">用于诊断ruffle-stub.html中的token认证问题</p>
+
+  <div class="test-section">
+    <h3>测试1: localStorage直接读取</h3>
+    <button onclick="testLocalStorage()">测试localStorage</button>
+    <div id="result1"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>测试2: 模拟iframe环境</h3>
+    <button onclick="testIframeToken()">创建iframe测试</button>
+    <button onclick="clearIframe()">清除iframe</button>
+    <div id="iframe-container"></div>
+    <div id="result2"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>测试3: 实际API请求</h3>
+    <button onclick="testApiRequest()">测试API请求</button>
+    <div id="result3"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>测试4: 完整Ruffle加载</h3>
+    <p class="info">在实际ICN预览模态框中测试，此处提供快速测试链接</p>
+    <button onclick="openRuffleStub()">打开Ruffle测试页</button>
+  </div>
+
+  <script>
+    // 测试1: localStorage直接读取
+    function testLocalStorage() {
+      const result = document.getElementById('result1');
+      result.innerHTML = '<p>测试中...</p>';
+
+      try {
+        const token = localStorage.getItem('ACCESS_TOKEN');
+
+        if (token) {
+          result.innerHTML = `
+            <p class="success">✅ Token获取成功</p>
+            <div class="token-display">
+              <strong>Token:</strong> ${token.substring(0, 50)}...
+            </div>
+            <p class="info">Token长度: ${token.length} 字符</p>
+          `;
+        } else {
+          result.innerHTML = `
+            <p class="error">❌ Token不存在</p>
+            <p class="info">请先登录系统，或检查localStorage中是否有 ACCESS_TOKEN 键</p>
+            <button onclick="checkAllKeys()">查看所有localStorage键</button>
+          `;
+        }
+      } catch (e) {
+        result.innerHTML = `<p class="error">❌ 错误: ${e.message}</p>`;
+      }
+    }
+
+    // 查看所有localStorage键
+    function checkAllKeys() {
+      const result = document.getElementById('result1');
+      const keys = Object.keys(localStorage);
+
+      result.innerHTML += `
+        <div style="margin-top: 10px;">
+          <strong>localStorage中的所有键 (共${keys.length}个):</strong>
+          <pre>${keys.join('\n')}</pre>
+        </div>
+      `;
+    }
+
+    // 测试2: 模拟iframe环境
+    function testIframeToken() {
+      const container = document.getElementById('iframe-container');
+      const result = document.getElementById('result2');
+
+      result.innerHTML = '<p>创建iframe测试环境...</p>';
+
+      // 创建iframe
+      const iframe = document.createElement('iframe');
+      iframe.id = 'test-iframe';
+      iframe.style.width = '100%';
+      iframe.style.height = '300px';
+      iframe.style.border = '1px solid #ddd';
+      iframe.style.marginTop = '10px';
+
+      // iframe内容：测试token获取
+      const iframeContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial; padding: 20px; }
+            .success { color: green; }
+            .error { color: red; }
+          </style>
+        </head>
+        <body>
+          <h4>iframe内部测试</h4>
+          <div id="iframe-result"></div>
+          <script>
+            function testTokenInIframe() {
+              const result = document.getElementById('iframe-result');
+              let html = '';
+
+              // 测试方法1: 父窗口localStorage
+              try {
+                const token1 = window.parent.localStorage.getItem('ACCESS_TOKEN');
+                if (token1) {
+                  html += '<p class="success">✅ 方法1成功: window.parent.localStorage</p>';
+                  html += '<p>Token: ' + token1.substring(0, 30) + '...</p>';
+                } else {
+                  html += '<p class="error">❌ 方法1失败: token为空</p>';
+                }
+              } catch (e) {
+                html += '<p class="error">❌ 方法1异常: ' + e.message + '</p>';
+              }
+
+              // 测试方法2: 父窗口Vue.ls
+              try {
+                if (window.parent.Vue && window.parent.Vue.ls) {
+                  const token2 = window.parent.Vue.ls.get('ACCESS_TOKEN');
+                  if (token2) {
+                    html += '<p class="success">✅ 方法2成功: window.parent.Vue.ls</p>';
+                  } else {
+                    html += '<p class="error">❌ 方法2失败: token为空</p>';
+                  }
+                } else {
+                  html += '<p class="error">❌ 方法2失败: Vue.ls不可用</p>';
+                }
+              } catch (e) {
+                html += '<p class="error">❌ 方法2异常: ' + e.message + '</p>';
+              }
+
+              result.innerHTML = html;
+            }
+
+            // 页面加载后自动测试
+            setTimeout(testTokenInIframe, 100);
+          <\/script>
+        </body>
+        </html>
+      `;
+
+      container.innerHTML = '';
+      container.appendChild(iframe);
+
+      // 写入iframe内容
+      iframe.contentWindow.document.open();
+      iframe.contentWindow.document.write(iframeContent);
+      iframe.contentWindow.document.close();
+
+      result.innerHTML = '<p class="success">✅ iframe已创建，查看上方iframe内部的测试结果</p>';
+    }
+
+    function clearIframe() {
+      document.getElementById('iframe-container').innerHTML = '';
+      document.getElementById('result2').innerHTML = '<p class="info">iframe已清除</p>';
+    }
+
+    // 测试3: 实际API请求
+    function testApiRequest() {
+      const result = document.getElementById('result3');
+      result.innerHTML = '<p>测试中...</p>';
+
+      const token = localStorage.getItem('ACCESS_TOKEN');
+
+      if (!token) {
+        result.innerHTML = '<p class="error">❌ 未找到token，无法测试API</p>';
+        return;
+      }
+
+      // 测试一个简单的API（用户信息）
+      fetch('/jeecg-boot/sys/user/getUserInfo', {
+        headers: {
+          'X-Access-Token': token
+        }
+      })
+        .then(response => {
+          if (response.ok) {
+            return response.json();
+          } else {
+            throw new Error('HTTP ' + response.status);
+          }
+        })
+        .then(data => {
+          result.innerHTML = `
+            <p class="success">✅ API请求成功</p>
+            <p class="info">Token有效，可以正常访问后端API</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `;
+        })
+        .catch(err => {
+          result.innerHTML = `
+            <p class="error">❌ API请求失败: ${err.message}</p>
+            <p class="info">可能原因：</p>
+            <ul>
+              <li>Token已过期</li>
+              <li>后端服务未启动</li>
+              <li>Token格式错误</li>
+            </ul>
+          `;
+        });
+    }
+
+    // 测试4: 打开Ruffle测试页
+    function openRuffleStub() {
+      const token = localStorage.getItem('ACCESS_TOKEN');
+      if (!token) {
+        alert('未找到token，请先登录');
+        return;
+      }
+
+      // 使用测试SWF URL
+      const testUrl = '/ruffle-stub.html?file=' + encodeURIComponent('http://localhost:9999/jeecg-boot/sys/common/static/test.swf');
+      window.open(testUrl, '_blank');
+    }
+
+    // 页面加载时自动运行测试1
+    window.onload = function() {
+      testLocalStorage();
+    };
+  </script>
+</body>
+</html>
