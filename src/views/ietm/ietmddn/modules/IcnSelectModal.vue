@@ -162,8 +162,7 @@ export default {
             this.$message.error(res.message || '查询失败')
           }
         })
-        .catch(err => {
-          console.error('listSymbolsForDialog error:', err)
+        .catch(() => {
           this.$message.error('查询ICN列表失败')
         })
         .finally(() => {
@@ -260,8 +259,7 @@ export default {
           this.form.scale = 100
           this.originalSize = `${w}×${h}`
         })
-        .catch(err => {
-          console.error('queryByIdWithAttachment error:', err)
+        .catch(() => {
           this.$message.error('获取文件尺寸失败')
           this.clearForm()
         })

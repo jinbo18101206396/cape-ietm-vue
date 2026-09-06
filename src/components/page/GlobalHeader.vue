@@ -156,7 +156,7 @@
       }
     },
     methods: {
-      ...mapActions(['LoadCurrentProject', 'CloseProject']),
+      ...mapActions('project', ['LoadCurrentProject', 'CloseProject']),
       handleScroll() {
         if (this.autoHideHeader) {
           let scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop

@@ -164,28 +164,24 @@
 
       <!-- 表格内容 -->
       <div>
-        <a-alert
-          v-if="icnList.length === 0"
-          message='暂无实体，请点击"添加"按钮选择'
-          type="info"
-          show-icon
-          :closable="false"
-          style="margin-bottom: 16px;"
-        />
         <a-table
-          v-else
           ref="icnTable"
           :columns="columns"
           :data-source="icnList"
           :row-key="record => record.id"
           :row-selection="{ selectedRowKeys: selectedRowKeys, onChange: onSelectChange }"
-          :pagination="false"
+          :pagination="icnPaginationConfig"
           :loading="tableLoading"
+          :scroll="{x:true}"
           bordered
           size="middle"
+          class="j-table-force-nowrap"
         >
           <span slot="serial" slot-scope="text, record, index">
-            {{ index + 1 }}
+            {{ (icnPaginationConfig.current - 1) * icnPaginationConfig.pageSize + index + 1 }}
+          </span>
+          <span slot="icn" slot-scope="text, record">
+            <a @click="handlePreviewIcn(record)">{{ text }}</a>
           </span>
           <span slot="security" slot-scope="text">
             <a-tag :color="getSecurityColor(text)">
@@ -204,20 +200,34 @@
       ref="icnSelectModal"
       @ok="handleIcnSelect"
     />
+
+    <!-- ICN预览弹窗 -->
+    <icn-viewer-modal ref="viewerModal" />
   </div>
 </template>
 
 <script>
-import { getAction, postAction } from '@/api/manage'
+import { getAction, postAction, downloadFile } from '@/api/manage'
 import JDictSelectTag from '@/components/dict/JDictSelectTag'
 import IcnSelectModal from './modules/IcnSelectModal'
-import { mapState } from 'vuex'
+import IcnViewerModal from '@/views/ietm/icnmanage/modules/IcnViewerModal'
+import { mapState, mapActions } from 'vuex'
+
+// 常量配置
+// ICN列表最大数量限制：
+// 1. 防止前端渲染性能问题（虽然已有分页，但大量数据仍会影响操作体验）
+// 2. 限制DDN数据包大小，避免生成超大ZIP文件
+// 3. 避免后端单次处理时间过长
+// 4. 实际业务场景中，单次导出1000个ICN已能覆盖绝大多数需求
+const MAX_ICN_COUNT = 1000
+const SESSION_MAX_AGE = 60 * 60 * 1000 // 会话有效期：1小时
 
 export default {
   name: 'IetmIcnExport',
   components: {
     JDictSelectTag,
-    IcnSelectModal
+    IcnSelectModal,
+    IcnViewerModal
   },
   data() {
     return {
@@ -235,13 +245,24 @@ export default {
       selectedRowKeys: [],
       tableLoading: false,
       generating: false,
+      // P1-1修复：添加分页配置（对齐DM列表）
+      icnPaginationConfig: {
+        current: 1,
+        pageSize: 10,
+        total: 0,
+        showSizeChanger: true,
+        showQuickJumper: true,
+        pageSizeOptions: ['10', '20', '50'],
+        showTotal: (total) => `共 ${total} 条`,
+        size: 'small'
+      },
       // 修复P0-3：7列完整字段（所有列居中对齐，字段名对齐后端）
       columns: [
         {
           title: '序号',
           dataIndex: 'serial',
           key: 'serial',
-          width: 55,
+          width: 60,
           align: 'center',
           scopedSlots: { customRender: 'serial' }
         },
@@ -251,20 +272,18 @@ export default {
           key: 'icn',
           width: 200,
           align: 'center',
-          ellipsis: true
+          scopedSlots: { customRender: 'icn' }
         },
         {
           title: '版本号',
           dataIndex: 'issueNo',
           key: 'issueNo',
-          width: 100,
           align: 'center'
         },
         {
           title: '密级',
           dataIndex: 'security',
           key: 'security',
-          width: 100,
           align: 'center',
           scopedSlots: { customRender: 'security' }
         },
@@ -272,15 +291,12 @@ export default {
           title: '文件名称',
           dataIndex: 'fileName',
           key: 'fileName',
-          width: 180,
-          align: 'center',
-          ellipsis: true
+          align: 'center'
         },
         {
           title: '创建日期',
           dataIndex: 'createTime',
           key: 'createTime',
-          width: 100,
           align: 'center',
           scopedSlots: { customRender: 'createTime' }
         },
@@ -288,9 +304,7 @@ export default {
           title: '创建人',
           dataIndex: 'createBy',
           key: 'createBy',
-          width: 120,
-          align: 'center',
-          ellipsis: true
+          align: 'center'
         }
       ],
       commercialSecurityOptions: [],
@@ -326,11 +340,28 @@ export default {
           this.formData.sender = val.originator || ''
         }
       },
-      immediate: true,
-      deep: true
+      immediate: true
+      // 移除 deep: true，currentProject 是对象引用，无需深度监听
+    },
+    // P1-1修复：同步icnList变化到分页总数
+    icnList: {
+      handler(val) {
+        this.icnPaginationConfig.total = val.length
+      },
+      immediate: true
     }
   },
   created() {
+    // P2-1修复：从后端恢复项目状态，解决页面刷新后currentProject丢失问题
+    const loading = this.$message.loading('正在加载项目信息...', 0)
+    this.LoadCurrentProject()
+      .catch(() => {
+        this.$message.warning('请先打开项目后再使用导出功能')
+      })
+      .finally(() => {
+        loading()
+      })
+
     // 初始化发布日期
     const moment = this.$moment || require('moment')
     this.formData.issueDate = moment().format('YYYY-MM-DD')
@@ -340,6 +371,8 @@ export default {
     this.restoreFromSession()
   },
   methods: {
+    ...mapActions('project', ['LoadCurrentProject']),
+
     async loadDictOptions() {
       try {
         // 加载商业密级和警告选项
@@ -363,7 +396,7 @@ export default {
             .map(item => ({ value: item.value, label: item.text }))
         }
       } catch (error) {
-        console.error('加载字典选项失败：', error)
+        // 字典加载失败，使用回退选项
       }
     },
 
@@ -405,11 +438,9 @@ export default {
 
     // ICN选择回调
     handleIcnSelect(icn) {
-      console.log('选择的ICN:', icn)
-
-      // 检查数量限制
-      if (this.icnList.length >= 1000) {
-        this.$message.error('单次最多导出1000个ICN')
+      // 检查数量限制（使用常量）
+      if (this.icnList.length >= MAX_ICN_COUNT) {
+        this.$message.error(`单次最多导出${MAX_ICN_COUNT}个ICN`)
         return
       }
 
@@ -451,6 +482,21 @@ export default {
           this.$message.success('删除成功')
         }
       })
+    },
+
+    // 预览ICN（P1-3修复：增强异常处理）
+    handlePreviewIcn(record) {
+      if (!record || !record.id) {
+        this.$message.warning('无法获取ICN信息')
+        return
+      }
+      try {
+        // 调用预览弹窗，传入ICN的ID
+        this.$refs.viewerModal.show(record.id)
+      } catch (error) {
+        console.error('ICN预览失败:', error)
+        this.$message.error('预览失败，请稍后重试')
+      }
     },
 
     // 生成DDN（修复P1-1：强制表单校验）
@@ -510,18 +556,23 @@ export default {
               })
             }
 
-            // 下载文件
-            const downloadUrl = res.result.downloadUrl
-            window.location.href = downloadUrl
-            // 清空列表
-            this.clearExportData()
+            // 修复404问题：使用downloadFile方法携带Token下载，而非window.location.href直接跳转
+            // window.location.href会导致页面跳转到相对路径，引发404错误
+            const fileName = res.result.fileName || `${res.result.ddnCode}.zip`
+            downloadFile(res.result.downloadUrl, fileName)
+              .then(() => {
+                this.$message.success('下载成功')
+                // 下载成功后保留列表数据，不自动清空
+              })
+              .catch(err => {
+                this.$message.error('下载失败：' + (err.message || '未知错误'))
+              })
           } else {
             this.$message.error(res.message || 'DDN生成失败')
           }
         })
-        .catch(error => {
+        .catch(() => {
           hide()
-          console.error('生成DDN失败：', error)
           this.$message.error('生成DDN数据包失败')
         })
         .finally(() => {
@@ -529,37 +580,69 @@ export default {
         })
     },
 
-    // 保存到sessionStorage
+    // 保存到sessionStorage（P1-2修复：按项目ID隔离，避免数据污染）
     saveToSession() {
-      const data = {
-        formData: this.formData,
-        icnList: this.icnList,
-        timestamp: Date.now()
+      try {
+        if (!this.currentProject || !this.currentProject.projectId) {
+          return
+        }
+        const sessionKey = `ietm_icn_export_${this.currentProject.projectId}`
+        const data = {
+          projectId: this.currentProject.projectId,
+          formData: this.formData,
+          icnList: this.icnList,
+          timestamp: Date.now()
+        }
+        sessionStorage.setItem(sessionKey, JSON.stringify(data))
+      } catch (error) {
+        console.warn('保存会话数据失败:', error)
+        // sessionStorage写入失败（如配额超限），静默失败
       }
-      sessionStorage.setItem('ietm_icn_export', JSON.stringify(data))
     },
 
-    // 从sessionStorage恢复
+    // 从sessionStorage恢复（P1-2修复：校验项目ID一致性）
     restoreFromSession() {
       try {
-        const stored = sessionStorage.getItem('ietm_icn_export')
+        if (!this.currentProject || !this.currentProject.projectId) {
+          return
+        }
+        const sessionKey = `ietm_icn_export_${this.currentProject.projectId}`
+        const stored = sessionStorage.getItem(sessionKey)
         if (stored) {
           const data = JSON.parse(stored)
-          // 检查是否超过1小时
-          if (Date.now() - data.timestamp < 60 * 60 * 1000) {
+
+          // 校验项目ID一致性
+          if (data.projectId !== this.currentProject.projectId) {
+            sessionStorage.removeItem(sessionKey)
+            return
+          }
+
+          // 检查是否超过1小时（使用常量）
+          if (Date.now() - data.timestamp < SESSION_MAX_AGE) {
             this.icnList = data.icnList || []
+          } else {
+            // 会话过期，清除数据
+            sessionStorage.removeItem(sessionKey)
           }
         }
       } catch (error) {
-        console.error('恢复会话数据失败：', error)
+        console.warn('恢复会话数据失败:', error)
+        // 会话恢复失败，清除无效数据
+        if (this.currentProject && this.currentProject.projectId) {
+          const sessionKey = `ietm_icn_export_${this.currentProject.projectId}`
+          sessionStorage.removeItem(sessionKey)
+        }
       }
     },
 
-    // 清空导出数据
+    // 清空导出数据（P1-2修复：清除正确的sessionStorage键）
     clearExportData() {
       this.icnList = []
       this.selectedRowKeys = []
-      sessionStorage.removeItem('ietm_icn_export')
+      if (this.currentProject && this.currentProject.projectId) {
+        const sessionKey = `ietm_icn_export_${this.currentProject.projectId}`
+        sessionStorage.removeItem(sessionKey)
+      }
     }
   }
 }
@@ -677,15 +760,19 @@ export default {
 
 /* ========== 工具栏 ========== */
 .table-operator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 16px;
 }
 
 .toolbar-left {
-  display: inline-block;
+  display: flex;
+  align-items: center;
 }
 
 .toolbar-right {
-  float: right;
-  display: inline-block;
+  display: flex;
+  align-items: center;
 }
 </style>

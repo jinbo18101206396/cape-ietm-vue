@@ -179,7 +179,7 @@ export default {
     }
   },
   methods: {
-    ...mapActions(['LoadCurrentProject', 'OpenProject']),
+    ...mapActions('project', ['LoadCurrentProject', 'OpenProject']),
 
     calcScrollHeight() {
       this.$nextTick(() => {

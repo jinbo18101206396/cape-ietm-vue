@@ -1,6 +1,8 @@
 import { getAction, postAction } from '@/api/manage'
 
 const project = {
+  namespaced: true, // 启用命名空间，避免与其他模块冲突
+
   state: {
     currentProject: null
   },

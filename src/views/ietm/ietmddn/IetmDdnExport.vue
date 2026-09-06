@@ -149,6 +149,7 @@
               删除
             </a-button>
             <a-button
+              type="primary"
               icon="eye"
               @click="handlePreviewDm"
               :disabled="selectedRowKeys.length !== 1"
@@ -181,16 +182,7 @@
 
       <!-- 表格内容 -->
       <div>
-        <a-alert
-          v-if="dmList.length === 0"
-          message='暂无数据模块，请点击"添加DM"按钮选择'
-          type="info"
-          show-icon
-          :closable="false"
-          style="margin-bottom: 16px;"
-        />
         <a-table
-          v-else
           ref="dmTable"
           :columns="columns"
           :data-source="dmList"
@@ -198,8 +190,10 @@
           :row-selection="{ selectedRowKeys: selectedRowKeys, onChange: onSelectChange }"
           :pagination="paginationConfig"
           :loading="tableLoading"
+          :scroll="{x:true}"
           bordered
           size="middle"
+          class="j-table-force-nowrap"
         >
           <span slot="serial" slot-scope="text, record, index">
             {{ (paginationConfig.current - 1) * paginationConfig.pageSize + index + 1 }}
@@ -391,7 +385,7 @@ export default {
           title: '序号',
           dataIndex: 'serial',
           key: 'serial',
-          width: 55,
+          width: 60,
           align: 'center',
           scopedSlots: { customRender: 'serial' }
         },
@@ -399,39 +393,31 @@ export default {
           title: 'DMC编码',
           dataIndex: 'dmcCode',
           key: 'dmcCode',
-          width: 260,
+          width: 200,
           align: 'center',
-          ellipsis: true,
           scopedSlots: { customRender: 'dmcCode' }
         },
         {
           title: '技术名称',
           dataIndex: 'techName',
           key: 'techName',
-          width: 130,
-          align: 'center',
-          ellipsis: true
+          align: 'center'
         },
         {
           title: '信息名称',
           dataIndex: 'infoName',
           key: 'infoName',
-          width: 130,
-          align: 'center',
-          ellipsis: true
+          align: 'center'
         },
         {
           title: 'DM类型',
           dataIndex: 'dmTypeName',
           key: 'dmTypeName',
-          width: 100,
-          align: 'center',
-          ellipsis: true
+          align: 'center'
         },
         {
           title: '版本号',
           key: 'fullIssueNo',
-          width: 85,
           align: 'center',
           customRender: (text, record) => {
             if (record.issueNo && record.inWork) {
@@ -444,14 +430,12 @@ export default {
           title: '版本类型',
           dataIndex: 'issueType',
           key: 'issueType',
-          width: 85,
           align: 'center'
         },
         {
           title: '版本日期',
           dataIndex: 'issueDate',
           key: 'issueDate',
-          width: 95,
           align: 'center',
           scopedSlots: { customRender: 'issueDate' }
         }
@@ -567,6 +551,9 @@ export default {
           // 密级字段：保持原始类型（Integer），由字典组件自动匹配
           this.formData.security = val.security != null ? val.security : ''
           this.formData.sender = val.originator || ''
+
+          // 修复：项目状态恢复后，再恢复会话数据
+          this.restoreSessionData()
         }
       },
       immediate: true
@@ -586,8 +573,9 @@ export default {
     // 初始化发布日期为当天
     this.initIssueDate()
 
-    // 恢复会话数据
-    this.restoreSessionData()
+    // 修复：移除restoreSessionData()调用，改为在watch currentProject中调用
+    // 确保项目状态恢复后再恢复会话数据，避免currentProject为null时早退
+    // this.restoreSessionData()
 
     // 修复P2-8：加载商业密级和警告选项（从数据字典）
     // this.loadDictionaryOptions()
@@ -957,7 +945,6 @@ export default {
               const fileName = res.result.fileName || `${res.result.ddnCode}.zip`
               downloadFile(res.result.downloadUrl, fileName)
                 .catch(err => {
-                  console.error('下载DDN数据包失败', err)
                   this.$message.error('下载失败：' + (err.message || '未知错误'))
                 })
             } else {
@@ -965,7 +952,6 @@ export default {
             }
           })
           .catch(err => {
-            console.error('生成DDN失败', err)
             this.$message.error('生成失败：' + (err.message || '未知错误'))
           })
           .finally(() => {
@@ -1009,7 +995,7 @@ export default {
         }
         sessionStorage.setItem(sessionKey, JSON.stringify(sessionData))
       } catch (e) {
-        console.warn('保存DDN导出会话数据失败', e)
+        // 会话保存失败，忽略
       }
     },
 
@@ -1038,7 +1024,7 @@ export default {
           this.exportOptions = sessionData.exportOptions || ['includeRefIcn', 'includeRefDm', 'includeDmResource']
         }
       } catch (e) {
-        console.warn('恢复DDN导出会话数据失败', e)
+        // 会话恢复失败，清除无效数据
         if (this.currentProject && this.currentProject.projectId) {
           const sessionKey = `ietm_ddn_export_${this.currentProject.projectId}`
           sessionStorage.removeItem(sessionKey)
@@ -1161,16 +1147,20 @@ export default {
 
 /* ========== 工具栏 ========== */
 .table-operator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 16px;
 }
 
 .toolbar-left {
-  display: inline-block;
+  display: flex;
+  align-items: center;
 }
 
 .toolbar-right {
-  float: right;
-  display: inline-block;
+  display: flex;
+  align-items: center;
 }
 
 /* 导出选项 */

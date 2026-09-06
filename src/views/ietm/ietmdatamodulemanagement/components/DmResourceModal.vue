@@ -236,32 +236,20 @@ export default {
 
         this.resourceModalLoading = true
 
-        // 添加资源 - 分两步：1. 上传文件获取fileId  2. 保存资源记录
+        // 使用新的上传接口（项目隔离路径）
+        // 参照ICN修复方案，统一使用 project/{projectId}/dm_resource/ 格式
         const formData = new FormData()
         formData.append('file', this.resourceForm.file)
-        formData.append('biz', 'resource')  // 指定保存到 resource 子目录
+        formData.append('dmId', this.dmId)
+        formData.append('resourceName', this.resourceForm.resourceName)
+        formData.append('comment', this.resourceForm.comment || '')
 
-        const fileSize = this.resourceForm.file.size // 获取文件大小
-
-        // 第一步：上传文件
-        uploadAction('/sys/common/upload', formData)
-          .then(uploadRes => {
-            if (uploadRes.success) {
-              const fileId = uploadRes.message // 文件路径在message字段中
-
-              // 第二步：保存资源记录 - 使用URL参数
-              const params = new URLSearchParams()
-              params.append('dmId', this.dmId)
-              params.append('fileId', fileId)
-              params.append('resourceName', this.resourceForm.resourceName)
-              params.append('fileSize', fileSize)
-              params.append('comment', this.resourceForm.comment || '')
-
-              return axios.post('/ietm/datamodule/saveDmResource', params)
-            } else {
-              throw new Error(uploadRes.message || '文件上传失败')
-            }
-          })
+        // 调用专用的资源上传接口
+        axios.post('/ietm/datamodule/uploadDmResource', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        })
           .then(res => {
             if (res && res.success) {
               this.$message.success('添加成功')

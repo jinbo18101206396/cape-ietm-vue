@@ -15,7 +15,10 @@
     "test:dm:headed": "playwright test tests/dm-full-features-test.spec.js --headed",
     "test:dm:debug": "playwright test tests/dm-full-features-test.spec.js --debug",
     "test:check": "node scripts/check-test-env.js",
-    "test:prepare": "node scripts/prepare-test-data.js"
+    "test:prepare": "node scripts/prepare-test-data.js",
+    "test:dmimport": "node scripts/run-dmimport-tests.js",
+    "test:dmimport:headed": "playwright test tests/dmimport-p0-p1-verification.spec.js --headed",
+    "test:dmimport:debug": "playwright test tests/dmimport-p0-p1-verification.spec.js --debug"
   },
   "dependencies": {
     "@antv/data-set": "^0.11.4",
@@ -35,6 +38,7 @@
     "http-parser-js": "^0.5.10",
     "jquery": "^3.4.1",
     "js-cookie": "^2.2.0",
+    "jszip": "^3.10.1",
     "lodash.debounce": "^4.0.8",
     "lodash.get": "^4.4.2",
     "lodash.pick": "^4.4.0",
@@ -84,7 +88,8 @@
     "less": "^3.9.0",
     "less-loader": "^4.1.0",
     "vue-template-compiler": "^2.6.10",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "xmldom": "^0.6.0"
   },
   "eslintConfig": {
     "root": true,

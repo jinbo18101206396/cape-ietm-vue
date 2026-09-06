@@ -189,12 +189,20 @@ export default {
       this.multimediaLoading = true
       this.multimediaUrl = null
       try {
-        const response = await postAction('/ietm/icn/operation/getIcnContent', { icn: icnIdent })
-        if (response && response.dto && response.dto.id) {
-          const { id, filename } = response.dto
-          const ext = filename ? filename.substring(filename.lastIndexOf('.')).toLowerCase() : '.cgm'
-          this.multimediaUrl = `/jeecg-boot/ietm/icn/ViewIcn?url=${id}${ext}`
+        // 🔧 修复ICN加载失败问题：
+        // 1. 不再调用不存在的getIcnContent接口
+        // 2. 直接使用ICN编码（infoEntityIdent）访问后端viewIcn接口
+        // 3. 后端接口路径：GET /ietm/icn/view/{icnCode}
+        if (!icnIdent || !icnIdent.trim()) {
+          this.$message.warning('ICN编码为空')
+          return
         }
+
+        const icnCode = icnIdent.trim()
+        // 使用正确的REST路径参数格式，而非查询参数
+        this.multimediaUrl = `/jeecg-boot/ietm/icn/view/${icnCode}`
+
+        console.log('加载ICN图片:', icnCode, '-> URL:', this.multimediaUrl)
       } catch (error) {
         console.error('获取ICN内容失败:', error)
         this.$message.error('获取图形内容失败')
