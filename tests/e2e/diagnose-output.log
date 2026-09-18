@@ -1,0 +1,27 @@
+
+Running 1 test using 1 worker
+
+
+========== 开始路径诊断 ==========
+
+📋 步骤1：查询现有ICN记录...
+  x  1 diagnose-import-path.spec.js:10:3 › 诊断导入文件路径问题 › 分析ICN和资源文件的路径格式 (104ms)
+
+
+  1) diagnose-import-path.spec.js:10:3 › 诊断导入文件路径问题 › 分析ICN和资源文件的路径格式 ──────────────────────────────
+
+    SyntaxError: Unexpected token '<', "<!doctype "... is not valid JSON
+
+      18 |       params: { pageNo: 1, pageSize: 5 }
+      19 |     });
+    > 20 |     const icnData = await icnResponse.json();
+         |                     ^
+      21 |
+      22 |     if (icnData.success && icnData.result.records.length > 0) {
+      23 |       console.log(`✅ 找到 ${icnData.result.records.length} 条ICN记录\n`);
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\diagnose-import-path.spec.js:20:21
+
+    Error Context: ..\..\test-results\diagnose-import-path-诊断导入文件路径问题-分析ICN和资源文件的路径格式\error-context.md
+
+  1 failed
+    diagnose-import-path.spec.js:10:3 › 诊断导入文件路径问题 › 分析ICN和资源文件的路径格式 ───────────────────────────────

@@ -27,6 +27,18 @@
       </div>
       <a-empty v-else description="ICN内容为空或加载失败"/>
     </a-modal>
+
+    <!-- 热点详情弹框：点击热点时显示描述信息 -->
+    <a-modal title="热点详情" :visible="hotspotVisible" :footer="null" :width="520"
+      @cancel="hotspotVisible = false">
+      <a-descriptions :column="1" bordered size="small">
+        <a-descriptions-item label="热点ID">{{ hotspotInfo.id || '（无）' }}</a-descriptions-item>
+        <a-descriptions-item label="描述信息">
+          <div v-html="hotspotInfo.description || '（无描述）'"></div>
+        </a-descriptions-item>
+        <a-descriptions-item label="坐标信息">{{ hotspotInfo.coordinates || '（无）' }}</a-descriptions-item>
+      </a-descriptions>
+    </a-modal>
   </a-modal>
 </template>
 <script>
@@ -50,7 +62,9 @@ const STUB_SCRIPT_HEAD = [
   // 链接构造器（热点/引用图形 <script> 中 new 出来，实例需 addTarget）
   'function L(){}L.prototype.addTarget=function(){};',
   'w.REFDMLink=w.XREFLink=w.HotspotLink=w.CSNREFLink=w.ParamLink=L;',
-  'w.addHotspotRef=function(){};',
+  // 热点功能（真实实现，不再是桩函数）
+  'w.hotspotRegistry={};',
+  'w.addHotspotRef=function(id,link){w.hotspotRegistry[id]=link;};',
   // 点击时（热点/参数/CSN/表格撕纸）
   'w.linkToHotSpot=w.linkToParam=w.locateCSN=w.prepTableForTearOff=w.doTearOffPrint=function(){};',
   // 专用 schema（IPD/fault/3D/techrep/process，仅对应 DM 可达，防 ReferenceError）
@@ -78,7 +92,10 @@ export default {
       multimediaVisible: false,
       multimediaIcnIdent: '',
       multimediaUrl: null,
-      multimediaLoading: false
+      multimediaLoading: false,
+      // 热点交互相关
+      hotspotVisible: false,
+      hotspotInfo: { id: '', description: '', coordinates: '' }
     }
   },
   watch: {
@@ -99,6 +116,7 @@ export default {
       // 注意：后端返回的HTML已包含完整的<style>标签（287行CSS），
       // 前端不再添加覆盖样式，避免破坏后端精心设计的排版效果
       const body = html || ''
+
       // 加载时桩脚本：必须放在 <head>，在 body 内联 <script>（XSLT 生成，如 common.xsl:196
       // 的 new HotspotLink()、base.xsl 的 JumpToRow('dmview')）解析执行之前定义所有旧阅读器
       // 全局函数/构造器/对象，否则会抛 ReferenceError（iframe.onload 太晚，parse 阶段已报错）。
@@ -142,6 +160,19 @@ export default {
                 this.multimediaVisible = true
               }
 
+              // 注入 showHotspotInfo：点击热点时展示热点详情
+              iframeWin.showHotspotInfo = (id, description, coordinates) => {
+                this.hotspotInfo = {
+                  id: (id || '').trim(),
+                  description: (description || '').trim(),
+                  coordinates: (coordinates || '').trim()
+                }
+                this.hotspotVisible = true
+              }
+
+              // 渲染热点SVG叠加层
+              this.renderHotspotOverlays(iframeDoc, iframeWin)
+
               // 修复旧服务器相对路径图标（avicit/ietm/viewer/images/）
               // 这些路径来自 multimedia.xsl，在 blob: URL 下无法解析
               // 用内联 SVG 占位图替换，同时保留 cursor:pointer 样式让图标可点击
@@ -151,10 +182,13 @@ export default {
                 'flash':  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" rx="8" fill="%23fff7e6" stroke="%23fa8c16" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="24">⚡</text></svg>',
                 '3d':     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" rx="8" fill="%23f6ffed" stroke="%2352c41a" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="24">🧊</text></svg>'
               }
-              iframeDoc.querySelectorAll('img[src^="avicit/"]').forEach(img => {
+              const avicitImages = iframeDoc.querySelectorAll('img[src^="avicit/"]')
+              avicitImages.forEach(img => {
                 const src = img.getAttribute('src') || ''
                 const type = Object.keys(MEDIA_ICONS).find(t => src.includes(t + '.gif'))
-                if (type) img.src = MEDIA_ICONS[type]
+                if (type) {
+                  img.src = MEDIA_ICONS[type]
+                }
               })
 
               // 修复 href="#xxx" 锚点链接（blob:// URL下无法直接跳转）
@@ -170,6 +204,7 @@ export default {
                 })
               })
             } catch (e) {
+              console.error('❌ iframe处理出错:', e)
             }
           }
         }
@@ -218,6 +253,209 @@ export default {
 
     handleImageError() {
       this.$message.warning('图形加载失败')
+    },
+
+    /**
+     * 渲染热点SVG叠加层
+     * 遍历所有带有热点的图片，在图片上方叠加SVG层，绘制热点区域
+     * @param {Document} iframeDoc - iframe文档对象
+     * @param {Window} iframeWin - iframe窗口对象
+     */
+    renderHotspotOverlays(iframeDoc, iframeWin) {
+      try {
+        // 查找所有热点数据标记（由XSLT生成的span.hotspot-data元素）
+        const hotspotDataElements = iframeDoc.querySelectorAll('.hotspot-data')
+
+        // 按图片分组热点
+        const hotspotsByImage = new Map()
+
+        hotspotDataElements.forEach(element => {
+          const id = element.getAttribute('data-hotspot-id')
+          const shape = element.getAttribute('data-hotspot-shape')
+          const coords = element.getAttribute('data-hotspot-coords')
+          const description = element.getAttribute('data-hotspot-description')
+
+          if (!id || !shape || !coords) return
+
+          // 查找包含此热点的图片（通过遍历父元素查找最近的graphic容器）
+          let parent = element.parentElement
+          let img = null
+          while (parent && !img) {
+            img = parent.querySelector('img')
+            parent = parent.parentElement
+          }
+
+          if (!img) return
+
+          if (!hotspotsByImage.has(img)) {
+            hotspotsByImage.set(img, [])
+          }
+
+          hotspotsByImage.get(img).push({
+            id,
+            shape,
+            coords,
+            description: description || ''
+          })
+        })
+
+        // 为每个图片创建热点叠加层
+        hotspotsByImage.forEach((hotspots, img) => {
+          if (img.complete) {
+            this.createHotspotOverlay(img, hotspots, iframeDoc, iframeWin)
+          } else {
+            img.addEventListener('load', () => {
+              this.createHotspotOverlay(img, hotspots, iframeDoc, iframeWin)
+            })
+          }
+        })
+      } catch (error) {
+        console.error('❌ 渲染热点叠加层失败:', error)
+      }
+    },
+
+    /**
+     * 为单个图片创建热点SVG叠加层
+     * @param {HTMLImageElement} img - 图片元素
+     * @param {Array} hotspots - 热点数据数组
+     * @param {Document} doc - 文档对象
+     * @param {Window} win - 窗口对象
+     */
+    createHotspotOverlay(img, hotspots, doc, win) {
+      try {
+        if (!hotspots || hotspots.length === 0) return
+
+        // 获取图片尺寸
+        const imgWidth = img.naturalWidth || img.width
+        const imgHeight = img.naturalHeight || img.height
+
+        // 创建SVG容器
+        const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg')
+        svg.setAttribute('width', imgWidth)
+        svg.setAttribute('height', imgHeight)
+        svg.style.position = 'absolute'
+        svg.style.top = '0'
+        svg.style.left = '0'
+        svg.style.pointerEvents = 'none' // SVG本身不捕获事件
+        svg.style.zIndex = '10'
+
+        // 将图片包装在相对定位的容器中
+        if (img.parentElement.style.position !== 'relative') {
+          const wrapper = doc.createElement('div')
+          wrapper.style.position = 'relative'
+          wrapper.style.display = 'inline-block'
+          img.parentNode.insertBefore(wrapper, img)
+          wrapper.appendChild(img)
+          wrapper.appendChild(svg)
+        } else {
+          img.parentElement.appendChild(svg)
+        }
+
+        // 渲染每个热点
+        hotspots.forEach(hotspot => {
+          this.renderHotspot(svg, hotspot, doc, win, imgWidth, imgHeight)
+        })
+      } catch (error) {
+        console.error('❌ 创建热点叠加层失败:', error)
+      }
+    },
+
+    /**
+     * 解析热点数据字符串
+     * @param {string} data - 热点数据（格式：id1:shape1:coords1;id2:shape2:coords2）
+     * @returns {Array} 热点对象数组
+     */
+    parseHotspotsData(data) {
+      try {
+        const hotspots = []
+        const items = data.split(';')
+
+        items.forEach(item => {
+          const parts = item.trim().split(':')
+          if (parts.length >= 3) {
+            hotspots.push({
+              id: parts[0],
+              shape: parts[1], // rect, circle, poly
+              coords: parts[2],
+              description: parts[3] || '' // 可选的描述信息
+            })
+          }
+        })
+
+        return hotspots
+      } catch (error) {
+        console.error('❌ 解析热点数据失败:', error)
+        return []
+      }
+    },
+
+    /**
+     * 渲染单个热点图形
+     * @param {SVGElement} svg - SVG容器
+     * @param {Object} hotspot - 热点数据
+     * @param {Document} doc - 文档对象
+     * @param {Window} win - 窗口对象
+     * @param {number} imgWidth - 图片宽度
+     * @param {number} imgHeight - 图片高度
+     */
+    renderHotspot(svg, hotspot, doc, win, imgWidth, imgHeight) {
+      try {
+        let shape = null
+        const coords = hotspot.coords.split(',').map(Number)
+
+        // 根据形状类型创建不同的SVG元素
+        if (hotspot.shape === 'rect' && coords.length >= 4) {
+          // 矩形：x,y,width,height
+          shape = doc.createElementNS('http://www.w3.org/2000/svg', 'rect')
+          shape.setAttribute('x', coords[0])
+          shape.setAttribute('y', coords[1])
+          shape.setAttribute('width', coords[2])
+          shape.setAttribute('height', coords[3])
+        } else if (hotspot.shape === 'circle' && coords.length >= 3) {
+          // 圆形：cx,cy,radius
+          shape = doc.createElementNS('http://www.w3.org/2000/svg', 'circle')
+          shape.setAttribute('cx', coords[0])
+          shape.setAttribute('cy', coords[1])
+          shape.setAttribute('r', coords[2])
+        } else if (hotspot.shape === 'poly' && coords.length >= 6) {
+          // 多边形：x1,y1,x2,y2,x3,y3,...
+          shape = doc.createElementNS('http://www.w3.org/2000/svg', 'polygon')
+          const points = []
+          for (let i = 0; i < coords.length; i += 2) {
+            points.push(`${coords[i]},${coords[i + 1]}`)
+          }
+          shape.setAttribute('points', points.join(' '))
+        }
+
+        if (!shape) return
+
+        // 设置热点样式
+        shape.setAttribute('fill', 'rgba(255, 87, 34, 0.2)') // 半透明橙色
+        shape.setAttribute('stroke', 'rgba(255, 87, 34, 0.8)') // 橙色边框
+        shape.setAttribute('stroke-width', '2')
+        shape.style.cursor = 'pointer'
+        shape.style.pointerEvents = 'all' // 热点区域可捕获事件
+
+        // 鼠标悬停高亮效果
+        shape.addEventListener('mouseenter', () => {
+          shape.setAttribute('fill', 'rgba(255, 87, 34, 0.35)') // 加深高亮
+          shape.setAttribute('stroke-width', '3')
+        })
+        shape.addEventListener('mouseleave', () => {
+          shape.setAttribute('fill', 'rgba(255, 87, 34, 0.2)') // 恢复默认
+          shape.setAttribute('stroke-width', '2')
+        })
+
+        // 点击事件：显示热点详情
+        shape.addEventListener('click', () => {
+          const coordsStr = `${hotspot.shape}: ${hotspot.coords}`
+          win.showHotspotInfo(hotspot.id, hotspot.description, coordsStr)
+        })
+
+        svg.appendChild(shape)
+      } catch (error) {
+        console.error('❌ 渲染热点失败:', error)
+      }
     }
   }
 }

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DDN自动填充调试页面</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .section h3 {
+      margin-top: 0;
+      color: #1890ff;
+    }
+    button {
+      padding: 8px 16px;
+      margin: 5px;
+      cursor: pointer;
+      background: #1890ff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    button:hover {
+      background: #40a9ff;
+    }
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .error {
+      color: red;
+    }
+    .success {
+      color: green;
+    }
+    input[type="file"] {
+      margin: 10px 0;
+    }
+    .test-case {
+      margin: 10px 0;
+      padding: 10px;
+      background: #fafafa;
+      border-left: 3px solid #1890ff;
+    }
+  </style>
+</head>
+<body>
+  <h1>数据模块导入 - DDN自动填充调试工具</h1>
+
+  <div class="section">
+    <h3>测试场景1：检查后端返回的校验结果结构</h3>
+    <input type="file" id="file1" accept=".xml">
+    <button onclick="testBackendResponse()">发送校验请求并查看响应</button>
+    <div id="result1" class="result"></div>
+  </div>
+
+  <div class="section">
+    <h3>测试场景2：模拟autoFillDdnInfo方法</h3>
+    <textarea id="xmlInput" rows="10" cols="80" placeholder="粘贴XML内容..."></textarea>
+    <br>
+    <button onclick="testAutoFill()">测试自动填充</button>
+    <div id="result2" class="result"></div>
+  </div>
+
+  <div class="section">
+    <h3>测试场景3：检查fileList中的文件对象结构</h3>
+    <div class="test-case">
+      <strong>模拟ZIP文件解压后的虚拟文件对象：</strong>
+      <button onclick="testZipFile()">测试ZIP文件</button>
+    </div>
+    <div class="test-case">
+      <strong>模拟独立上传的XML文件对象：</strong>
+      <button onclick="testStandaloneXml()">测试独立XML</button>
+    </div>
+    <div id="result3" class="result"></div>
+  </div>
+
+  <div class="section">
+    <h3>测试场景4：完整的校验流程模拟</h3>
+    <input type="file" id="file4" accept=".xml,.zip">
+    <button onclick="testFullFlow()">完整流程测试</button>
+    <div id="result4" class="result"></div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:9999/jeecg-boot'
+
+    // 测试场景1：检查后端返回的校验结果
+    async function testBackendResponse() {
+      const fileInput = document.getElementById('file1')
+      const resultDiv = document.getElementById('result1')
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        resultDiv.innerHTML = '<span class="error">请先选择XML文件</span>'
+        return
+      }
+
+      const file = fileInput.files[0]
+      resultDiv.innerHTML = '正在发送请求...'
+
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+
+        const response = await fetch(`${API_BASE}/ietm/ietmimport/validate`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'include'
+        })
+
+        const data = await response.json()
+
+        let output = '=== 后端响应 ===\n'
+        output += JSON.stringify(data, null, 2) + '\n\n'
+
+        if (data.success && data.result && data.result.files) {
+          const fileItem = data.result.files[0]
+
+          output += '=== 第一个文件的详细信息 ===\n'
+          output += `fileName: ${fileItem.fileName}\n`
+          output += `fileType: ${fileItem.fileType}\n`
+          output += `resultCode: ${fileItem.resultCode}\n`
+          output += `resultMessage: ${fileItem.resultMessage}\n`
+          output += `dmcCode: ${fileItem.dmcCode}\n`
+          output += `xmlContent存在: ${!!fileItem.xmlContent}\n`
+
+          if (fileItem.xmlContent) {
+            output += `xmlContent长度: ${fileItem.xmlContent.length}\n`
+            output += `xmlContent前100字符: ${fileItem.xmlContent.substring(0, 100)}...\n\n`
+
+            // 测试能否从xmlContent提取DDN信息
+            output += '=== 尝试提取DDN信息 ===\n'
+            const parser = new DOMParser()
+            const xmlDoc = parser.parseFromString(fileItem.xmlContent, 'text/xml')
+
+            const dmCodeElem = xmlDoc.querySelector('dmCode, dmIdent dmCode')
+            if (dmCodeElem) {
+              const modelIdentCode = dmCodeElem.getAttribute('modelIdentCode')
+              output += `✓ 型号 (modelIdentCode): ${modelIdentCode}\n`
+            } else {
+              output += '✗ 未找到dmCode元素\n'
+            }
+
+            const securityElem = xmlDoc.querySelector('security[securityClassification]')
+            if (securityElem) {
+              let securityClass = securityElem.getAttribute('securityClassification')
+              if (securityClass && securityClass.length === 1) {
+                securityClass = '0' + securityClass
+              }
+              output += `✓ 密级 (securityClassification): ${securityClass}\n`
+            } else {
+              output += '✗ 未找到security元素\n'
+            }
+
+            resultDiv.innerHTML = `<span class="success">${output}</span>`
+          } else {
+            output += '\n<span class="error">⚠️ 后端没有返回xmlContent！这是导致自动填充失败的根因。</span>'
+            resultDiv.innerHTML = output
+          }
+        } else {
+          resultDiv.innerHTML = `<span class="error">${output}</span>`
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<span class="error">请求失败: ${err.message}</span>`
+      }
+    }
+
+    // 测试场景2：模拟autoFillDdnInfo
+    function testAutoFill() {
+      const xmlInput = document.getElementById('xmlInput')
+      const resultDiv = document.getElementById('result2')
+
+      if (!xmlInput.value.trim()) {
+        resultDiv.innerHTML = '<span class="error">请先输入XML内容</span>'
+        return
+      }
+
+      let output = '=== 开始解析XML ===\n'
+
+      try {
+        const parser = new DOMParser()
+        const xmlDoc = parser.parseFromString(xmlInput.value, 'text/xml')
+
+        // 检查解析错误
+        const parserError = xmlDoc.getElementsByTagName('parsererror')
+        if (parserError.length > 0) {
+          output += `<span class="error">XML解析失败: ${parserError[0].textContent}</span>`
+          resultDiv.innerHTML = output
+          return
+        }
+
+        output += '✓ XML解析成功\n\n'
+
+        // 提取型号
+        const dmCodeElem = xmlDoc.querySelector('dmCode, dmIdent dmCode')
+        if (dmCodeElem) {
+          const modelIdentCode = dmCodeElem.getAttribute('modelIdentCode')
+          output += `✓ 型号 (modelIdentCode): ${modelIdentCode || '(空)'}\n`
+        } else {
+          output += '✗ 未找到dmCode元素\n'
+        }
+
+        // 提取密级
+        const securityElem = xmlDoc.querySelector('security[securityClassification]')
+        if (securityElem) {
+          let securityClass = securityElem.getAttribute('securityClassification')
+          if (securityClass && securityClass.length === 1) {
+            securityClass = '0' + securityClass
+          }
+          output += `✓ 密级 (securityClassification): ${securityClass || '(空)'}\n`
+        } else {
+          output += '✗ 未找到security元素\n'
+        }
+
+        output += '\n=== autoFillDdnInfo逻辑测试 ===\n'
+
+        // 模拟autoFillDdnInfo的条件判断
+        const mockFile = {
+          validated: true,
+          validateSuccess: true,
+          validateDetail: {
+            fileType: 'DM'
+          },
+          xmlContent: xmlInput.value
+        }
+
+        const condition1 = mockFile.validated
+        const condition2 = mockFile.validateSuccess
+        const condition3 = mockFile.validateDetail && mockFile.validateDetail.fileType === 'DM'
+        const condition4 = !!mockFile.xmlContent
+
+        output += `validated: ${condition1} ${condition1 ? '✓' : '✗'}\n`
+        output += `validateSuccess: ${condition2} ${condition2 ? '✓' : '✗'}\n`
+        output += `validateDetail.fileType === 'DM': ${condition3} ${condition3 ? '✓' : '✗'}\n`
+        output += `xmlContent存在: ${condition4} ${condition4 ? '✓' : '✗'}\n`
+
+        const allConditionsMet = condition1 && condition2 && condition3 && condition4
+
+        if (allConditionsMet) {
+          output += '\n<span class="success">✓ 所有条件满足，应该能够自动填充DDN</span>'
+        } else {
+          output += '\n<span class="error">✗ 条件不满足，无法自动填充DDN</span>'
+        }
+
+        resultDiv.innerHTML = output
+      } catch (err) {
+        resultDiv.innerHTML = `<span class="error">解析失败: ${err.message}</span>`
+      }
+    }
+
+    // 测试场景3：检查文件对象结构
+    function testZipFile() {
+      const resultDiv = document.getElementById('result3')
+
+      // 模拟ZIP解压后的虚拟文件对象
+      const virtualFile = {
+        name: 'DMC-TEST-A-00-0-0-00-00-A-000-A-A.xml',
+        uid: Date.now() + '_' + Math.random(),
+        size: 5000,
+        type: 'text/xml',
+        validated: false,
+        validateSuccess: false,
+        validateMessage: '待校验',
+        validateDetail: null,
+        xmlContent: '<?xml version="1.0"?><dmodule>...</dmodule>', // ✓ ZIP文件有xmlContent
+        sourceZipFile: {}, // 引用
+        isFromZip: true,
+        zipEntryPath: 'DMC-TEST-A-00-0-0-00-00-A-000-A-A.xml'
+      }
+
+      let output = '=== ZIP文件的虚拟对象 ===\n'
+      output += JSON.stringify(virtualFile, null, 2) + '\n\n'
+      output += `xmlContent存在: ${!!virtualFile.xmlContent} ✓\n`
+      output += '结论: ZIP文件在解压时已读取xmlContent，应该可以正常填充DDN\n'
+
+      resultDiv.innerHTML = `<span class="success">${output}</span>`
+    }
+
+    function testStandaloneXml() {
+      const resultDiv = document.getElementById('result3')
+
+      // 模拟独立上传的XML文件对象
+      const standaloneFile = {
+        name: 'DMC-TEST-A-00-0-0-00-00-A-000-A-A.xml',
+        uid: Date.now() + '_' + Math.random(),
+        size: 5000,
+        type: 'text/xml',
+        validated: false,
+        validateSuccess: false,
+        validateMessage: '',
+        validateDetail: null,
+        sourceFile: {}, // 原始File对象
+        xmlContent: undefined // ✗ 独立上传的XML没有预先读取xmlContent！
+      }
+
+      let output = '=== 独立上传的XML文件对象 ===\n'
+      output += JSON.stringify(standaloneFile, null, 2) + '\n\n'
+      output += `xmlContent存在: ${!!standaloneFile.xmlContent} ✗\n\n`
+      output += '<span class="error">⚠️ 问题发现：独立上传的XML文件没有预先读取xmlContent！\n'
+      output += '这导致在校验后，如果后端返回的xmlContent为空或被截断，前端就无法提取DDN信息。</span>\n\n'
+      output += '解决方案：在handleFileInputChange中，对XML文件也读取xmlContent'
+
+      resultDiv.innerHTML = output
+    }
+
+    // 测试场景4：完整流程
+    async function testFullFlow() {
+      const fileInput = document.getElementById('file4')
+      const resultDiv = document.getElementById('result4')
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        resultDiv.innerHTML = '<span class="error">请先选择文件</span>'
+        return
+      }
+
+      const file = fileInput.files[0]
+      let output = '=== 完整流程测试 ===\n'
+      output += `文件名: ${file.name}\n`
+      output += `文件大小: ${file.size} bytes\n`
+      output += `文件类型: ${file.type}\n\n`
+
+      // 步骤1：读取文件内容（模拟ZIP解压或独立文件读取）
+      if (file.name.toLowerCase().endsWith('.xml')) {
+        output += '步骤1：读取XML内容...\n'
+        const reader = new FileReader()
+
+        reader.onload = async function(e) {
+          const xmlContent = e.target.result
+          output += `✓ 已读取XML内容（${xmlContent.length}字符）\n\n`
+
+          // 步骤2：发送校验请求
+          output += '步骤2：发送校验请求...\n'
+          try {
+            const formData = new FormData()
+            formData.append('file', file)
+
+            const response = await fetch(`${API_BASE}/ietm/ietmimport/validate`, {
+              method: 'POST',
+              body: formData,
+              credentials: 'include'
+            })
+
+            const data = await response.json()
+            output += `✓ 收到校验响应\n\n`
+
+            // 步骤3：模拟前端处理逻辑
+            output += '步骤3：处理校验结果...\n'
+
+            if (data.success && data.result && data.result.files) {
+              const fileItem = data.result.files[0]
+
+              // 模拟validateFile方法的逻辑
+              const mockFile = {
+                name: file.name,
+                validated: true,
+                validateSuccess: parseInt(fileItem.resultCode) === 1,
+                validateMessage: fileItem.resultMessage,
+                vldCode: parseInt(fileItem.resultCode),
+                dmcCode: fileItem.dmcCode,
+                tempFilePath: fileItem.tempFilePath,
+                xmlContent: fileItem.xmlContent || xmlContent, // 关键：后端返回 || 前端读取
+                validateDetail: fileItem
+              }
+
+              output += `validated: ${mockFile.validated}\n`
+              output += `validateSuccess: ${mockFile.validateSuccess}\n`
+              output += `xmlContent存在: ${!!mockFile.xmlContent}\n\n`
+
+              // 步骤4：测试autoFillDdnInfo
+              output += '步骤4：测试autoFillDdnInfo...\n'
+
+              if (mockFile.validated && mockFile.validateSuccess &&
+                  mockFile.validateDetail && mockFile.validateDetail.fileType === 'DM' &&
+                  mockFile.xmlContent) {
+
+                const parser = new DOMParser()
+                const xmlDoc = parser.parseFromString(mockFile.xmlContent, 'text/xml')
+
+                const dmCodeElem = xmlDoc.querySelector('dmCode, dmIdent dmCode')
+                const modelIdentCode = dmCodeElem ? dmCodeElem.getAttribute('modelIdentCode') : null
+
+                const securityElem = xmlDoc.querySelector('security[securityClassification]')
+                let securityClass = securityElem ? securityElem.getAttribute('securityClassification') : null
+                if (securityClass && securityClass.length === 1) {
+                  securityClass = '0' + securityClass
+                }
+
+                output += `✓ 型号: ${modelIdentCode}\n`
+                output += `✓ 密级: ${securityClass}\n`
+                output += '\n<span class="success">✓ DDN自动填充成功！</span>'
+              } else {
+                output += '<span class="error">✗ 不满足自动填充条件</span>'
+              }
+            } else {
+              output += `<span class="error">校验失败: ${data.message}</span>`
+            }
+
+            resultDiv.innerHTML = output
+          } catch (err) {
+            output += `<span class="error">请求失败: ${err.message}</span>`
+            resultDiv.innerHTML = output
+          }
+        }
+
+        reader.readAsText(file)
+      } else {
+        output += '<span class="error">请选择XML文件</span>'
+        resultDiv.innerHTML = output
+      }
+    }
+  </script>
+</body>
+</html>

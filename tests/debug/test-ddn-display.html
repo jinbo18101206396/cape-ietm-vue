@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>DDN自动填充回显问题诊断</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1400px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .panel {
+      background: white;
+      padding: 20px;
+      margin: 15px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #1890ff;
+      border-bottom: 2px solid #1890ff;
+      padding-bottom: 10px;
+    }
+    h3 {
+      color: #333;
+      margin-top: 20px;
+    }
+    .test-row {
+      display: flex;
+      gap: 20px;
+      margin: 10px 0;
+    }
+    .test-col {
+      flex: 1;
+    }
+    button {
+      background: #1890ff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #40a9ff;
+    }
+    button.secondary {
+      background: #52c41a;
+    }
+    .result {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+    .success {
+      color: #52c41a;
+      font-weight: bold;
+    }
+    .error {
+      color: #f5222d;
+      font-weight: bold;
+    }
+    .warning {
+      color: #faad14;
+      font-weight: bold;
+    }
+    input[type="file"] {
+      margin: 10px 0;
+      padding: 5px;
+    }
+    .form-preview {
+      background: #fafafa;
+      border: 1px solid #d9d9d9;
+      padding: 15px;
+      border-radius: 4px;
+    }
+    .form-item {
+      margin: 8px 0;
+      display: flex;
+      align-items: center;
+    }
+    .form-item label {
+      width: 120px;
+      font-weight: 500;
+    }
+    .form-item input, .form-item select {
+      flex: 1;
+      padding: 5px 10px;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 数据模块导入 - DDN自动填充回显诊断工具</h1>
+
+  <div class="panel">
+    <h2>问题描述</h2>
+    <p>用户反馈：上传文件后点击"校验"，DDN字段<strong>没有自动填充并回显</strong>。</p>
+    <p><strong>可能原因</strong>：</p>
+    <ul>
+      <li>1. 后端校验失败，导致autoFillDdnInfo未执行</li>
+      <li>2. XML内容未正确保存到文件对象</li>
+      <li>3. autoFillDdnInfo的条件判断不满足</li>
+      <li>4. Vue响应式更新问题</li>
+      <li>5. 字段选择器（j-dict-select-tag）不支持动态赋值</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h2>步骤1：验证XML内容提取</h2>
+    <input type="file" id="testFile" accept=".xml">
+    <button onclick="testXmlExtraction()">测试XML提取</button>
+    <div id="extractResult" class="result"></div>
+  </div>
+
+  <div class="panel">
+    <h2>步骤2：模拟autoFillDdnInfo逻辑</h2>
+    <button onclick="simulateAutoFill()">模拟自动填充</button>
+    <div class="test-row">
+      <div class="test-col">
+        <h3>模拟的ddnInfo对象（填充前）</h3>
+        <div id="beforeFill" class="result"></div>
+      </div>
+      <div class="test-col">
+        <h3>模拟的ddnInfo对象（填充后）</h3>
+        <div id="afterFill" class="result"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>步骤3：验证Vue响应式更新</h2>
+    <button onclick="testVueReactivity()">测试Vue响应式</button>
+    <div class="test-row">
+      <div class="test-col">
+        <h3>表单预览（模拟v-model）</h3>
+        <div class="form-preview" id="formPreview">
+          <div class="form-item">
+            <label>型号：</label>
+            <input type="text" id="modelicInput" readonly>
+          </div>
+          <div class="form-item">
+            <label>密级：</label>
+            <input type="text" id="securityInput" readonly>
+          </div>
+          <div class="form-item">
+            <label>商业密级：</label>
+            <input type="text" id="commercialInput" readonly>
+          </div>
+          <div class="form-item">
+            <label>警告：</label>
+            <input type="text" id="caveatInput" readonly>
+          </div>
+          <div class="form-item">
+            <label>发送单位：</label>
+            <input type="text" id="senderInput" readonly>
+          </div>
+          <div class="form-item">
+            <label>接收单位：</label>
+            <input type="text" id="receiverInput" readonly>
+          </div>
+          <div class="form-item">
+            <label>发布日期：</label>
+            <input type="text" id="dateInput" readonly>
+          </div>
+          <div class="form-item">
+            <label>年份：</label>
+            <input type="text" id="yearInput" readonly>
+          </div>
+        </div>
+      </div>
+      <div class="test-col">
+        <h3>操作日志</h3>
+        <div id="reactivityLog" class="result"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>步骤4：检查条件判断</h2>
+    <button onclick="checkConditions()">检查条件</button>
+    <div id="conditionsResult" class="result"></div>
+  </div>
+
+  <div class="panel">
+    <h2>步骤5：完整流程模拟</h2>
+    <p>上传一个真实的DM XML文件，模拟完整的上传→校验→填充流程</p>
+    <input type="file" id="fullTestFile" accept=".xml">
+    <button class="secondary" onclick="runFullTest()">运行完整测试</button>
+    <div id="fullTestResult" class="result"></div>
+  </div>
+
+  <script>
+    // 全局模拟的ddnInfo对象
+    let mockDdnInfo = {
+      modelic: '',
+      security: '',
+      commercialSecurity: '',
+      caveat: '',
+      sender: '',
+      receiver: '00000',
+      issueDate: null,
+      year: ''
+    }
+
+    // 步骤1：测试XML提取
+    async function testXmlExtraction() {
+      const fileInput = document.getElementById('testFile')
+      const resultDiv = document.getElementById('extractResult')
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        resultDiv.innerHTML = '<span class="error">请先选择XML文件</span>'
+        return
+      }
+
+      const file = fileInput.files[0]
+      resultDiv.innerHTML = '正在读取文件...\n'
+
+      try {
+        const xmlContent = await readFileAsText(file)
+
+        let output = '<span class="success">✓ 文件读取成功</span>\n'
+        output += `文件名: ${file.name}\n`
+        output += `文件大小: ${file.size} bytes\n`
+        output += `内容长度: ${xmlContent.length} 字符\n\n`
+
+        output += '--- XML内容预览（前500字符）---\n'
+        output += xmlContent.substring(0, 500) + '...\n\n'
+
+        // 尝试解析
+        const parser = new DOMParser()
+        const xmlDoc = parser.parseFromString(xmlContent, 'text/xml')
+
+        const parserError = xmlDoc.getElementsByTagName('parsererror')
+        if (parserError.length > 0) {
+          output += '<span class="error">✗ XML解析失败</span>\n'
+          output += parserError[0].textContent
+        } else {
+          output += '<span class="success">✓ XML解析成功</span>\n\n'
+
+          // 提取字段
+          output += '--- 可提取的DDN字段 ---\n'
+
+          const dmCodeElem = xmlDoc.querySelector('dmCode, dmIdent dmCode')
+          if (dmCodeElem) {
+            const modelIdentCode = dmCodeElem.getAttribute('modelIdentCode')
+            output += `型号 (modelIdentCode): ${modelIdentCode || '(空)'}\n`
+          } else {
+            output += '<span class="warning">未找到dmCode元素</span>\n'
+          }
+
+          const securityElem = xmlDoc.querySelector('security[securityClassification]')
+          if (securityElem) {
+            let securityClass = securityElem.getAttribute('securityClassification')
+            if (securityClass && securityClass.length === 1) {
+              securityClass = '0' + securityClass
+            }
+            output += `密级 (securityClassification): ${securityClass || '(空)'}\n`
+
+            const commercialSecurity = securityElem.getAttribute('commercialSecurityClass') ||
+                                       securityElem.getAttribute('commercialSecurityAttGroup')
+            output += `商业密级 (commercialSecurityClass): ${commercialSecurity || '(无)'}\n`
+
+            const caveat = securityElem.getAttribute('caveat')
+            output += `警告 (caveat): ${caveat || '(无)'}\n`
+          } else {
+            output += '<span class="warning">未找到security元素</span>\n'
+          }
+
+          const issueDateElem = xmlDoc.querySelector('issueDate[year][month][day]')
+          if (issueDateElem) {
+            const year = issueDateElem.getAttribute('year')
+            const month = issueDateElem.getAttribute('month').padStart(2, '0')
+            const day = issueDateElem.getAttribute('day').padStart(2, '0')
+            output += `发布日期: ${year}-${month}-${day}\n`
+          } else {
+            output += '发布日期: (无)\n'
+          }
+        }
+
+        resultDiv.innerHTML = output
+      } catch (err) {
+        resultDiv.innerHTML = `<span class="error">读取失败: ${err.message}</span>`
+      }
+    }
+
+    // 步骤2：模拟autoFillDdnInfo
+    function simulateAutoFill() {
+      const beforeDiv = document.getElementById('beforeFill')
+      const afterDiv = document.getElementById('afterFill')
+
+      // 重置
+      mockDdnInfo = {
+        modelic: '',
+        security: '',
+        commercialSecurity: '',
+        caveat: '',
+        sender: 'Project Company', // 假设从项目信息填充
+        receiver: '00000',
+        issueDate: '2026-09-04', // 假设从项目信息填充
+        year: '2026'
+      }
+
+      beforeDiv.innerHTML = JSON.stringify(mockDdnInfo, null, 2)
+
+      // 模拟从XML提取的数据
+      const xmlData = {
+        modelic: 'XML-MODEL-001',
+        security: '03',
+        commercialSecurity: 'cc52',
+        caveat: 'cv51',
+        issueDate: '2026-09-10'
+      }
+
+      // 模拟autoFillDdnInfo的逻辑
+      let filledCount = 0
+      const filledFields = []
+
+      if (xmlData.modelic && !mockDdnInfo.modelic) {
+        mockDdnInfo.modelic = xmlData.modelic
+        filledCount++
+        filledFields.push('型号')
+      }
+
+      if (xmlData.security && !mockDdnInfo.security) {
+        mockDdnInfo.security = xmlData.security
+        filledCount++
+        filledFields.push('密级')
+      }
+
+      if (xmlData.commercialSecurity && !mockDdnInfo.commercialSecurity) {
+        mockDdnInfo.commercialSecurity = xmlData.commercialSecurity
+        filledCount++
+        filledFields.push('商业密级')
+      }
+
+      if (xmlData.caveat && !mockDdnInfo.caveat) {
+        mockDdnInfo.caveat = xmlData.caveat
+        filledCount++
+        filledFields.push('警告')
+      }
+
+      if (xmlData.issueDate && !mockDdnInfo.issueDate) {
+        mockDdnInfo.issueDate = xmlData.issueDate
+        mockDdnInfo.year = xmlData.issueDate.substring(0, 4)
+        filledCount++
+        filledFields.push('发布日期')
+      }
+
+      let output = JSON.stringify(mockDdnInfo, null, 2)
+      output += '\n\n<span class="success">✓ 填充了 ' + filledCount + ' 个字段</span>\n'
+      output += '填充字段：' + filledFields.join('、')
+
+      afterDiv.innerHTML = output
+    }
+
+    // 步骤3：测试Vue响应式
+    function testVueReactivity() {
+      const logDiv = document.getElementById('reactivityLog')
+      let log = '开始测试...\n\n'
+
+      // 使用模拟的ddnInfo
+      log += '步骤1：初始化ddnInfo对象\n'
+      log += JSON.stringify(mockDdnInfo, null, 2) + '\n\n'
+
+      // 更新表单显示
+      updateFormDisplay()
+      log += '<span class="success">✓ 表单初始显示已更新</span>\n\n'
+
+      // 模拟赋值操作
+      log += '步骤2：模拟赋值 mockDdnInfo.modelic = "TEST-001"\n'
+      mockDdnInfo.modelic = 'TEST-001'
+      updateFormDisplay()
+      log += '<span class="success">✓ 型号字段已更新</span>\n\n'
+
+      log += '步骤3：模拟批量赋值\n'
+      mockDdnInfo.security = '02'
+      mockDdnInfo.commercialSecurity = 'cc51'
+      mockDdnInfo.caveat = 'cv50'
+      updateFormDisplay()
+      log += '<span class="success">✓ 所有字段已更新</span>\n\n'
+
+      log += '结论：普通JavaScript对象赋值可以正常工作\n'
+      log += '<span class="warning">如果Vue组件中不显示，可能是：\n'
+      log += '1. j-dict-select-tag组件不支持动态赋值\n'
+      log += '2. 需要使用$forceUpdate()\n'
+      log += '3. 需要使用$set()方法</span>'
+
+      logDiv.innerHTML = log
+    }
+
+    // 步骤4：检查条件判断
+    function checkConditions() {
+      const resultDiv = document.getElementById('conditionsResult')
+
+      // 模拟文件对象
+      const mockFile = {
+        name: 'DMC-TEST-A-00-0-0-00-00-A-000-A-A.xml',
+        validated: true,
+        validateSuccess: true,
+        validateDetail: {
+          fileType: 'DM',
+          resultCode: '1',
+          resultMessage: '可以导入'
+        },
+        xmlContent: '<?xml version="1.0"?><dmodule>...</dmodule>'
+      }
+
+      let output = '=== autoFillDdnInfo的执行条件检查 ===\n\n'
+
+      // 检查条件
+      const cond1 = mockFile.validated
+      const cond2 = mockFile.validateSuccess
+      const cond3 = mockFile.validateDetail && mockFile.validateDetail.fileType === 'DM'
+      const cond4 = !!mockFile.xmlContent
+
+      output += `条件1 - validated: ${cond1} ${cond1 ? '<span class="success">✓</span>' : '<span class="error">✗</span>'}\n`
+      output += `条件2 - validateSuccess: ${cond2} ${cond2 ? '<span class="success">✓</span>' : '<span class="error">✗</span>'}\n`
+      output += `条件3 - fileType === 'DM': ${cond3} ${cond3 ? '<span class="success">✓</span>' : '<span class="error">✗</span>'}\n`
+      output += `条件4 - xmlContent存在: ${cond4} ${cond4 ? '<span class="success">✓</span>' : '<span class="error">✗</span>'}\n\n`
+
+      const allMet = cond1 && cond2 && cond3 && cond4
+
+      if (allMet) {
+        output += '<span class="success">✓✓✓ 所有条件满足，autoFillDdnInfo应该执行</span>\n\n'
+        output += '如果实际运行时未执行，请检查：\n'
+        output += '1. 后端返回的validateDetail结构是否正确\n'
+        output += '2. xmlContent是否真的被保存\n'
+        output += '3. console.log是否有输出\n'
+      } else {
+        output += '<span class="error">✗ 条件不满足，autoFillDdnInfo不会执行</span>\n\n'
+        output += '请检查校验流程，确保文件对象包含所有必要字段'
+      }
+
+      resultDiv.innerHTML = output
+    }
+
+    // 步骤5：完整流程测试
+    async function runFullTest() {
+      const fileInput = document.getElementById('fullTestFile')
+      const resultDiv = document.getElementById('fullTestResult')
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        resultDiv.innerHTML = '<span class="error">请先选择XML文件</span>'
+        return
+      }
+
+      const file = fileInput.files[0]
+      let output = '=== 完整流程模拟 ===\n\n'
+
+      try {
+        // 步骤1：读取文件
+        output += '步骤1：读取文件内容...\n'
+        const xmlContent = await readFileAsText(file)
+        output += `<span class="success">✓ 已读取 ${xmlContent.length} 字符</span>\n\n`
+
+        // 步骤2：解析XML
+        output += '步骤2：解析XML...\n'
+        const parser = new DOMParser()
+        const xmlDoc = parser.parseFromString(xmlContent, 'text/xml')
+
+        const parserError = xmlDoc.getElementsByTagName('parsererror')
+        if (parserError.length > 0) {
+          output += '<span class="error">✗ XML解析失败</span>\n'
+          resultDiv.innerHTML = output
+          return
+        }
+        output += '<span class="success">✓ XML解析成功</span>\n\n'
+
+        // 步骤3：模拟校验成功
+        output += '步骤3：模拟校验成功...\n'
+        const mockFile = {
+          name: file.name,
+          validated: true,
+          validateSuccess: true,
+          validateDetail: {
+            fileType: 'DM'
+          },
+          xmlContent: xmlContent
+        }
+        output += '<span class="success">✓ 文件对象已准备</span>\n\n'
+
+        // 步骤4：执行autoFillDdnInfo逻辑
+        output += '步骤4：执行autoFillDdnInfo逻辑...\n'
+
+        // 重置ddnInfo
+        mockDdnInfo = {
+          modelic: '',
+          security: '',
+          commercialSecurity: '',
+          caveat: '',
+          sender: 'Project Company',
+          receiver: '00000',
+          issueDate: '2026-09-04',
+          year: '2026'
+        }
+
+        output += '初始ddnInfo:\n' + JSON.stringify(mockDdnInfo, null, 2) + '\n\n'
+
+        let filledCount = 0
+        const filledFields = []
+
+        // 提取型号
+        const dmCodeElem = xmlDoc.querySelector('dmCode, dmIdent dmCode')
+        if (dmCodeElem) {
+          const modelIdentCode = dmCodeElem.getAttribute('modelIdentCode')
+          if (modelIdentCode && !mockDdnInfo.modelic) {
+            mockDdnInfo.modelic = modelIdentCode
+            filledCount++
+            filledFields.push('型号')
+          }
+        }
+
+        // 提取安全属性
+        const securityElem = xmlDoc.querySelector('security[securityClassification]')
+        if (securityElem) {
+          let securityClass = securityElem.getAttribute('securityClassification')
+          if (securityClass && securityClass.length === 1) {
+            securityClass = '0' + securityClass
+          }
+          if (securityClass && !mockDdnInfo.security) {
+            mockDdnInfo.security = securityClass
+            filledCount++
+            filledFields.push('密级')
+          }
+
+          const commercialSecurity = securityElem.getAttribute('commercialSecurityClass') ||
+                                     securityElem.getAttribute('commercialSecurityAttGroup')
+          if (commercialSecurity && !mockDdnInfo.commercialSecurity) {
+            mockDdnInfo.commercialSecurity = commercialSecurity
+            filledCount++
+            filledFields.push('商业密级')
+          }
+
+          const caveat = securityElem.getAttribute('caveat')
+          if (caveat && !mockDdnInfo.caveat) {
+            mockDdnInfo.caveat = caveat
+            filledCount++
+            filledFields.push('警告')
+          }
+        }
+
+        // 提取发布日期
+        const issueDateElem = xmlDoc.querySelector('issueDate[year][month][day]')
+        if (issueDateElem && !mockDdnInfo.issueDate) {
+          const year = issueDateElem.getAttribute('year')
+          const month = issueDateElem.getAttribute('month').padStart(2, '0')
+          const day = issueDateElem.getAttribute('day').padStart(2, '0')
+
+          mockDdnInfo.issueDate = `${year}-${month}-${day}`
+          mockDdnInfo.year = year
+          filledCount++
+          filledFields.push('发布日期')
+        }
+
+        output += '\n填充后的ddnInfo:\n' + JSON.stringify(mockDdnInfo, null, 2) + '\n\n'
+
+        if (filledCount > 0) {
+          output += `<span class="success">✓✓✓ 成功填充 ${filledCount} 个字段</span>\n`
+          output += `填充字段：${filledFields.join('、')}\n\n`
+
+          // 更新表单显示
+          updateFormDisplay()
+          output += '<span class="success">✓ 表单预览已更新（请查看上方）</span>\n\n'
+        } else {
+          output += '<span class="warning">⚠ 未提取到任何字段</span>\n\n'
+        }
+
+        output += '=== 测试完成 ===\n'
+        output += '\n如果实际系统中未显示，可能原因：\n'
+        output += '1. <span class="error">后端校验失败</span> - 检查网络请求和响应\n'
+        output += '2. <span class="error">xmlContent未保存</span> - 检查validateFile方法\n'
+        output += '3. <span class="error">Vue响应式问题</span> - 尝试使用$forceUpdate()\n'
+        output += '4. <span class="error">j-dict-select-tag组件问题</span> - 尝试使用原生select\n'
+
+        resultDiv.innerHTML = output
+      } catch (err) {
+        output += `<span class="error">测试失败: ${err.message}</span>`
+        resultDiv.innerHTML = output
+      }
+    }
+
+    // 工具函数：读取文件为文本
+    function readFileAsText(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = (e) => resolve(e.target.result)
+        reader.onerror = (e) => reject(new Error('文件读取失败'))
+        reader.readAsText(file, 'UTF-8')
+      })
+    }
+
+    // 工具函数：更新表单显示
+    function updateFormDisplay() {
+      document.getElementById('modelicInput').value = mockDdnInfo.modelic || ''
+      document.getElementById('securityInput').value = mockDdnInfo.security || ''
+      document.getElementById('commercialInput').value = mockDdnInfo.commercialSecurity || ''
+      document.getElementById('caveatInput').value = mockDdnInfo.caveat || ''
+      document.getElementById('senderInput').value = mockDdnInfo.sender || ''
+      document.getElementById('receiverInput').value = mockDdnInfo.receiver || ''
+      document.getElementById('dateInput').value = mockDdnInfo.issueDate || ''
+      document.getElementById('yearInput').value = mockDdnInfo.year || ''
+    }
+  </script>
+</body>
+</html>

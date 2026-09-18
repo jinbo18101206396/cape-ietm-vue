@@ -17,12 +17,12 @@
     <div style="height: 50%">
       <a-row style="height: 100%">
         <a-col :span="12" style="height: 100%">
-          <a-card title="数据模块列表" style="height: 100%; display: flex; flex-direction: column;">
+          <a-card title="数据模块" style="height: 100%; display: flex; flex-direction: column;">
             <data-module-list style="flex: 1; min-height: 0;"></data-module-list>
           </a-card>
         </a-col>
         <a-col :span="12" style="height: 100%">
-          <a-card title="实体ICN列表" style="height: 100%; display: flex; flex-direction: column;">
+          <a-card title="项目实体" style="height: 100%; display: flex; flex-direction: column;">
             <icn-list style="flex: 1; min-height: 0;"></icn-list>
           </a-card>
         </a-col>

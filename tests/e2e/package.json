@@ -1,0 +1,18 @@
+{
+  "name": "ietm-comprehensive-e2e-tests",
+  "version": "1.0.0",
+  "description": "IETM导入导出功能完整E2E测试套件",
+  "scripts": {
+    "test:e2e": "playwright test tests/e2e/specs/comprehensive-import-export-e2e.spec.js",
+    "test:e2e:headed": "playwright test tests/e2e/specs/comprehensive-import-export-e2e.spec.js --headed",
+    "test:e2e:debug": "playwright test tests/e2e/specs/comprehensive-import-export-e2e.spec.js --debug",
+    "test:e2e:report": "playwright show-report",
+    "test:integration": "cd ../cape-ietm-java && mvn test -Dtest=*Import*,*Export*,*Icn*,*Resource* -pl jeecg-module-ietm",
+    "test:full": "npm run test:integration && npm run test:e2e",
+    "test:quick": "playwright test tests/e2e/specs/comprehensive-import-export-e2e.spec.js --grep '@quick'"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "adm-zip": "^0.5.10"
+  }
+}

@@ -755,10 +755,12 @@ export default {
           }
 
           // 成功：显示预览弹窗
+          console.log('🎯 调用previewModal.show()，HTML长度:', result.html.length)
           this.$refs.previewModal.show(result.html)
         })
         .catch(err => {
           hideLoading()
+          console.error('❌ 预览接口异常:', err)
           this.$message.error('预览失败：' + (err.message || '网络错误'))
         })
     },

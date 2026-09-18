@@ -1145,6 +1145,16 @@ export default {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
+.table-card >>> .ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+  padding: 8px 8px;
+}
+
+.table-card >>> .ant-table-tbody > tr > td {
+  padding: 8px 8px;
+}
+
 /* ========== 工具栏 ========== */
 .table-operator {
   display: flex;
