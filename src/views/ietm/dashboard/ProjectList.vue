@@ -7,7 +7,6 @@
         <a-input-group compact>
           <a-select
             v-model="searchField"
-            size="small"
             style="width: 110px;"
             placeholder="搜索字段"
             :dropdownMatchSelectWidth="false"
@@ -25,7 +24,6 @@
           <a-input-search
             v-model="searchValue"
             placeholder="请输入关键字"
-            size="small"
             style="width: 200px;"
             allow-clear
             @search="handleSearch"
@@ -35,15 +33,6 @@
         </a-input-group>
       </div>
 
-      <!-- 刷新按钮（右对齐） -->
-      <a-button
-        size="small"
-        icon="reload"
-        style="margin-left: auto;"
-        :loading="loading"
-        @click="handleRefresh"
-      >
-      </a-button>
     </div>
 
     <!-- 项目列表 -->
@@ -63,19 +52,33 @@
         </a-tag>
       </span>
 
+      <!-- 项目名称插槽 -->
+      <template slot="projectNameSlot" slot-scope="text, record">
+        <a @click="handleDetail(record)">{{ text }}</a>
+      </template>
+
+      <span slot="security" slot-scope="text">
+        <a-tag :color="getSecurityColor(text)">
+          {{ getSecurityText(text) }}
+        </a-tag>
+      </span>
+
       <span slot="action" slot-scope="text, record">
-        <a-button
+        <span
           v-if="!isCurrentProject(record.id)"
-          type="link"
+          style="color: #1890ff; cursor: pointer;"
           @click="handleOpenProject(record)"
         >
           打开项目
-        </a-button>
-        <a-tag v-else color="red">
-          <a-icon type="check-circle" /> 当前项目
-        </a-tag>
+        </span>
+        <span v-else style="color: #ff4d4f;">
+          ✓ 当前项目
+        </span>
       </span>
-      </a-table>
+    </a-table>
+
+    <!-- 项目详情弹窗 -->
+    <ietm-project-modal ref="modalForm" @ok="modalFormOk"/>
   </div>
 </template>
 
@@ -85,10 +88,15 @@ import { mixinDevice } from '@/utils/mixin'
 import { JeecgListMixin } from '@/mixins/JeecgListMixin'
 import { mapState, mapActions } from 'vuex'
 import debounce from 'lodash.debounce'
+import { DASHBOARD_LAYOUT } from '@/constants/layout'
+import IetmProjectModal from '@/views/ietm/projectmanagement/modules/IetmProjectModal'
 
 export default {
   name: 'ProjectList',
   mixins: [mixinDevice, JeecgListMixin],
+  components: {
+    IetmProjectModal
+  },
   data() {
     return {
       description: '首页-手册项目列表',
@@ -113,7 +121,8 @@ export default {
           title: '项目名称',
           dataIndex: 'name',
           width: '30%',
-          align: 'center'
+          align: 'center',
+          scopedSlots: { customRender: 'projectNameSlot' }
         },
         {
           title: '装备编码',
@@ -185,10 +194,8 @@ export default {
       this.$nextTick(() => {
         const container = this.$el
         if (container) {
-          // 计算可用高度：容器高度减去工具栏、表头高度和padding
           const containerHeight = container.clientHeight
-          // 减去工具栏(约36px)、表头(约41px)和padding(8px)
-          this.scrollY = containerHeight - 36 - 41 - 8
+          this.scrollY = DASHBOARD_LAYOUT.calcScrollHeight(containerHeight)
         }
       })
     },
@@ -281,6 +288,22 @@ export default {
             })
         }
       })
+    },
+
+    /**
+     * 查看项目详情
+     */
+    handleDetail(record) {
+      this.$refs.modalForm.edit(record)
+      this.$refs.modalForm.title = '详情'
+      this.$refs.modalForm.disableSubmit = true
+    },
+
+    /**
+     * 详情弹窗确认回调
+     */
+    modalFormOk() {
+      this.loadData()
     }
   }
 }
@@ -352,30 +375,34 @@ export default {
   /deep/ .ant-table-thead > tr > th {
     padding: 12px 16px !important;  // 与待办模块一致
     background: #fafafa;
-    border-bottom: 2px solid #e8e8e8;
+    border-bottom: 1px solid #e8e8e8;
     height: auto !important;
     word-break: keep-all;
     white-space: nowrap;
     font-size: 14px !important;
-    font-weight: 600;
+    font-weight: 500;
     color: rgba(0, 0, 0, 0.85);
   }
 
   /deep/ .ant-table-tbody > tr {
-    transition: all 0.2s;
+    transition: all 0.3s;
 
     &:hover {
-      background: #f5f5f5;
+      background: #e6f7ff;
     }
   }
 
   /deep/ .ant-table-tbody > tr > td {
-    padding: 12px 16px !important;  // 与待办模块一致
+    padding: 12px 16px !important;
     word-break: keep-all;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: 14px !important;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid #e8e8e8;
     vertical-align: middle;
+    text-align: center;
+    color: rgba(0, 0, 0, 0.65);
   }
 
   // 表头容器
@@ -404,6 +431,15 @@ export default {
     .ant-table-body table {
       width: 100% !important;
     }
+  }
+
+  // 压缩密级列的Tag高度，与待办列表保持一致
+  /deep/ .ant-table-tbody > tr > td .ant-tag {
+    margin: 0 !important;
+    padding: 0 8px !important;
+    height: 22px !important;
+    line-height: 22px !important;
+    font-size: 12px !important;
   }
 }
 </style>

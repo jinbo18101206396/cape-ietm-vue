@@ -216,7 +216,6 @@
             title: '操作',
             dataIndex: 'action',
             align:"center",
-            fixed:"right",
             width:200,
             scopedSlots: { customRender: 'action' },
           }

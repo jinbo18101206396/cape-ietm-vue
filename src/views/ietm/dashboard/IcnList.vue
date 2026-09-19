@@ -7,7 +7,6 @@
         <a-input-group compact>
           <a-select
             v-model="searchField"
-            size="small"
             style="width: 110px;"
             placeholder="搜索字段"
             :dropdownMatchSelectWidth="false"
@@ -22,7 +21,6 @@
           <a-input-search
             v-model="searchValue"
             placeholder="请输入关键字"
-            size="small"
             style="width: 200px;"
             allow-clear
             @search="handleSearch"
@@ -32,15 +30,6 @@
         </a-input-group>
       </div>
 
-      <!-- 刷新按钮（右对齐） -->
-      <a-button
-        size="small"
-        icon="reload"
-        style="margin-left: auto;"
-        :loading="loading"
-        @click="handleRefresh"
-      >
-      </a-button>
     </div>
 
     <!-- 数据表格 -->
@@ -80,6 +69,7 @@ import { mapState } from 'vuex'
 import { getAction } from '@/api/manage'
 import IcnViewerModal from '@/views/ietm/icnmanage/modules/IcnViewerModal'
 import debounce from 'lodash.debounce'
+import { DASHBOARD_LAYOUT } from '@/constants/layout'
 
 export default {
   name: 'IcnList',
@@ -196,10 +186,8 @@ export default {
       this.$nextTick(() => {
         const container = this.$el
         if (container) {
-          // 计算可用高度：容器高度减去工具栏高度和表头高度
           const containerHeight = container.clientHeight
-          // 减去工具栏(约40px)、表头(约41px)和padding
-          this.scrollY = containerHeight - 40 - 41 - 24
+          this.scrollY = DASHBOARD_LAYOUT.calcScrollHeight(containerHeight)
         }
       })
     },
@@ -387,20 +375,20 @@ export default {
   /deep/ .ant-table-thead > tr > th {
     padding: 12px 16px !important;
     background: #fafafa;
-    border-bottom: 2px solid #e8e8e8;
+    border-bottom: 1px solid #e8e8e8;
     height: auto !important;
     word-break: keep-all;
     white-space: nowrap;
     font-size: 14px !important;
-    font-weight: 600;
+    font-weight: 500;
     color: rgba(0, 0, 0, 0.85);
   }
 
   /deep/ .ant-table-tbody > tr {
-    transition: all 0.2s;
+    transition: all 0.3s;
 
     &:hover {
-      background: #f5f5f5;
+      background: #e6f7ff;
     }
   }
 
@@ -409,9 +397,10 @@ export default {
     word-break: keep-all;
     white-space: nowrap;
     font-size: 14px !important;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid #e8e8e8;
     vertical-align: middle;
     text-align: center;
+    color: rgba(0, 0, 0, 0.65);
   }
 
   // 表头容器

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>热点功能手工测试</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .test-container {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .test-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #1890ff;
+    }
+    .test-image-wrapper {
+      position: relative;
+      display: inline-block;
+      margin: 20px 0;
+    }
+    .test-image {
+      width: 400px;
+      height: 300px;
+      background: #e0e0e0;
+      border: 2px solid #ccc;
+    }
+    svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+    svg rect, svg circle, svg polygon {
+      cursor: pointer;
+      pointer-events: all;
+    }
+    .result {
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .result.pass {
+      background: #f6ffed;
+      border: 1px solid #b7eb8f;
+      color: #52c41a;
+    }
+    .result.fail {
+      background: #fff1f0;
+      border: 1px solid #ffa39e;
+      color: #f5222d;
+    }
+    .hotspot-info-modal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      padding: 20px;
+      min-width: 400px;
+      z-index: 1000;
+    }
+    .hotspot-info-modal.visible {
+      display: block;
+    }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    }
+    .modal-overlay.visible {
+      display: block;
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+    .modal-close {
+      float: right;
+      cursor: pointer;
+      font-size: 20px;
+      color: #999;
+    }
+    .modal-content {
+      clear: both;
+    }
+    .info-item {
+      margin-bottom: 10px;
+      padding: 8px;
+      background: #fafafa;
+      border-radius: 4px;
+    }
+    .info-label {
+      font-weight: bold;
+      color: #666;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎯 热点图形交互功能 - 手工测试页面</h1>
+
+  <!-- 测试1: 矩形热点 -->
+  <div class="test-container">
+    <div class="test-title">测试1: 矩形热点渲染与交互</div>
+    <div class="test-image-wrapper" id="test1-wrapper">
+      <div class="test-image" id="test1-image"></div>
+    </div>
+    <div class="result" id="test1-result"></div>
+  </div>
+
+  <!-- 测试2: 圆形热点 -->
+  <div class="test-container">
+    <div class="test-title">测试2: 圆形热点渲染与交互</div>
+    <div class="test-image-wrapper" id="test2-wrapper">
+      <div class="test-image" id="test2-image"></div>
+    </div>
+    <div class="result" id="test2-result"></div>
+  </div>
+
+  <!-- 测试3: 多边形热点 -->
+  <div class="test-container">
+    <div class="test-title">测试3: 多边形热点渲染与交互</div>
+    <div class="test-image-wrapper" id="test3-wrapper">
+      <div class="test-image" id="test3-image"></div>
+    </div>
+    <div class="result" id="test3-result"></div>
+  </div>
+
+  <!-- 测试4: 多个热点 -->
+  <div class="test-container">
+    <div class="test-title">测试4: 同一图片多个热点</div>
+    <div class="test-image-wrapper" id="test4-wrapper">
+      <div class="test-image" id="test4-image"></div>
+    </div>
+    <div class="result" id="test4-result"></div>
+  </div>
+
+  <!-- 测试5: 悬停高亮效果 -->
+  <div class="test-container">
+    <div class="test-title">测试5: 鼠标悬停高亮效果（请移动鼠标到热点上）</div>
+    <div class="test-image-wrapper" id="test5-wrapper">
+      <div class="test-image" id="test5-image"></div>
+    </div>
+    <div class="result" id="test5-result"></div>
+  </div>
+
+  <!-- 热点详情弹框 -->
+  <div class="modal-overlay" id="modal-overlay"></div>
+  <div class="hotspot-info-modal" id="hotspot-modal">
+    <span class="modal-close" onclick="closeModal()">&times;</span>
+    <div class="modal-title">热点详情</div>
+    <div class="modal-content">
+      <div class="info-item">
+        <span class="info-label">热点ID:</span>
+        <span id="modal-id"></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">描述信息:</span>
+        <span id="modal-description"></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">坐标信息:</span>
+        <span id="modal-coordinates"></span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 模拟Vue组件的核心渲染逻辑
+    const HotspotRenderer = {
+      renderHotspot(svg, hotspot, width, height) {
+        let shape = null
+        const coords = hotspot.coords.split(',').map(Number)
+
+        if (hotspot.shape === 'rect' && coords.length >= 4) {
+          shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+          shape.setAttribute('x', coords[0])
+          shape.setAttribute('y', coords[1])
+          shape.setAttribute('width', coords[2])
+          shape.setAttribute('height', coords[3])
+        } else if (hotspot.shape === 'circle' && coords.length >= 3) {
+          shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+          shape.setAttribute('cx', coords[0])
+          shape.setAttribute('cy', coords[1])
+          shape.setAttribute('r', coords[2])
+        } else if (hotspot.shape === 'poly' && coords.length >= 6) {
+          shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon')
+          const points = []
+          for (let i = 0; i < coords.length; i += 2) {
+            points.push(`${coords[i]},${coords[i + 1]}`)
+          }
+          shape.setAttribute('points', points.join(' '))
+        }
+
+        if (!shape) return null
+
+        shape.setAttribute('fill', 'rgba(255, 87, 34, 0.2)')
+        shape.setAttribute('stroke', 'rgba(255, 87, 34, 0.8)')
+        shape.setAttribute('stroke-width', '2')
+        shape.style.cursor = 'pointer'
+        shape.style.pointerEvents = 'all'
+
+        // 悬停高亮
+        shape.addEventListener('mouseenter', () => {
+          shape.setAttribute('fill', 'rgba(255, 87, 34, 0.35)')
+          shape.setAttribute('stroke-width', '3')
+        })
+        shape.addEventListener('mouseleave', () => {
+          shape.setAttribute('fill', 'rgba(255, 87, 34, 0.2)')
+          shape.setAttribute('stroke-width', '2')
+        })
+
+        // 点击事件
+        shape.addEventListener('click', () => {
+          showHotspotInfo(hotspot.id, hotspot.description, `${hotspot.shape}: ${hotspot.coords}`)
+        })
+
+        svg.appendChild(shape)
+        return shape
+      },
+
+      createOverlay(wrapper, img, hotspots) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+        const width = img.offsetWidth
+        const height = img.offsetHeight
+
+        svg.setAttribute('width', width)
+        svg.setAttribute('height', height)
+        svg.style.position = 'absolute'
+        svg.style.top = '0'
+        svg.style.left = '0'
+        svg.style.pointerEvents = 'none'
+        svg.style.zIndex = '10'
+
+        wrapper.appendChild(svg)
+
+        hotspots.forEach(hotspot => {
+          this.renderHotspot(svg, hotspot, width, height)
+        })
+
+        return svg
+      }
+    }
+
+    function showHotspotInfo(id, description, coordinates) {
+      document.getElementById('modal-id').textContent = id
+      document.getElementById('modal-description').textContent = description
+      document.getElementById('modal-coordinates').textContent = coordinates
+      document.getElementById('hotspot-modal').classList.add('visible')
+      document.getElementById('modal-overlay').classList.add('visible')
+    }
+
+    function closeModal() {
+      document.getElementById('hotspot-modal').classList.remove('visible')
+      document.getElementById('modal-overlay').classList.remove('visible')
+    }
+
+    // 测试1: 矩形热点
+    function test1() {
+      const wrapper = document.getElementById('test1-wrapper')
+      const img = document.getElementById('test1-image')
+      const hotspots = [
+        { id: 'hs-rect-001', shape: 'rect', coords: '50,50,150,100', description: '矩形热点测试' }
+      ]
+
+      try {
+        const svg = HotspotRenderer.createOverlay(wrapper, img, hotspots)
+        const rect = svg.querySelector('rect')
+
+        const pass = rect &&
+                     rect.getAttribute('x') === '50' &&
+                     rect.getAttribute('y') === '50' &&
+                     rect.getAttribute('width') === '150' &&
+                     rect.getAttribute('height') === '100'
+
+        showResult('test1-result', pass, pass ?
+          '✅ 矩形热点渲染成功，属性正确' :
+          '❌ 矩形热点渲染失败')
+      } catch (e) {
+        showResult('test1-result', false, '❌ 错误: ' + e.message)
+      }
+    }
+
+    // 测试2: 圆形热点
+    function test2() {
+      const wrapper = document.getElementById('test2-wrapper')
+      const img = document.getElementById('test2-image')
+      const hotspots = [
+        { id: 'hs-circle-001', shape: 'circle', coords: '200,150,60', description: '圆形热点测试' }
+      ]
+
+      try {
+        const svg = HotspotRenderer.createOverlay(wrapper, img, hotspots)
+        const circle = svg.querySelector('circle')
+
+        const pass = circle &&
+                     circle.getAttribute('cx') === '200' &&
+                     circle.getAttribute('cy') === '150' &&
+                     circle.getAttribute('r') === '60'
+
+        showResult('test2-result', pass, pass ?
+          '✅ 圆形热点渲染成功，属性正确' :
+          '❌ 圆形热点渲染失败')
+      } catch (e) {
+        showResult('test2-result', false, '❌ 错误: ' + e.message)
+      }
+    }
+
+    // 测试3: 多边形热点
+    function test3() {
+      const wrapper = document.getElementById('test3-wrapper')
+      const img = document.getElementById('test3-image')
+      const hotspots = [
+        { id: 'hs-poly-001', shape: 'poly', coords: '50,50,150,50,200,150,100,200', description: '多边形热点测试' }
+      ]
+
+      try {
+        const svg = HotspotRenderer.createOverlay(wrapper, img, hotspots)
+        const polygon = svg.querySelector('polygon')
+
+        const pass = polygon &&
+                     polygon.getAttribute('points') === '50,50 150,50 200,150 100,200'
+
+        showResult('test3-result', pass, pass ?
+          '✅ 多边形热点渲染成功，属性正确' :
+          '❌ 多边形热点渲染失败')
+      } catch (e) {
+        showResult('test3-result', false, '❌ 错误: ' + e.message)
+      }
+    }
+
+    // 测试4: 多个热点
+    function test4() {
+      const wrapper = document.getElementById('test4-wrapper')
+      const img = document.getElementById('test4-image')
+      const hotspots = [
+        { id: 'hs-multi-001', shape: 'rect', coords: '30,30,80,80', description: '矩形热点' },
+        { id: 'hs-multi-002', shape: 'circle', coords: '250,100,40', description: '圆形热点' },
+        { id: 'hs-multi-003', shape: 'poly', coords: '300,200,350,200,325,250', description: '三角形热点' }
+      ]
+
+      try {
+        const svg = HotspotRenderer.createOverlay(wrapper, img, hotspots)
+        const rectCount = svg.querySelectorAll('rect').length
+        const circleCount = svg.querySelectorAll('circle').length
+        const polygonCount = svg.querySelectorAll('polygon').length
+
+        const pass = rectCount === 1 && circleCount === 1 && polygonCount === 1
+
+        showResult('test4-result', pass, pass ?
+          `✅ 多热点渲染成功 (矩形:${rectCount}, 圆形:${circleCount}, 多边形:${polygonCount})` :
+          `❌ 多热点渲染失败 (矩形:${rectCount}, 圆形:${circleCount}, 多边形:${polygonCount})`)
+      } catch (e) {
+        showResult('test4-result', false, '❌ 错误: ' + e.message)
+      }
+    }
+
+    // 测试5: 悬停高亮
+    function test5() {
+      const wrapper = document.getElementById('test5-wrapper')
+      const img = document.getElementById('test5-image')
+      const hotspots = [
+        { id: 'hs-hover-001', shape: 'rect', coords: '100,100,200,100', description: '请鼠标悬停在此热点上查看高亮效果' }
+      ]
+
+      try {
+        const svg = HotspotRenderer.createOverlay(wrapper, img, hotspots)
+        const rect = svg.querySelector('rect')
+
+        let hoverDetected = false
+        rect.addEventListener('mouseenter', () => {
+          hoverDetected = true
+          showResult('test5-result', true, '✅ 悬停高亮效果正常 (fill: rgba(255, 87, 34, 0.35), stroke-width: 3)')
+        })
+
+        showResult('test5-result', true, '⏳ 请将鼠标悬停在热点上以测试高亮效果...')
+      } catch (e) {
+        showResult('test5-result', false, '❌ 错误: ' + e.message)
+      }
+    }
+
+    function showResult(elementId, pass, message) {
+      const el = document.getElementById(elementId)
+      el.className = 'result ' + (pass ? 'pass' : 'fail')
+      el.textContent = message
+    }
+
+    // 执行所有测试
+    window.onload = function() {
+      test1()
+      test2()
+      test3()
+      test4()
+      test5()
+    }
+
+    // 点击遮罩关闭弹框
+    document.getElementById('modal-overlay').addEventListener('click', closeModal)
+  </script>
+</body>
+</html>

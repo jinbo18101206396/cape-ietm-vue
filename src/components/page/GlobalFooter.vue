@@ -1,18 +1,6 @@
 <template>
   <div class="footer">
-    <div class="links">
-      <a href target="_blank">首页</a>
-      <!-- <a href="https://github.com/zhangdaiscott/jeecg-boot" target="_blank">
-        <a-icon type="github" />
-      </a> -->
-      <a href="https://ant.design/">Ant Design</a>
-      <a href="https://vuecomponent.github.io/ant-design-vue/docs/vue/introduce-cn/">Vue Antd</a>
-    </div>
-    <div class="copyright">
-      Copyright
-      <a-icon type="copyright" /> 2025
-      <span>中国航空综合技术研究所 | 版权所有</span>
-    </div>
+    <!-- 版权信息已隐藏 -->
   </div>
 </template>
 
