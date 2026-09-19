@@ -17,14 +17,69 @@
     </a-modal>
 
     <!-- 图形/多媒体预览：点击图形或多媒体对象时显示ICN内容 -->
-    <a-modal title="图形/多媒体预览" :visible="multimediaVisible" :footer="null" :width="800"
+    <a-modal title="图形/多媒体预览" :visible="multimediaVisible" :footer="null" :width="900"
       @cancel="handleMultimediaClose">
-      <div v-if="multimediaLoading" style="text-align:center;padding:40px;">
-        <a-spin tip="加载中..."/>
+      <!-- 加载中 -->
+      <div v-if="multimediaLoading" style="text-align:center;padding:60px;">
+        <a-spin size="large" tip="加载中..."/>
       </div>
+
+      <!-- 视频播放器 -->
+      <div v-else-if="multimediaInfo && multimediaInfo.isVideo" style="background:#000;">
+        <video
+          :src="multimediaUrl"
+          controls
+          style="width:100%;max-height:600px;"
+          @loadedmetadata="handleVideoMetadata"
+          @error="handleMediaError">
+          您的浏览器不支持视频播放
+        </video>
+
+        <!-- 视频元数据 -->
+        <div style="padding:12px;background:#f5f5f5;">
+          <a-descriptions size="small" :column="3">
+            <a-descriptions-item label="格式">{{ multimediaInfo.mimeType }}</a-descriptions-item>
+            <a-descriptions-item label="大小">{{ formatFileSize(multimediaInfo.fileSize) }}</a-descriptions-item>
+            <a-descriptions-item label="时长" v-if="videoDuration">{{ formatDuration(videoDuration) }}</a-descriptions-item>
+          </a-descriptions>
+        </div>
+      </div>
+
+      <!-- 音频播放器 -->
+      <div v-else-if="multimediaInfo && multimediaInfo.isAudio" style="text-align:center;padding:40px;">
+        <!-- 音频图标 -->
+        <div style="font-size:80px;color:#1890ff;margin-bottom:20px;">
+          🎵
+        </div>
+
+        <audio
+          :src="multimediaUrl"
+          controls
+          style="width:100%;max-width:500px;"
+          @loadedmetadata="handleAudioMetadata"
+          @error="handleMediaError">
+          您的浏览器不支持音频播放
+        </audio>
+
+        <!-- 音频元数据 -->
+        <div style="margin-top:20px;">
+          <a-descriptions size="small" :column="2" bordered>
+            <a-descriptions-item label="格式">{{ multimediaInfo.mimeType }}</a-descriptions-item>
+            <a-descriptions-item label="大小">{{ formatFileSize(multimediaInfo.fileSize) }}</a-descriptions-item>
+            <a-descriptions-item label="文件名" :span="2">{{ multimediaInfo.fileName }}</a-descriptions-item>
+            <a-descriptions-item label="时长" v-if="audioDuration" :span="2">
+              {{ formatDuration(audioDuration) }}
+            </a-descriptions-item>
+          </a-descriptions>
+        </div>
+      </div>
+
+      <!-- 图片显示（原有） -->
       <div v-else-if="multimediaUrl" style="text-align:center;">
         <img :src="multimediaUrl" style="max-width:100%;max-height:600px;" @error="handleImageError"/>
       </div>
+
+      <!-- 空状态 -->
       <a-empty v-else description="ICN内容为空或加载失败"/>
     </a-modal>
 
@@ -93,6 +148,10 @@ export default {
       multimediaIcnIdent: '',
       multimediaUrl: null,
       multimediaLoading: false,
+      // 🔧 2026-09-18 新增：多媒体元数据
+      multimediaInfo: null, // { mimeType, isVideo, isAudio, isImage, fileSize, fileName }
+      videoDuration: 0,     // 视频时长（秒）
+      audioDuration: 0,     // 音频时长（秒）
       // 热点交互相关
       hotspotVisible: false,
       hotspotInfo: { id: '', description: '', coordinates: '' }
@@ -223,37 +282,144 @@ export default {
     async fetchIcnContent(icnIdent) {
       this.multimediaLoading = true
       this.multimediaUrl = null
+      this.multimediaInfo = null
+      this.videoDuration = 0
+      this.audioDuration = 0
+
       try {
-        // 🔧 修复ICN加载失败问题：
-        // 1. 不再调用不存在的getIcnContent接口
-        // 2. 直接使用ICN编码（infoEntityIdent）访问后端viewIcn接口
-        // 3. 后端接口路径：GET /ietm/icn/view/{icnCode}
         if (!icnIdent || !icnIdent.trim()) {
           this.$message.warning('ICN编码为空')
           return
         }
 
         const icnCode = icnIdent.trim()
-        // 使用正确的REST路径参数格式，而非查询参数
-        this.multimediaUrl = `/jeecg-boot/ietm/icn/view/${icnCode}`
 
-        console.log('加载ICN图片:', icnCode, '-> URL:', this.multimediaUrl)
+        // 🔧 2026-09-18 增强：先获取多媒体元数据
+        try {
+          const res = await this.$http.get(`/ietm/icn/metadata/${icnCode}`)
+          if (res.success) {
+            this.multimediaInfo = res.result
+            console.log('多媒体元数据:', this.multimediaInfo)
+          }
+        } catch (err) {
+          console.warn('获取元数据失败，使用默认处理:', err)
+        }
+
+        // 设置预览URL
+        this.multimediaUrl = `/jeecg-boot/ietm/icn/view/${icnCode}`
+        console.log('加载多媒体:', icnCode, '-> URL:', this.multimediaUrl)
+
       } catch (error) {
         console.error('获取ICN内容失败:', error)
-        this.$message.error('获取图形内容失败')
+        this.$message.error('获取多媒体内容失败')
       } finally {
         this.multimediaLoading = false
       }
     },
 
     handleMultimediaClose() {
+      // 停止视频播放
+      const video = this.$el.querySelector('video')
+      if (video) {
+        video.pause()
+        video.currentTime = 0
+      }
+
+      // 停止音频播放
+      const audio = this.$el.querySelector('audio')
+      if (audio) {
+        audio.pause()
+        audio.currentTime = 0
+      }
+
+      // 清理状态
       this.multimediaVisible = false
       this.multimediaUrl = null
+      this.multimediaInfo = null
+      this.videoDuration = 0
+      this.audioDuration = 0
     },
 
     handleImageError() {
       this.$message.warning('图形加载失败')
     },
+
+    /**
+     * 处理视频元数据加载完成
+     * @param {Event} event - loadedmetadata事件
+     */
+    handleVideoMetadata(event) {
+      this.videoDuration = event.target.duration
+      console.log('视频时长:', this.videoDuration, '秒')
+    },
+
+    /**
+     * 处理音频元数据加载完成
+     * @param {Event} event - loadedmetadata事件
+     */
+    handleAudioMetadata(event) {
+      this.audioDuration = event.target.duration
+      console.log('音频时长:', this.audioDuration, '秒')
+    },
+
+    /**
+     * 处理视频/音频加载错误
+     * @param {Event} event - error事件
+     */
+    handleMediaError(event) {
+      console.error('多媒体加载失败:', event)
+      const error = event.target.error
+      let message = '多媒体文件加载失败'
+
+      if (error) {
+        switch (error.code) {
+          case error.MEDIA_ERR_ABORTED:
+            message = '播放被中止'
+            break
+          case error.MEDIA_ERR_NETWORK:
+            message = '网络错误，无法加载'
+            break
+          case error.MEDIA_ERR_DECODE:
+            message = '文件解码失败'
+            break
+          case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            message = '格式不支持或文件损坏'
+            break
+        }
+      }
+
+      this.$message.error(message)
+    },
+
+    /**
+     * 格式化文件大小
+     * @param {Number} bytes - 字节数
+     * @returns {String} 格式化后的大小
+     */
+    formatFileSize(bytes) {
+      if (!bytes || bytes === 0) return '0 B'
+      const k = 1024
+      const sizes = ['B', 'KB', 'MB', 'GB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+    },
+
+    /**
+     * 格式化时长
+     * @param {Number} seconds - 秒数
+     * @returns {String} 格式化后的时长 (mm:ss)
+     */
+    formatDuration(seconds) {
+      if (!seconds || isNaN(seconds)) return '00:00'
+      const mins = Math.floor(seconds / 60)
+      const secs = Math.floor(seconds % 60)
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    },
+
+    /**
+     * 关闭多媒体预览弹框
+     * 停止播放并清理资源
+     */
 
     /**
      * 渲染热点SVG叠加层

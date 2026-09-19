@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IETM 系统首页原型 v2</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-weight: 300;
+      background: #F7F4EF;
+      color: #1F2421;
+      line-height: 1.6;
+      padding: 20px;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      height: calc(100vh - 40px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 2x2 网格容器 */
+    .dashboard-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 20px;
+      min-height: 0;
+    }
+
+    /* 卡片样式 */
+    .card {
+      background: #FFFFFF;
+      border: 1px solid #E7E1D7;
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      transition: box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 16px rgba(31, 36, 33, 0.06);
+    }
+
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #E7E1D7;
+      background: #FBF9F5;
+      flex-shrink: 0;
+    }
+
+    .card-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      color: #1F2421;
+    }
+
+    .card-body {
+      flex: 1;
+      overflow: auto;
+      min-height: 0;
+    }
+
+    /* 表格样式 */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .data-table thead {
+      position: sticky;
+      top: 0;
+      background: #FFFFFF;
+      z-index: 1;
+    }
+
+    .data-table th {
+      padding: 12px 12px;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 400;
+      color: #5C635D;
+      border-bottom: 1px solid #E7E1D7;
+      border-right: 1px solid #E7E1D7;
+      background: #FBF9F5;
+    }
+
+    .data-table th:last-child {
+      border-right: none;
+    }
+
+    .data-table td {
+      padding: 12px 12px;
+      font-size: 13px;
+      color: #1F2421;
+      border-bottom: 1px solid #E7E1D7;
+      border-right: 1px solid #E7E1D7;
+    }
+
+    .data-table td:last-child {
+      border-right: none;
+    }
+
+    .data-table tbody tr {
+      transition: background 0.15s ease;
+    }
+
+    .data-table tbody tr:hover {
+      background: #FBF9F5;
+    }
+
+    .data-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* 徽章 */
+    .badge {
+      display: inline-block;
+      background: #F2E3D6;
+      color: #C4612F;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 400;
+    }
+
+    .badge-urgent {
+      background: #C4612F;
+      color: #FFFFFF;
+    }
+
+    /* 操作按钮 */
+    .action-btn {
+      color: #C4612F;
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.2s;
+    }
+
+    .action-btn:hover {
+      color: #A94E22;
+      text-decoration: underline;
+    }
+
+    /* 状态指示器 */
+    .status-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+
+    .status-active {
+      background: #C4612F;
+    }
+
+    .status-pending {
+      background: #5C635D;
+    }
+
+    /* 响应式 */
+    @media (max-width: 1200px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(4, 1fr);
+      }
+    }
+
+    /* 滚动条样式 */
+    .card-body::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .card-body::-webkit-scrollbar-track {
+      background: #F7F4EF;
+    }
+
+    .card-body::-webkit-scrollbar-thumb {
+      background: #E7E1D7;
+      border-radius: 3px;
+    }
+
+    .card-body::-webkit-scrollbar-thumb:hover {
+      background: #C4612F;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 2x2 网格布局 -->
+    <div class="dashboard-grid">
+      <!-- 左上：手册项目 -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">手册项目</h2>
+        </div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">序号</th>
+                <th>项目名称</th>
+                <th style="width: 120px;">数据模块数</th>
+                <th style="width: 100px;">状态</th>
+                <th style="width: 80px;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>飞机维护手册</td>
+                <td>82</td>
+                <td><span class="status-dot status-active"></span>进行中</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>发动机维修手册</td>
+                <td>56</td>
+                <td><span class="status-dot status-active"></span>进行中</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>液压系统手册</td>
+                <td>34</td>
+                <td><span class="status-dot status-pending"></span>待审核</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>航电系统手册</td>
+                <td>76</td>
+                <td><span class="status-dot status-active"></span>进行中</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>起落架系统手册</td>
+                <td>28</td>
+                <td><span class="status-dot status-pending"></span>待审核</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>燃油系统手册</td>
+                <td>45</td>
+                <td><span class="status-dot status-active"></span>进行中</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td>电气系统手册</td>
+                <td>63</td>
+                <td><span class="status-dot status-active"></span>进行中</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td>环控系统手册</td>
+                <td>39</td>
+                <td><span class="status-dot status-pending"></span>待审核</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 右上：我的待办 -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">我的待办</h2>
+        </div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">序号</th>
+                <th>待办事项</th>
+                <th style="width: 100px;">优先级</th>
+                <th style="width: 120px;">截止时间</th>
+                <th style="width: 80px;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>DMC-PROJ001-A-001-00-00A-040A-A 审批</td>
+                <td><span class="badge badge-urgent">紧急</span></td>
+                <td>今天 18:00</td>
+                <td><a href="#" class="action-btn">处理</a></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>DMC-PROJ002-B-002-00-00A-720A-A 审批</td>
+                <td><span class="badge badge-urgent">紧急</span></td>
+                <td>今天 18:00</td>
+                <td><a href="#" class="action-btn">处理</a></td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>DMC-PROJ001-A-003-00-00A-040A-A 审批</td>
+                <td><span class="badge">一般</span></td>
+                <td>明天 18:00</td>
+                <td><a href="#" class="action-btn">处理</a></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>项目配置评审会议</td>
+                <td><span class="badge badge-urgent">紧急</span></td>
+                <td>明天 14:00</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>月度数据质量报告</td>
+                <td><span class="badge">一般</span></td>
+                <td>本周五</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>DMC-PROJ003-C-004-00-00A-520A-A 审批</td>
+                <td><span class="badge">一般</span></td>
+                <td>下周一</td>
+                <td><a href="#" class="action-btn">处理</a></td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td>新员工培训资料审核</td>
+                <td><span class="badge">一般</span></td>
+                <td>下周二</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 左下：数据模块 -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">数据模块</h2>
+        </div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">序号</th>
+                <th>DMC 编码</th>
+                <th style="width: 100px;">所属项目</th>
+                <th style="width: 100px;">更新人</th>
+                <th style="width: 120px;">更新时间</th>
+                <th style="width: 80px;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>DMC-PROJ001-A-001-00-00A-040A-A</td>
+                <td>项目1</td>
+                <td>张工</td>
+                <td>2小时前</td>
+                <td><a href="#" class="action-btn">编辑</a></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>DMC-PROJ002-B-002-00-00A-720A-A</td>
+                <td>项目2</td>
+                <td>李工</td>
+                <td>3小时前</td>
+                <td><a href="#" class="action-btn">编辑</a></td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>DMC-PROJ001-A-003-00-00A-040A-A</td>
+                <td>项目1</td>
+                <td>王工</td>
+                <td>昨天</td>
+                <td><a href="#" class="action-btn">编辑</a></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>DMC-PROJ003-C-004-00-00A-520A-A</td>
+                <td>项目3</td>
+                <td>赵工</td>
+                <td>昨天</td>
+                <td><a href="#" class="action-btn">编辑</a></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>DMC-PROJ001-A-005-00-00A-040A-A</td>
+                <td>项目1</td>
+                <td>刘工</td>
+                <td>2天前</td>
+                <td><a href="#" class="action-btn">编辑</a></td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>DMC-PROJ002-B-006-00-00A-720A-A</td>
+                <td>项目2</td>
+                <td>陈工</td>
+                <td>2天前</td>
+                <td><a href="#" class="action-btn">编辑</a></td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td>DMC-PROJ003-C-007-00-00A-520A-A</td>
+                <td>项目3</td>
+                <td>周工</td>
+                <td>3天前</td>
+                <td><a href="#" class="action-btn">编辑</a></td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td>DMC-PROJ001-A-008-00-00A-040A-A</td>
+                <td>项目1</td>
+                <td>吴工</td>
+                <td>3天前</td>
+                <td><a href="#" class="action-btn">编辑</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 右下：项目实体 -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">项目实体</h2>
+        </div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">序号</th>
+                <th>ICN 编码</th>
+                <th>描述</th>
+                <th style="width: 100px;">上传人</th>
+                <th style="width: 120px;">上传时间</th>
+                <th style="width: 80px;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>ICN-12345-001-01</td>
+                <td>液压泵示意图</td>
+                <td>张工</td>
+                <td>今天 10:30</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>ICN-12345-002-01</td>
+                <td>发动机剖面图</td>
+                <td>李工</td>
+                <td>今天 09:15</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>ICN-12345-003-01</td>
+                <td>电气系统图</td>
+                <td>王工</td>
+                <td>昨天 16:40</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>ICN-12345-004-01</td>
+                <td>燃油系统图</td>
+                <td>赵工</td>
+                <td>昨天 14:20</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>ICN-12345-005-01</td>
+                <td>起落架结构图</td>
+                <td>刘工</td>
+                <td>2天前</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>ICN-12345-006-01</td>
+                <td>驾驶舱布局图</td>
+                <td>陈工</td>
+                <td>2天前</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td>ICN-12345-007-01</td>
+                <td>座舱设备图</td>
+                <td>周工</td>
+                <td>3天前</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td>ICN-12345-008-01</td>
+                <td>导航系统图</td>
+                <td>吴工</td>
+                <td>3天前</td>
+                <td><a href="#" class="action-btn">查看</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

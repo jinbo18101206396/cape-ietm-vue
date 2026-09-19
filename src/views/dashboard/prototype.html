@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IETM 系统首页原型</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-weight: 300;
+      background: #F7F4EF;
+      color: #1F2421;
+      line-height: 1.6;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* 头部欢迎区 */
+    .welcome-section {
+      margin-bottom: 32px;
+    }
+
+    .welcome-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 32px;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .welcome-title em {
+      font-style: italic;
+      color: #C4612F;
+    }
+
+    .welcome-subtitle {
+      font-size: 15px;
+      color: #5C635D;
+      font-weight: 300;
+    }
+
+    /* 统计卡片行 */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: #FFFFFF;
+      border: 1px solid #E7E1D7;
+      border-radius: 12px;
+      padding: 20px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(31, 36, 33, 0.08);
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: #5C635D;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-icon {
+      width: 20px;
+      height: 20px;
+      background: #F2E3D6;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 400;
+      color: #1F2421;
+      margin-bottom: 4px;
+    }
+
+    .stat-trend {
+      font-size: 12px;
+      color: #C4612F;
+      font-weight: 400;
+    }
+
+    /* 主内容网格 */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: #FFFFFF;
+      border: 1px solid #E7E1D7;
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #E7E1D7;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+    }
+
+    .card-action {
+      font-size: 13px;
+      color: #C4612F;
+      text-decoration: none;
+      font-weight: 400;
+      transition: color 0.2s;
+    }
+
+    .card-action:hover {
+      color: #A94E22;
+    }
+
+    .card-body {
+      padding: 24px;
+      flex: 1;
+      overflow: auto;
+    }
+
+    /* 待办列表样式 */
+    .todo-item {
+      padding: 16px;
+      border-bottom: 1px solid #E7E1D7;
+      transition: background 0.2s;
+    }
+
+    .todo-item:last-child {
+      border-bottom: none;
+    }
+
+    .todo-item:hover {
+      background: #FBF9F5;
+    }
+
+    .todo-badge {
+      display: inline-block;
+      background: #F2E3D6;
+      color: #C4612F;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-weight: 400;
+      margin-bottom: 8px;
+    }
+
+    .todo-title {
+      font-size: 14px;
+      font-weight: 400;
+      margin-bottom: 4px;
+      color: #1F2421;
+    }
+
+    .todo-meta {
+      font-size: 12px;
+      color: #5C635D;
+    }
+
+    /* 底部网格 */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+    }
+
+    /* 列表项通用样式 */
+    .list-item {
+      padding: 14px 16px;
+      border-bottom: 1px solid #E7E1D7;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.2s;
+    }
+
+    .list-item:last-child {
+      border-bottom: none;
+    }
+
+    .list-item:hover {
+      background: #FBF9F5;
+    }
+
+    .list-item-title {
+      font-size: 14px;
+      color: #1F2421;
+      font-weight: 400;
+    }
+
+    .list-item-meta {
+      font-size: 12px;
+      color: #5C635D;
+    }
+
+    /* 空状态 */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: #5C635D;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
+    /* 响应式 */
+    @media (max-width: 1200px) {
+      .stats-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .bottom-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 欢迎区 -->
+    <div class="welcome-section">
+      <h1 class="welcome-title">欢迎回来，<em>张工</em></h1>
+      <p class="welcome-subtitle">今天是 2026年9月18日，您有 5 个待办事项需要处理</p>
+    </div>
+
+    <!-- 统计卡片行 -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">
+          <span class="stat-icon">📁</span>
+          手册项目
+        </div>
+        <div class="stat-value">12</div>
+        <div class="stat-trend">↑ 2 本月新增</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">
+          <span class="stat-icon">📄</span>
+          数据模块
+        </div>
+        <div class="stat-value">248</div>
+        <div class="stat-trend">↑ 15 本周更新</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">
+          <span class="stat-icon">✓</span>
+          我的待办
+        </div>
+        <div class="stat-value">5</div>
+        <div class="stat-trend">3 项紧急</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">
+          <span class="stat-icon">🖼️</span>
+          项目实体
+        </div>
+        <div class="stat-value">89</div>
+        <div class="stat-trend">↑ 6 本周新增</div>
+      </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-grid">
+      <!-- 手册项目（左上） -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">手册项目</h2>
+          <a href="#" class="card-action">查看全部 →</a>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">飞机维护手册</div>
+              <div class="list-item-meta">82 个数据模块</div>
+            </div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">发动机维修手册</div>
+              <div class="list-item-meta">56 个数据模块</div>
+            </div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">液压系统手册</div>
+              <div class="list-item-meta">34 个数据模块</div>
+            </div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">航电系统手册</div>
+              <div class="list-item-meta">76 个数据模块</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 我的待办（右上） -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">我的待办</h2>
+          <a href="#" class="card-action">查看全部 →</a>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <div class="todo-item">
+            <span class="todo-badge">紧急</span>
+            <div class="todo-title">DMC-PROJ001-A-001-00-00A-040A-A 需要审批</div>
+            <div class="todo-meta">飞机维护手册 · 2小时前 · 审批流程</div>
+          </div>
+          <div class="todo-item">
+            <span class="todo-badge">紧急</span>
+            <div class="todo-title">DMC-PROJ002-B-002-00-00A-720A-A 需要审批</div>
+            <div class="todo-meta">发动机手册 · 3小时前 · 审批流程</div>
+          </div>
+          <div class="todo-item">
+            <div class="todo-title">DMC-PROJ001-A-003-00-00A-040A-A 需要审批</div>
+            <div class="todo-meta">液压系统手册 · 5小时前 · 审批流程</div>
+          </div>
+          <div class="todo-item">
+            <div class="todo-title">项目配置评审会议</div>
+            <div class="todo-meta">明天 14:00 · 会议提醒</div>
+          </div>
+          <div class="todo-item">
+            <div class="todo-title">月度数据质量报告</div>
+            <div class="todo-meta">本周五截止 · 报告任务</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部网格 -->
+    <div class="bottom-grid">
+      <!-- 数据模块 -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">最近更新的数据模块</h2>
+          <a href="#" class="card-action">查看全部 →</a>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">DMC-PROJ001-A-001-00-00A-040A-A</div>
+              <div class="list-item-meta">张工 · 2小时前更新</div>
+            </div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">DMC-PROJ002-B-002-00-00A-720A-A</div>
+              <div class="list-item-meta">李工 · 3小时前更新</div>
+            </div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">DMC-PROJ001-A-003-00-00A-040A-A</div>
+              <div class="list-item-meta">王工 · 昨天更新</div>
+            </div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">DMC-PROJ003-C-004-00-00A-520A-A</div>
+              <div class="list-item-meta">赵工 · 昨天更新</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 项目实体 -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">最近上传的项目实体</h2>
+          <a href="#" class="card-action">查看全部 →</a>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">ICN-12345-001-01</div>
+              <div class="list-item-meta">液压泵示意图 · 今天上传</div>
+            </div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">ICN-12345-002-01</div>
+              <div class="list-item-meta">发动机剖面图 · 今天上传</div>
+            </div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">ICN-12345-003-01</div>
+              <div class="list-item-meta">电气系统图 · 昨天上传</div>
+            </div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">ICN-12345-004-01</div>
+              <div class="list-item-meta">燃油系统图 · 昨天上传</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -122,7 +122,7 @@
             <a-upload
               :file-list="[]"
               :before-upload="beforeUpload"
-              accept=".bmp,.jpg,.jpeg,.png,.gif,.tif,.tiff,.cgm,.svg,.swf,.mp3,.mp4,.webm,.ogg,.wrl,.smg"
+              accept=".bmp,.jpg,.jpeg,.png,.gif,.tif,.tiff,.cgm,.svg,.swf,.mp3,.mp4,.webm,.ogg,.wrl,.smg,.gltf,.glb,.obj,.stl,.fbx,.dae,.ply"
               multiple
               :show-upload-list="false"
             >
@@ -181,7 +181,7 @@
 
         <div v-if="fileList.length > 0" style="margin-top: 8px; color: #999; font-size: 12px;">
           <a-icon type="info-circle" style="margin-right: 4px;" />
-          支持格式：bmp, jpg, png, gif, tif, cgm, svg, mp3, mp4, wrl, smg 等
+          支持格式：bmp, jpg, png, gif, tif, cgm, svg, mp3, mp4, wrl, smg, gltf, glb, obj, stl, fbx, dae, ply 等
         </div>
       </div>
     </a-spin>
@@ -421,7 +421,8 @@ export default {
       // 检查文件类型
       const allowedExtensions = [
         '.bmp', '.jpg', '.jpeg', '.png', '.gif', '.tif', '.tiff',
-        '.cgm', '.svg', '.swf', '.mp3', '.mp4', '.webm', '.ogg', '.wrl', '.smg'
+        '.cgm', '.svg', '.swf', '.mp3', '.mp4', '.webm', '.ogg', '.wrl', '.smg',
+        '.gltf', '.glb', '.obj', '.stl', '.fbx', '.dae', '.ply'
       ]
       const fileName = file.name.toLowerCase()
       const isAllowed = allowedExtensions.some(ext => fileName.endsWith(ext))

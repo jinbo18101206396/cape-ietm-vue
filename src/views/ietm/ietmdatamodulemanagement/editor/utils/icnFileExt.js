@@ -6,8 +6,11 @@
  */
 
 /**
- * 合法的 ICN 文件后缀列表（精确16个）
- * §16.4.3 完整清单
+ * 合法的 ICN 文件后缀列表
+ * §16.4.3 完整清单 + 2026-09-19扩展
+ *
+ * S1000D 4.0标准: 16个
+ * 系统扩展: +7个现代3D格式
  */
 export const ICN_FILE_EXT = [
   // 图像类（栅格）
@@ -22,8 +25,11 @@ export const ICN_FILE_EXT = [
   // 音视频
   '.mp3', '.mp4', '.webm', '.ogg',
 
-  // 3D模型
-  '.wrl', '.smg'
+  // 3D模型 (S1000D标准)
+  '.wrl', '.smg',
+
+  // 3D模型 (系统扩展 - 2026-09-19)
+  '.gltf', '.glb', '.obj', '.stl', '.fbx', '.dae', '.ply'
 ]
 
 /**
@@ -49,8 +55,28 @@ export const FLASH_ARR = ['.swf']
 
 /**
  * 3D模型类后缀
+ *
+ * 2026-09-19: 扩展支持现代3D格式
+ * - .wrl: VRML (已有)
+ * - .smg: SMG (已有)
+ * - .gltf/.glb: glTF现代标准 (新增 ⭐推荐)
+ * - .obj: 通用3D格式 (新增)
+ * - .stl: 3D打印标准 (新增)
+ * - .fbx: Autodesk格式 (新增)
+ * - .dae: COLLADA CAD交换 (新增)
+ * - .ply: 点云格式 (新增)
  */
-export const D3_EXT_ARR = ['.wrl', '.smg']
+export const D3_EXT_ARR = [
+  '.wrl',   // VRML (原有)
+  '.smg',   // SMG (原有)
+  '.gltf',  // glTF JSON (新增 ⭐)
+  '.glb',   // glTF Binary (新增 ⭐)
+  '.obj',   // Wavefront OBJ (新增)
+  '.stl',   // STL (新增)
+  '.fbx',   // FBX (新增)
+  '.dae',   // COLLADA (新增)
+  '.ply'    // PLY (新增)
+]
 
 /**
  * 校验后缀是否合法

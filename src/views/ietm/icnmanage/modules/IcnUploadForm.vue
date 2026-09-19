@@ -81,7 +81,7 @@
             :file-list="fileList"
             :before-upload="beforeUpload"
             :remove="handleRemove"
-            accept=".bmp,.jpg,.jpeg,.png,.gif,.tif,.tiff,.cgm,.svg,.swf,.mp3,.mp4,.webm,.ogg,.wrl,.smg"
+            accept=".bmp,.jpg,.jpeg,.png,.gif,.tif,.tiff,.cgm,.svg,.swf,.mp3,.mp4,.webm,.ogg,.wrl,.smg,.gltf,.glb,.obj,.stl,.fbx,.dae,.ply"
             multiple
           >
             <a-button>
@@ -218,7 +218,8 @@ export default {
       // 定义允许的文件格式
       const allowedExtensions = [
         '.bmp', '.jpg', '.jpeg', '.png', '.gif', '.tif', '.tiff',
-        '.cgm', '.svg', '.swf', '.mp3', '.mp4', '.webm', '.ogg', '.wrl', '.smg'
+        '.cgm', '.svg', '.swf', '.mp3', '.mp4', '.webm', '.ogg', '.wrl', '.smg',
+        '.gltf', '.glb', '.obj', '.stl', '.fbx', '.dae', '.ply'
       ]
 
       const fileName = file.name.toLowerCase()

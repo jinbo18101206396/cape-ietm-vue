@@ -59,11 +59,12 @@
             <iframe :src="getCgmViewerUrl()" frameborder="0"></iframe>
           </div>
 
-          <!-- 3D模型预览 (VRML) -->
+          <!-- 3D模型预览 (VRML + glTF + OBJ + STL + ...) -->
           <div v-else-if="previewInfo.previewType === '3D'" class="model-3d-preview">
-            <VrmlViewer
+            <Model3DViewer
               v-if="blobUrl"
               :fileUrl="blobUrl"
+              :fileExt="previewInfo.fileExt"
               @loaded="handle3DLoaded"
               @error="handle3DError"
               @retry="handleRetry"
@@ -126,12 +127,12 @@
 import Vue from 'vue'
 import { getAction, downloadFile } from '@/api/manage'
 import { ACCESS_TOKEN } from '@/store/mutation-types'
-import VrmlViewer from './VrmlViewer.vue'
+import Model3DViewer from './Model3DViewer.vue'
 
 export default {
   name: 'IcnViewerModal',
   components: {
-    VrmlViewer
+    Model3DViewer
   },
   data() {
     return {

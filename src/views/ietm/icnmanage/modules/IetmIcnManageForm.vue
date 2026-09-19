@@ -88,14 +88,14 @@
             :file-list="fileList"
             :before-upload="beforeUpload"
             :remove="handleRemove"
-            accept=".bmp,.jpg,.jpeg,.png,.gif,.tif,.tiff,.cgm,.svg,.swf,.mp3,.mp4,.webm,.ogg,.wrl,.smg"
+            accept=".bmp,.jpg,.jpeg,.png,.gif,.tif,.tiff,.cgm,.svg,.swf,.mp3,.mp4,.webm,.ogg,.wrl,.smg,.gltf,.glb,.obj,.stl,.fbx,.dae,.ply"
             multiple
           >
             <a-button>
               <a-icon type="upload" /> 选择文件
             </a-button>
           </a-upload>
-          <div class="upload-tips">支持格式：图片(.bmp .jpg .jpeg .png .gif .tif .tiff .cgm .svg)、动画(.swf)、音视频(.mp3 .mp4 .webm .ogg)、3D(.wrl .smg)</div>
+          <div class="upload-tips">支持格式：图片(.bmp .jpg .jpeg .png .gif .tif .tiff .cgm .svg)、动画(.swf)、音视频(.mp3 .mp4 .webm .ogg)、3D(.wrl .smg .gltf .glb .obj .stl .fbx .dae .ply)</div>
         </a-form-model-item>
       </a-col>
     </a-row>
@@ -264,7 +264,8 @@ export default {
       // 定义允许的文件格式
       const allowedExtensions = [
         '.bmp', '.jpg', '.jpeg', '.png', '.gif', '.tif', '.tiff',
-        '.cgm', '.svg', '.swf', '.mp3', '.mp4', '.webm', '.ogg', '.wrl', '.smg'
+        '.cgm', '.svg', '.swf', '.mp3', '.mp4', '.webm', '.ogg', '.wrl', '.smg',
+        '.gltf', '.glb', '.obj', '.stl', '.fbx', '.dae', '.ply'
       ]
 
       const fileName = file.name.toLowerCase()
