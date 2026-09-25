@@ -194,9 +194,9 @@ describe('资源文件导入和预览验证', () => {
         expect(uploadedResource).to.exist
 
         cy.log('手工上传的资源路径: ' + uploadedResource.filePath)
-        cy.log('路径格式: ' + (uploadedResource.filePath.startsWith('resource/') ? 'resource/' :
-                             uploadedResource.filePath.startsWith('project/') ? 'project/{projectId}/dm_resource/' :
-                             '未知格式'))
+        cy.log('路径格式: ' + (uploadedResource.filePath.startsWith('resource/') ? 'resource/'
+                             : uploadedResource.filePath.startsWith('project/') ? 'project/{projectId}/dm_resource/'
+                             : '未知格式'))
       })
     })
 
@@ -258,7 +258,7 @@ describe('资源文件导入和预览验证', () => {
         },
         body: new URLSearchParams({
           dmId: testDM.id,
-          fileId: `project/${testProject.id}/dm_resource/imported-resource-test.txt`,  // 模拟导入路径
+          fileId: `project/${testProject.id}/dm_resource/imported-resource-test.txt`, // 模拟导入路径
           resourceName: '导入测试资源',
           fileSize: resourceContent.length,
           comment: '通过导入功能导入的资源'
@@ -296,7 +296,7 @@ describe('资源文件导入和预览验证', () => {
       cy.wait(1000)
 
       // 验证导入的资源显示
-      cy.get('.ant-drawer .ant-table-tbody tr').should('have.length.at.least', 2)  // 至少有手工上传和导入两条
+      cy.get('.ant-drawer .ant-table-tbody tr').should('have.length.at.least', 2) // 至少有手工上传和导入两条
       cy.contains('导入测试资源').should('be.visible')
 
       // 获取资源的filePath
@@ -314,9 +314,9 @@ describe('资源文件导入和预览验证', () => {
         expect(importedResource).to.exist
 
         cy.log('导入的资源路径: ' + importedResource.filePath)
-        cy.log('路径格式: ' + (importedResource.filePath.startsWith('resource/') ? 'resource/' :
-                             importedResource.filePath.startsWith('project/') ? 'project/{projectId}/dm_resource/' :
-                             '未知格式'))
+        cy.log('路径格式: ' + (importedResource.filePath.startsWith('resource/') ? 'resource/'
+                             : importedResource.filePath.startsWith('project/') ? 'project/{projectId}/dm_resource/'
+                             : '未知格式'))
       })
     })
   })
@@ -345,10 +345,10 @@ describe('资源文件导入和预览验证', () => {
         cy.log('导入资源路径: ' + importedResource.filePath)
 
         // 判断路径格式
-        const manualFormat = manualResource.filePath.startsWith('resource/') ? 'resource/' :
-                             manualResource.filePath.startsWith('project/') ? 'project/' : '未知'
-        const importedFormat = importedResource.filePath.startsWith('resource/') ? 'resource/' :
-                               importedResource.filePath.startsWith('project/') ? 'project/' : '未知'
+        const manualFormat = manualResource.filePath.startsWith('resource/') ? 'resource/'
+                             : manualResource.filePath.startsWith('project/') ? 'project/' : '未知'
+        const importedFormat = importedResource.filePath.startsWith('resource/') ? 'resource/'
+                               : importedResource.filePath.startsWith('project/') ? 'project/' : '未知'
 
         cy.log('手工上传格式: ' + manualFormat)
         cy.log('导入资源格式: ' + importedFormat)

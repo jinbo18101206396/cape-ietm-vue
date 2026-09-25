@@ -309,7 +309,6 @@ test.describe('多媒体显示诊断', () => {
           console.log('⚠️ 音频使用playSound桩函数，点击无效果（已知P0问题）')
         }
       }
-
     } else {
       console.log('⚠️ 未找到预览按钮')
     }

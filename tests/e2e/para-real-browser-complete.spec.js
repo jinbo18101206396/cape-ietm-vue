@@ -25,13 +25,13 @@ test.describe('Para设计器真实浏览器完整验证', () => {
     // 跳转到登录页
     await page.goto(`${BASE_URL}/user/login`)
 
-    // 等待登录表单加载
-    await page.waitForSelector('input[placeholder*="账号"]', { timeout: 10000 })
+    // 等待登录表单加载（实际placeholder是"请输入账户名"）
+    await page.waitForSelector('input[placeholder*="账户名"]', { timeout: 10000 })
 
     // 登录（使用测试账号）
-    await page.fill('input[placeholder*="账号"]', 'admin')
-    await page.fill('input[placeholder*="密码"]', 'admin123')
-    await page.click('button:has-text("登录")')
+    await page.fill('input[placeholder*="账户名"]', 'admin')
+    await page.fill('input[placeholder*="请输入密码"]', '123456')
+    await page.click('button:has-text("登 录")')
 
     // 等待登录成功跳转到首页
     await page.waitForURL(/\/dashboard/, { timeout: 15000 })

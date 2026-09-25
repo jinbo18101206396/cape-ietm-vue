@@ -22,7 +22,6 @@ const TEST_PASSWORD = 'admin123'
 const TEST_DATA_DIR = path.join(__dirname, '../fixtures')
 
 test.describe('数据模块导入 - 项目上下文测试', () => {
-
   test.beforeEach(async ({ page }) => {
     // 访问登录页
     await page.goto(`${BASE_URL}/user/login`)
@@ -388,7 +387,6 @@ test.describe('数据模块导入 - 项目上下文测试', () => {
 })
 
 test.describe('回归测试 - 确保修复不影响其他功能', () => {
-
   test.beforeEach(async ({ page }) => {
     await page.goto(`${BASE_URL}/user/login`)
     await page.fill('input[placeholder="账号"]', TEST_USERNAME)

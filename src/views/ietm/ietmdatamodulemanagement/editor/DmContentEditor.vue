@@ -19,15 +19,32 @@
             <span class="mb-hint" v-if="readonly">该DM未被您签出，签出后方可编辑</span>
           </div>
           <!-- 工具栏属于中区源码视图（§4 center north）-->
-          <!-- 中区底部页签（§4 tabPosition:'bottom'）：设计视图在左·二期禁用占位，源码视图在右·默认选中 -->
+          <!-- 中区底部页签（§4 tabPosition:'bottom'）：设计视图在左，源码视图在右·默认选中 -->
           <a-tabs class="view-tabs" :active-key="viewMode" tab-position="bottom"
             :animated="false" size="small" @change="onViewTabChange">
-            <!-- 页签1：设计视图（DOM先声明→按钮在左），二期功能，禁用占位 -->
-            <a-tab-pane key="design" disabled>
-              <span slot="tab" title="设计视图为二期功能"><a-icon type="edit"/> 设计视图</span>
-              <div class="design-placeholder">
-                <a-icon type="tool" class="dp-icon"/>
-                <span>设计视图为二期功能，敬请期待</span>
+            <!-- 页签1：设计视图（DOM先声明→按钮在左），Para设计器 -->
+            <a-tab-pane key="design" :disabled="viewMode === 'source'">
+              <span slot="tab"><a-icon type="edit"/> 设计视图</span>
+              <div class="design-view-container">
+                <para-designer
+                  v-if="paraDesignerVisible"
+                  ref="paraDesigner"
+                  :lineno="paraLineno"
+                  :editor="$refs.editor ? $refs.editor.getEditor() : null"
+                  :locale="locale"
+                  :cmnodeid="id"
+                  :project-parameters="JSON.stringify(designerSett)"
+                  :uniqueid="String(maxUniqueId || 0)"
+                  :dm-code="dmc"
+                  :node-list="nodeList"
+                  :ifedit="readonly ? '0' : '1'"
+                  @save="onParaSave"
+                  @refresh="onParaRefresh"
+                />
+                <div v-else class="design-placeholder">
+                  <a-icon type="file-text" class="dp-icon"/>
+                  <span>请双击左侧树中的para节点打开Para设计器</span>
+                </div>
               </div>
             </a-tab-pane>
             <!-- 页签2：源码视图（默认选中）；工具栏归属本页签内部（§4/§5 center north） -->
@@ -84,8 +101,10 @@
           <dm-source-view
             ref="editor" :value="content" :schema="hintSchema"
             :theme="theme" :readonly="readonly"
+            :locale="locale" :en2cnElem="en2cnElem"
             @cursor-node="onCursorNode" @cursor-change="onCursorChange" @content-change="onContentChange"
-            @element-inserted="onElementInserted"/>
+            @element-inserted="onElementInserted"
+            @gutter-click="onGutterClick"/>
               </div>
             </a-tab-pane>
           </a-tabs>
@@ -179,6 +198,7 @@ import IetmInterrefDialog from './components/IetmInterrefDialog'
 import DmIdListModal      from './components/DmIdListModal'
 import IcnSuffixModal     from './components/IcnSuffixModal'
 import WorkflowInfoPanel  from '../components/WorkflowInfoPanel'
+import ParaDesigner       from './components/ParaDesigner'
 import { getTreeNodesfromXml, buildCnNodeList, extractRootContent, getnodeBylineno, formatXml } from './utils/xmlTree'
 import { toEnXml, toCnXml } from './utils/enCnConvert'
 import { getDmcByLineno } from './utils/refsBuilder'
@@ -199,7 +219,8 @@ export default {
     IetmInterrefDialog,
     DmIdListModal,
     IcnSuffixModal,
-    WorkflowInfoPanel
+    WorkflowInfoPanel,
+    ParaDesigner
   },
   data() {
     return {
@@ -236,7 +257,11 @@ export default {
       workflowHeight: 350,
       workflowResizing: false,
       // 🔴 P0-X: DM签出用户（用于流程审批前校验签出状态）
-      checkoutUser: null
+      checkoutUser: null,
+      // Para设计器相关
+      paraDesignerVisible: false,
+      paraLineno: 0,
+      maxUniqueId: 0
     }
   },
   computed: {
@@ -244,6 +269,20 @@ export default {
     isGjb()         { return this.ietmStandard === 'GJB6600' },
     hintSchema()    { return this.locale === 'cn' ? this.cnSchema : this.schema },
     displayNodeList(){ return this.locale === 'cn' ? this.cnNodeList : this.nodeList }
+  },
+  // Provide接口：供ParaDesigner通过inject注入
+  provide() {
+    return {
+      getLocaleName: (name) => {
+        if (this.locale === 'cn') {
+          return this.en2cnElem[name] || name
+        }
+        return name
+      },
+      toEnXml: (xml) => toEnXml(xml, this.cn2enElem),
+      toCnXml: (xml) => toCnXml(xml, this.en2cnElem),
+      formateXml: (xml, indent = 0) => formatXml(xml, indent)
+    }
   },
   // ✅ 修复：监听路由变化，重新加载不同历史版本的XML内容
   watch: {
@@ -316,6 +355,8 @@ export default {
         this.designerSett    = r.designerSett || {}
         // 🔴 P0-X: 保存签出用户（用于流程审批前校验）
         this.checkoutUser    = r.checkoutUser || null
+        // Para设计器：初始化maxUniqueId
+        this.maxUniqueId     = r.maxUniqueId || 0
         if (this.isGjb) this.locale = 'cn'
         // 🆕 解析 icnlist（离线模式，§16.4.3 机制2）
         this._parseIcnlistFromXml()
@@ -380,7 +421,70 @@ export default {
       if (this.editorcursorFlag) return
       this.$refs.editor.locateNode(node)
     },
-    onTreeDblClick() { this.$message.info('设计视图为二期功能') },
+    onTreeDblClick(node) {
+      // 双击para节点，打开Para设计器
+      if (!node) return
+
+      const elemName = this.locale === 'cn' ? this.cn2enElem[node.text] || node.text : node.text
+
+      if (elemName === 'para') {
+        this._openParaDesigner(node.lineno)
+      } else {
+        this.$message.info('仅支持para元素的设计视图编辑')
+      }
+    },
+    onGutterClick({ line, node, elemName }) {
+      // gutter图标点击事件（对标旧系统toDesignView函数）
+      if (!node) return
+
+      // P1-1修复：只读模式下禁止打开设计视图
+      if (this.readonly) {
+        this.$message.info('浏览模式下无法编辑，请先签出该DM')
+        return
+      }
+
+      // 获取英文元素名
+      const enElemName = this.locale === 'cn' ? this.cn2enElem[node.text] || node.text : node.text
+
+      if (enElemName === 'para') {
+        this._openParaDesigner(node.lineno || (line + 1))
+      } else {
+        // 一期仅支持para，二期扩展其他元素
+        this.$message.info('仅支持para元素的设计视图编辑')
+      }
+    },
+    _openParaDesigner(lineno) {
+      // 统一的Para设计器打开逻辑（供双击树节点和点击gutter图标复用）
+      this.viewMode = 'design'
+      this.paraLineno = lineno
+      this.paraDesignerVisible = true
+
+      // 进入设计视图时自动隐藏左侧导航树和属性面板，聚焦内容编辑
+      this.treeVisible = false
+      this.attrVisible = false
+
+      // 等待ParaDesigner组件挂载并初始化UEditor
+      this.$nextTick(() => {
+        if (this.$refs.paraDesigner) {
+          // 轮询等待UEditor初始化完成
+          const checkReady = () => {
+            // 🔧 修复：检查组件是否还存在（防止组件销毁后继续轮询）
+            if (!this.$refs.paraDesigner) {
+              console.warn('[DmContentEditor] ParaDesigner组件已销毁，停止轮询')
+              return
+            }
+
+            if (this.$refs.paraDesigner.ueditorReady) {
+              this.$refs.paraDesigner.setcontent()
+            } else {
+              // 每50ms检查一次，最多等待5秒
+              setTimeout(checkReady, 50)
+            }
+          }
+          checkReady()
+        }
+      })
+    },
     onContentChange(val) {
       this.content = val
       this.dirty = (val !== this.originalContent)
@@ -389,6 +493,77 @@ export default {
     onElementInserted() {
       this.dirty = true
       this.refreshTree()
+    },
+    // Para设计器保存事件
+    async onParaSave() {
+      this.dirty = true
+      await this.doSave()
+
+      // 保存成功后，自动切换回源码视图（对标旧系统行为）
+      this.viewMode = 'source'
+      this.paraDesignerVisible = false
+      this.treeVisible = true
+      if (!this.readonly) {
+        this.attrVisible = true
+      }
+
+      // 🔧 修复：从Para设计视图切换回源码视图时，CodeMirror的gutters布局错乱
+      // 根本原因：UEditor初始化时污染了父容器的CSS属性（height/overflow/width等），
+      // 导致CodeMirror在TabPane显示时基于错误的容器尺寸计算布局。
+      // 修复策略：①等待ParaDesigner销毁完成（已在beforeDestroy中彻底清理样式）
+      //          ②双重保险：再次清理可能残留的样式污染
+      //          ③延迟调用DmSourceView的forceFixGuttersLayout()方法
+      console.log('[DmContentEditor] 🔄 开始切换回源码视图')
+
+      this.$nextTick(() => {
+        // ① 双重保险：强制清理可能残留的样式污染
+        const designContainer = document.querySelector('.design-view-container')
+        if (designContainer) {
+          const savedClass = designContainer.className
+          designContainer.style.cssText = ''
+          designContainer.className = savedClass
+          console.log('[DmContentEditor] ✓ 双重清理 .design-view-container')
+        }
+
+        const viewTabs = document.querySelector('.view-tabs')
+        if (viewTabs) {
+          const savedClass = viewTabs.className
+          viewTabs.style.cssText = ''
+          viewTabs.className = savedClass
+          console.log('[DmContentEditor] ✓ 双重清理 .view-tabs')
+        }
+
+        const tabsContent = document.querySelector('.ant-tabs-content')
+        if (tabsContent) {
+          const savedClass = tabsContent.className
+          tabsContent.style.cssText = ''
+          tabsContent.className = savedClass
+          console.log('[DmContentEditor] ✓ 双重清理 .ant-tabs-content')
+        }
+
+        // ② 等待DOM完全稳定后，调用DmSourceView的布局修复
+        this.$nextTick(() => {
+          // 使用setTimeout确保TabPane的显示/隐藏动画完全完成
+          setTimeout(() => {
+            console.log('[DmContentEditor] 🔧 准备调用 forceFixGuttersLayout')
+            if (this.$refs.editor && this.$refs.editor.forceFixGuttersLayout) {
+              this.$refs.editor.forceFixGuttersLayout()
+            } else {
+              console.warn('[DmContentEditor] ⚠️ editor ref不存在或方法未定义')
+            }
+          }, 200)  // 延长到200ms，确保DOM完全稳定
+        })
+      })
+    },
+    // Para设计器刷新事件
+    onParaRefresh(lineno) {
+      // 刷新树和源码视图
+      this.refreshTree()
+      this.$nextTick(() => {
+        if (this.$refs.editor && lineno !== undefined) {
+          this.$refs.editor.locateLine(lineno)
+        }
+      })
     },
     onSetProperty({ lineno, attrName, attrVal }) {
       this.$refs.editor.setProperty(lineno, attrName, attrVal)
@@ -618,12 +793,63 @@ export default {
     toggleTree()  { this.treeVisible = !this.treeVisible },
     toggleAttr()  { this.attrVisible = !this.attrVisible },
     onViewTabChange(key) {
-      // 设计视图（design）为二期功能：页签已 disabled，正常不会触发；此处兜底防止编程式切换
-      if (key === 'design') {
-        this.$message.info('设计视图为二期功能，暂不支持')
-        return
-      }
       this.viewMode = key
+      if (key === 'source') {
+        // 切换到源码视图：关闭Para设计器，恢复左侧导航树显示
+        this.paraDesignerVisible = false
+        this.treeVisible = true
+        // 属性面板在编辑模式下显示，浏览模式下保持隐藏
+        if (!this.readonly) {
+          this.attrVisible = true
+        }
+
+        // 🔧 修复：从Para设计视图切换回源码视图时，CodeMirror的gutters布局错乱
+        // 根本原因：UEditor初始化时污染了父容器的CSS属性（height/overflow/width等），
+        // 导致CodeMirror在TabPane显示时基于错误的容器尺寸计算布局。
+        // 修复策略：①等待ParaDesigner销毁完成（已在beforeDestroy中彻底清理样式）
+        //          ②双重保险：再次清理可能残留的样式污染
+        //          ③延迟调用DmSourceView的forceFixGuttersLayout()方法
+        console.log('[DmContentEditor] 🔄 Tab切换到源码视图')
+
+        this.$nextTick(() => {
+          // ① 双重保险：强制清理可能残留的样式污染
+          const designContainer = document.querySelector('.design-view-container')
+          if (designContainer) {
+            const savedClass = designContainer.className
+            designContainer.style.cssText = ''
+            designContainer.className = savedClass
+            console.log('[DmContentEditor] ✓ Tab切换-双重清理 .design-view-container')
+          }
+
+          const viewTabs = document.querySelector('.view-tabs')
+          if (viewTabs) {
+            const savedClass = viewTabs.className
+            viewTabs.style.cssText = ''
+            viewTabs.className = savedClass
+            console.log('[DmContentEditor] ✓ Tab切换-双重清理 .view-tabs')
+          }
+
+          const tabsContent = document.querySelector('.ant-tabs-content')
+          if (tabsContent) {
+            const savedClass = tabsContent.className
+            tabsContent.style.cssText = ''
+            tabsContent.className = savedClass
+            console.log('[DmContentEditor] ✓ Tab切换-双重清理 .ant-tabs-content')
+          }
+
+          this.$nextTick(() => {
+            setTimeout(() => {
+              // ② 调用DmSourceView的公开方法强制修复gutters
+              console.log('[DmContentEditor] 🔧 Tab切换-准备调用 forceFixGuttersLayout')
+              if (this.$refs.editor && this.$refs.editor.forceFixGuttersLayout) {
+                this.$refs.editor.forceFixGuttersLayout()
+              } else {
+                console.warn('[DmContentEditor] ⚠️ Tab切换-editor ref不存在或方法未定义')
+              }
+            }, 200)  // 延长到200ms，确保DOM完全稳定
+          })
+        })
+      }
     },
     refreshTree() {
       try {
@@ -638,6 +864,7 @@ export default {
         this.nodeList   = getTreeNodesfromXml(content, this.isGjb ? '数据模块' : 'dmodule')
         this.cnNodeList = buildCnNodeList(this.nodeList, this.en2cnElem)
         this.$refs.editor.setNodeList(this.nodeList)
+        // setNodeList内部会调用refreshGutterMarkers，无需重复调用
       } catch (error) {
         console.error('[refreshTree] XML解析失败:', error)
         // 🔧 修复：畸形XML显示错误提示（P2缺陷#2）
@@ -1793,6 +2020,13 @@ export default {
 }
 /* 源码视图页签内容：工具栏+状态栏固定，编辑器占余高 */
 .source-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* 设计视图页签内容：与源码视图对称，ParaDesigner占满容器 */
+.design-view-container {
   flex: 1;
   min-height: 0;
   display: flex;

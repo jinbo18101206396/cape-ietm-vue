@@ -154,7 +154,6 @@ function autoFillDdnInfo(fileList, currentDdnInfo) {
 // ========== 单元测试 ==========
 
 test.describe('单元测试 - ZIP文件解压', () => {
-
   test('UT-01: 解压包含3个DM的ZIP，返回3个虚拟文件对象', async () => {
     // 创建ZIP
     const zip = new JSZip()
@@ -225,7 +224,6 @@ test.describe('单元测试 - ZIP文件解压', () => {
 })
 
 test.describe('单元测试 - DDN自动填充', () => {
-
   test('UT-05: 从DM提取型号和密级', async () => {
     const xmlContent = createDmXml('ZB1', '001', '01')
 
@@ -324,7 +322,6 @@ test.describe('单元测试 - DDN自动填充', () => {
 })
 
 test.describe('单元测试 - 数据流转换', () => {
-
   test('UT-10: 校验后虚拟文件状态更新', async () => {
     const zip = new JSZip()
     zip.file('DMC-TEST-A-001-0-0-00-00A-040A-A.xml', createDmXml('TEST', '001', '01'))
@@ -363,7 +360,6 @@ test.describe('单元测试 - 数据流转换', () => {
 })
 
 test.describe('集成测试 - 业务流程', () => {
-
   test('IT-01: 上传→解压→显示文件列表', async () => {
     // 1. 创建ZIP
     const zip = new JSZip()
@@ -432,7 +428,6 @@ test.describe('集成测试 - 业务流程', () => {
 })
 
 test.describe('边界测试', () => {
-
   test('BT-01: 超长文件名处理', async () => {
     const longName = 'DMC-' + 'A'.repeat(200) + '.xml'
     const zip = new JSZip()

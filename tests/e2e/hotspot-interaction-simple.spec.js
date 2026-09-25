@@ -6,7 +6,6 @@
 const { test, expect } = require('@playwright/test')
 
 test.describe('热点图形交互 - 核心功能测试', () => {
-
   test.beforeEach(async ({ page }) => {
     test.setTimeout(90000)
 

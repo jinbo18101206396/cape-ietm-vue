@@ -1,0 +1,276 @@
+
+Running 10 tests using 1 worker
+
+🧪 测试上标往返转换（验证不会变成<superScriptcript>）
+  x   1 [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:50:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R01: 上标往返测试 - BUG-002修复验证 (3.0m)
+🧪 测试下标往返转换
+  x   2 [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:118:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R02: 下标往返测试 - BUG-003修复验证 (3.0m)
+🧪 测试<para>标签不被误转换为<p>
+  x   3 [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:163:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R03: 段落标签保护测试 - BUG-004修复验证 (3.0m)
+🧪 测试定义列表（deflist）往返转换
+  x   4 [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:190:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R04: 定义列表往返测试 - BUG-005/007/008修复验证 (3.0m)
+🧪 测试<li>不误匹配<list>和<link>
+  x   5 [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:238:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R05: 列表标签保护测试 - BUG-006修复验证 (3.0m)
+🧪 测试基础文本编辑和强调标签
+  x   6 [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:274:5 › Para设计器全面UI交互测试 › Phase 2: 功能场景测试 › TC-F01: 基础文本编辑 (3.0m)
+🧪 测试插入普通表格
+  x   7 [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:300:5 › Para设计器全面UI交互测试 › Phase 2: 功能场景测试 › TC-T01: 普通表格插入 (3.0m)
+🧪 测试插入带表头的表格（验证BUG-001修复）
+  x   8 [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:339:5 › Para设计器全面UI交互测试 › Phase 2: 功能场景测试 › TC-T02: 带表头表格插入 (3.0m)
+🧪 测试空内容保存
+  x   9 [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:393:5 › Para设计器全面UI交互测试 › Phase 3: 边界条件测试 › TC-E01: 空内容保存 (3.0m)
+🧪 测试特殊字符转义
+  x  10 [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:414:5 › Para设计器全面UI交互测试 › Phase 3: 边界条件测试 › TC-E02: 特殊字符处理 (3.0m)
+
+
+  1) [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:50:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R01: 上标往返测试 - BUG-002修复验证 
+
+    Test timeout of 180000ms exceeded.
+
+    Error: page.click: Test timeout of 180000ms exceeded.
+    Call log:
+      - waiting for locator('.CodeMirror-line:has-text("<para>")')
+
+
+      52 |
+      53 |       // 1. 找到一个para行，进入设计视图
+    > 54 |       await page.click('.CodeMirror-line:has-text("<para>")')
+         |                  ^
+      55 |       await page.waitForTimeout(500)
+      56 |
+      57 |       // 切换到设计视图
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\para-comprehensive-ui-test.spec.js:54:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-para-comprehensive-ui--c1aa4-TC-R01-上标往返测试---BUG-002修复验证-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-para-comprehensive-ui--c1aa4-TC-R01-上标往返测试---BUG-002修复验证-chromium\error-context.md
+
+  2) [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:118:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R02: 下标往返测试 - BUG-003修复验证 
+
+    Test timeout of 180000ms exceeded.
+
+    Error: page.click: Test timeout of 180000ms exceeded.
+    Call log:
+      - waiting for locator('.CodeMirror-line:has-text("<para>")')
+
+
+      120 |
+      121 |       // 进入设计视图
+    > 122 |       await page.click('.CodeMirror-line:has-text("<para>")')
+          |                  ^
+      123 |       await page.waitForTimeout(500)
+      124 |
+      125 |       const designTab = page.locator('.ant-tabs-tab:has-text("设计视图")')
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\para-comprehensive-ui-test.spec.js:122:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-para-comprehensive-ui--1edc3-TC-R02-下标往返测试---BUG-003修复验证-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-para-comprehensive-ui--1edc3-TC-R02-下标往返测试---BUG-003修复验证-chromium\error-context.md
+
+  3) [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:163:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R03: 段落标签保护测试 - BUG-004修复验证 
+
+    Test timeout of 180000ms exceeded.
+
+    Error: page.click: Test timeout of 180000ms exceeded.
+    Call log:
+      - waiting for locator('.CodeMirror')
+
+
+      165 |
+      166 |       // 1. 在源码视图直接输入包含<para>的XML
+    > 167 |       await page.click('.CodeMirror')
+          |                  ^
+      168 |       await page.keyboard.press('Control+End')
+      169 |       await page.keyboard.press('Enter')
+      170 |       await page.keyboard.type('<para>这是测试段落</para>')
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\para-comprehensive-ui-test.spec.js:167:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-para-comprehensive-ui--e5389--R03-段落标签保护测试---BUG-004修复验证-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-para-comprehensive-ui--e5389--R03-段落标签保护测试---BUG-004修复验证-chromium\error-context.md
+
+  4) [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:190:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R04: 定义列表往返测试 - BUG-005/007/008修复验证 
+
+    Test timeout of 180000ms exceeded.
+
+    Error: locator.click: Test timeout of 180000ms exceeded.
+    Call log:
+      - waiting for locator('.ant-tabs-tab:has-text("设计视图")')
+
+
+      193 |       // 进入设计视图
+      194 |       const designTab = page.locator('.ant-tabs-tab:has-text("设计视图")')
+    > 195 |       await designTab.click()
+          |                       ^
+      196 |       await page.waitForTimeout(1000)
+      197 |
+      198 |       // 点击"列表定义"按钮插入deflist
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\para-comprehensive-ui-test.spec.js:195:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-para-comprehensive-ui--3a20b-表往返测试---BUG-005-007-008修复验证-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-para-comprehensive-ui--3a20b-表往返测试---BUG-005-007-008修复验证-chromium\error-context.md
+
+  5) [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:238:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R05: 列表标签保护测试 - BUG-006修复验证 
+
+    Test timeout of 180000ms exceeded.
+
+    Error: locator.click: Test timeout of 180000ms exceeded.
+    Call log:
+      - waiting for locator('.ant-tabs-tab:has-text("设计视图")')
+
+
+      241 |       // 进入设计视图
+      242 |       const designTab = page.locator('.ant-tabs-tab:has-text("设计视图")')
+    > 243 |       await designTab.click()
+          |                       ^
+      244 |       await page.waitForTimeout(1000)
+      245 |
+      246 |       // 插入无序列表
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\para-comprehensive-ui-test.spec.js:243:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-para-comprehensive-ui--ab89b--R05-列表标签保护测试---BUG-006修复验证-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-para-comprehensive-ui--ab89b--R05-列表标签保护测试---BUG-006修复验证-chromium\error-context.md
+
+  6) [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:274:5 › Para设计器全面UI交互测试 › Phase 2: 功能场景测试 › TC-F01: 基础文本编辑 
+
+    Test timeout of 180000ms exceeded.
+
+    Error: locator.click: Test timeout of 180000ms exceeded.
+    Call log:
+      - waiting for locator('.ant-tabs-tab:has-text("设计视图")')
+
+
+      276 |
+      277 |       const designTab = page.locator('.ant-tabs-tab:has-text("设计视图")')
+    > 278 |       await designTab.click()
+          |                       ^
+      279 |       await page.waitForTimeout(1000)
+      280 |
+      281 |       const editorFrame = page.frameLocator('iframe.edui-default')
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\para-comprehensive-ui-test.spec.js:278:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-para-comprehensive-ui--9a9fc-hase-2-功能场景测试-TC-F01-基础文本编辑-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-para-comprehensive-ui--9a9fc-hase-2-功能场景测试-TC-F01-基础文本编辑-chromium\error-context.md
+
+  7) [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:300:5 › Para设计器全面UI交互测试 › Phase 2: 功能场景测试 › TC-T01: 普通表格插入 
+
+    Test timeout of 180000ms exceeded.
+
+    Error: locator.click: Test timeout of 180000ms exceeded.
+    Call log:
+      - waiting for locator('.ant-tabs-tab:has-text("设计视图")')
+
+
+      302 |
+      303 |       const designTab = page.locator('.ant-tabs-tab:has-text("设计视图")')
+    > 304 |       await designTab.click()
+          |                       ^
+      305 |       await page.waitForTimeout(1000)
+      306 |
+      307 |       // 点击插入表格按钮
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\para-comprehensive-ui-test.spec.js:304:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-para-comprehensive-ui--d0567-hase-2-功能场景测试-TC-T01-普通表格插入-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-para-comprehensive-ui--d0567-hase-2-功能场景测试-TC-T01-普通表格插入-chromium\error-context.md
+
+  8) [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:339:5 › Para设计器全面UI交互测试 › Phase 2: 功能场景测试 › TC-T02: 带表头表格插入 
+
+    Test timeout of 180000ms exceeded.
+
+    Error: locator.click: Test timeout of 180000ms exceeded.
+    Call log:
+      - waiting for locator('.ant-tabs-tab:has-text("设计视图")')
+
+
+      341 |
+      342 |       const designTab = page.locator('.ant-tabs-tab:has-text("设计视图")')
+    > 343 |       await designTab.click()
+          |                       ^
+      344 |       await page.waitForTimeout(1000)
+      345 |
+      346 |       // 插入表格并勾选"表头"
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\para-comprehensive-ui-test.spec.js:343:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-para-comprehensive-ui--4df24-ase-2-功能场景测试-TC-T02-带表头表格插入-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-para-comprehensive-ui--4df24-ase-2-功能场景测试-TC-T02-带表头表格插入-chromium\error-context.md
+
+  9) [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:393:5 › Para设计器全面UI交互测试 › Phase 3: 边界条件测试 › TC-E01: 空内容保存 
+
+    Test timeout of 180000ms exceeded.
+
+    Error: locator.click: Test timeout of 180000ms exceeded.
+    Call log:
+      - waiting for locator('.ant-tabs-tab:has-text("设计视图")')
+
+
+      395 |
+      396 |       const designTab = page.locator('.ant-tabs-tab:has-text("设计视图")')
+    > 397 |       await designTab.click()
+          |                       ^
+      398 |       await page.waitForTimeout(1000)
+      399 |
+      400 |       const editorFrame = page.frameLocator('iframe.edui-default')
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\para-comprehensive-ui-test.spec.js:397:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-para-comprehensive-ui--be146-Phase-3-边界条件测试-TC-E01-空内容保存-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-para-comprehensive-ui--be146-Phase-3-边界条件测试-TC-E01-空内容保存-chromium\error-context.md
+
+  10) [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:414:5 › Para设计器全面UI交互测试 › Phase 3: 边界条件测试 › TC-E02: 特殊字符处理 
+
+    Test timeout of 180000ms exceeded.
+
+    Error: locator.click: Test timeout of 180000ms exceeded.
+    Call log:
+      - waiting for locator('.ant-tabs-tab:has-text("设计视图")')
+
+
+      416 |
+      417 |       const designTab = page.locator('.ant-tabs-tab:has-text("设计视图")')
+    > 418 |       await designTab.click()
+          |                       ^
+      419 |       await page.waitForTimeout(1000)
+      420 |
+      421 |       const editorFrame = page.frameLocator('iframe.edui-default')
+        at D:\workspace\IETM\cape-ietm-vue\tests\e2e\para-comprehensive-ui-test.spec.js:418:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-para-comprehensive-ui--a0ddd-hase-3-边界条件测试-TC-E02-特殊字符处理-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-para-comprehensive-ui--a0ddd-hase-3-边界条件测试-TC-E02-特殊字符处理-chromium\error-context.md
+
+  10 failed
+    [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:50:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R01: 上标往返测试 - BUG-002修复验证 
+    [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:118:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R02: 下标往返测试 - BUG-003修复验证 
+    [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:163:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R03: 段落标签保护测试 - BUG-004修复验证 
+    [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:190:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R04: 定义列表往返测试 - BUG-005/007/008修复验证 
+    [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:238:5 › Para设计器全面UI交互测试 › Phase 1: 正则Bug修复验证 › TC-R05: 列表标签保护测试 - BUG-006修复验证 
+    [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:274:5 › Para设计器全面UI交互测试 › Phase 2: 功能场景测试 › TC-F01: 基础文本编辑 
+    [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:300:5 › Para设计器全面UI交互测试 › Phase 2: 功能场景测试 › TC-T01: 普通表格插入 
+    [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:339:5 › Para设计器全面UI交互测试 › Phase 2: 功能场景测试 › TC-T02: 带表头表格插入 
+    [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:393:5 › Para设计器全面UI交互测试 › Phase 3: 边界条件测试 › TC-E01: 空内容保存 
+    [chromium] › tests\e2e\para-comprehensive-ui-test.spec.js:414:5 › Para设计器全面UI交互测试 › Phase 3: 边界条件测试 › TC-E02: 特殊字符处理 

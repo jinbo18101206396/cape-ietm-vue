@@ -45,7 +45,7 @@ function simulateBeforeChange(fileList) {
     renderAlert: isEmpty,
     renderTable: !isEmpty,
     tableVisible: !isEmpty,
-    headerVisible: !isEmpty  // 关键：空数据时表头不可见
+    headerVisible: !isEmpty // 关键：空数据时表头不可见
   }
 }
 
@@ -55,7 +55,7 @@ function simulateAfterChange(fileList) {
     renderAlert: false,
     renderTable: true,
     tableVisible: true,
-    headerVisible: true,  // 关键：表头始终可见
+    headerVisible: true, // 关键：表头始终可见
     emptyText: fileList.length === 0 ? '暂无文件，请点击"选择文件"按钮添加' : null
   }
 }
@@ -124,7 +124,7 @@ function simulateAntTableLocale(dataSource, locale) {
   const isEmpty = dataSource.length === 0
 
   return {
-    renderHeader: true,  // 表头始终渲染
+    renderHeader: true, // 表头始终渲染
     renderBody: true,
     bodyContent: isEmpty ? locale.emptyText : dataSource,
     showEmptyText: isEmpty
@@ -158,7 +158,7 @@ function simulateUserScenario() {
   results.push({
     step: '初始状态',
     fileCount: fileList.length,
-    headerVisible: true,  // 新逻辑下始终为true
+    headerVisible: true, // 新逻辑下始终为true
     emptyTextVisible: fileList.length === 0
   })
 

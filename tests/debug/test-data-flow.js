@@ -10,12 +10,12 @@ const mockBackendResponse = {
   result: {
     files: [
       {
-        fileName: "DMC-TEST-A-00-0-0-00-00-A-000-A-A.xml",
-        fileType: "DM",  // ← 关键字段1
-        resultCode: "1",
-        resultMessage: "可以导入",
-        dmcCode: "DMC-TEST-A-00-0-0-00-00-A-000-A-A",
-        tempFilePath: "/tmp/xxx",
+        fileName: 'DMC-TEST-A-00-0-0-00-00-A-000-A-A.xml',
+        fileType: 'DM', // ← 关键字段1
+        resultCode: '1',
+        resultMessage: '可以导入',
+        dmcCode: 'DMC-TEST-A-00-0-0-00-00-A-000-A-A',
+        tempFilePath: '/tmp/xxx',
         xmlContent: `<?xml version="1.0" encoding="UTF-8"?>
 <dmodule>
   <identAndStatusSection>
@@ -43,7 +43,7 @@ const mockBackendResponse = {
                 caveat="cv51"/>
     </dmStatus>
   </identAndStatusSection>
-</dmodule>`  // ← 关键字段2
+</dmodule>` // ← 关键字段2
       }
     ],
     totalCount: 1,
@@ -58,12 +58,12 @@ console.log('=== 测试开始 ===\n')
 console.log('步骤1：模拟validateFile处理后端响应')
 
 const file = {
-  name: "DMC-TEST-A-00-0-0-00-00-A-000-A-A.xml",
+  name: 'DMC-TEST-A-00-0-0-00-00-A-000-A-A.xml',
   validated: false,
   validateSuccess: false,
   validateMessage: '',
   validateDetail: null,
-  xmlContent: null  // 初始为空
+  xmlContent: null // 初始为空
 }
 
 // 模拟validateFile中的处理逻辑
@@ -82,8 +82,8 @@ if (res.success && res.result) {
       file.vldCode = code
       file.dmcCode = fileItem.dmcCode
       file.tempFilePath = fileItem.tempFilePath
-      file.xmlContent = fileItem.xmlContent || file.xmlContent  // ← 关键：设置xmlContent
-      file.validateDetail = fileItem  // ← 关键：设置validateDetail
+      file.xmlContent = fileItem.xmlContent || file.xmlContent // ← 关键：设置xmlContent
+      file.validateDetail = fileItem // ← 关键：设置validateDetail
     }
   }
 }

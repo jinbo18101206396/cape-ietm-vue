@@ -18,7 +18,7 @@ describe('Model3DViewer - 扩展名格式兼容性', () => {
     wrapper = shallowMount(Model3DViewer, {
       propsData: {
         fileUrl: 'blob:http://localhost:3000/test.wrl',
-        fileExt: 'wrl'  // 无点号格式
+        fileExt: 'wrl' // 无点号格式
       }
     })
   })

@@ -9,7 +9,6 @@
 const { test, expect } = require('@playwright/test')
 
 test.describe('DDN自动填充 - 完整字段测试', () => {
-
   test('场景1：完整DM XML - 应填充所有可提取字段', async () => {
     // 创建完整的测试DM XML
     const completeXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -325,7 +324,6 @@ test.describe('DDN自动填充 - 完整字段测试', () => {
 })
 
 test.describe('DDN字段优先级测试', () => {
-
   test('优先级1：页面加载时从项目信息填充', () => {
     // 模拟项目信息
     const currentProject = {

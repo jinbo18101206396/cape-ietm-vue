@@ -74,9 +74,10 @@ export function makeDesignMarker(elemName, lineno, onClick, locale = 'en', en2cn
   link.title = `设计视图【${displayName}】`
   link.href = 'javascript:void(0);'
 
-  // 创建铅笔图标（使用Font Awesome fa-pencil）
+  // 创建铅笔图标 - 使用Unicode字符（简单可靠）
   const icon = document.createElement('span')
-  icon.className = 'fa fa-pencil'
+  icon.className = 'gutter-pencil-icon'
+  icon.innerHTML = '&#9998;'  // Unicode铅笔字符（HTML实体）
 
   link.appendChild(icon)
   marker.appendChild(link)
@@ -120,7 +121,7 @@ export function canShowDesignMarker(elemName, node, nodeList = []) {
 
 /**
  * 刷新CodeMirror编辑器的gutter图标
- * 对标旧系统在refreshTree后调用setGutterMarker的逻辑
+ * 使用独立dmGutter列显示铅笔图标（对标旧系统）
  *
  * @param {Object} cm - CodeMirror实例
  * @param {Array} nodeList - 节点列表（英文名）
@@ -132,10 +133,9 @@ export function canShowDesignMarker(elemName, node, nodeList = []) {
 export function refreshGutterMarkers(cm, nodeList, linenoOffset, onClickMarker, locale, en2cnElem) {
   if (!cm || !nodeList || !Array.isArray(nodeList)) return
 
-  // 先清空所有gutter标记
+  // 清除所有现有标记
   cm.clearGutter('dmGutter')
 
-  // 遍历nodeList，为支持设计视图的元素添加图标
   for (const node of nodeList) {
     if (!node || !node.text || !node.attributes) continue
 
@@ -146,19 +146,17 @@ export function refreshGutterMarkers(cm, nodeList, linenoOffset, onClickMarker, 
 
     // 判断是否应该显示设计图标
     if (canShowDesignMarker(elemName, node, nodeList)) {
-      // P1-4修复：行号换算公式详细注释
-      // nodeList中的lineno是相对行号（从1开始，相对于<dmodule>元素）
-      // CodeMirror的line是绝对行号（从0开始，包含DOCTYPE声明等前置内容）
-      // 换算公式：cmLine = lineno + linenoOffset - 2
-      //   其中：linenoOffset是<dmodule>在CodeMirror中的绝对行号（1-based）
-      //   推导：cmLine = (lineno - 1) + (linenoOffset - 1)
-      //               = lineno - 1 (转0-based) + linenoOffset - 1 (减去<dmodule>行本身)
-      //               = lineno + linenoOffset - 2
       const cmLine = lineno + linenoOffset - 2
-
       if (cmLine >= 0 && cmLine < cm.lineCount()) {
-        // 创建并设置gutter标记
-        const marker = makeDesignMarker(elemName, cmLine, onClickMarker, locale, en2cnElem)
+        const marker = makeDesignMarker(elemName, cmLine, null, locale, en2cnElem)
+
+        // 绑定点击事件
+        marker.addEventListener('click', () => {
+          if (onClickMarker) {
+            onClickMarker(cmLine, elemName)
+          }
+        })
+
         cm.setGutterMarker(cmLine, 'dmGutter', marker)
       }
     }

@@ -9,7 +9,6 @@ import flushPromises from 'flush-promises'
 
 // Mock Vue组件中的部分逻辑进行单元测试
 describe('数据模块导入 - ZIP展开逻辑测试', () => {
-
   test('parseZipFile 应该正确解析ZIP文件并创建虚拟文件对象', async () => {
     // 模拟后端返回的数据
     const mockBeforeImportResponse = {

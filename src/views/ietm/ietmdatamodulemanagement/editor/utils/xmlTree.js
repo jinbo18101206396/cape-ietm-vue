@@ -220,19 +220,20 @@ export function findLineno(cm, elename, from = 0) {
 }
 
 /** XML 2 空格格式化（§14.4 等价） */
-export function formatXml(xml, indent = 2) {
+export function formatXml(xml, baseIndent = 0) {
   let out = '', depth = 0
-  const pad = ' '.repeat(indent)
+  const baseSpace = ' '.repeat(baseIndent)  // 基础缩进（para所在列的缩进）
+  const stepSpace = '  '  // 每层递增2空格
   const lines = _splitGluedTags(xml).map(l => l.trim()).filter(l => l)
   for (const line of lines) {
-    if (line.startsWith('<?') || line.startsWith('<!')) { out += line + '\n'; continue }
+    if (line.startsWith('<?') || line.startsWith('<!')) { out += baseSpace + line + '\n'; continue }
     const isClose = /^<\//.test(line)
     const isSelf = /\/>$/.test(line)
     // 内联叶子元素（同行含闭合标签，如 <techName>x</techName>）不应递增缩进层级
     const hasInlineClose = /<\//.test(line)
     const isOpen = /^<[^/!?]/.test(line) && !isSelf && !isClose && !hasInlineClose
     if (isClose && depth > 0) depth--
-    out += pad.repeat(depth) + line + '\n'
+    out += baseSpace + stepSpace.repeat(depth) + line + '\n'
     if (isOpen) depth++
   }
   return out

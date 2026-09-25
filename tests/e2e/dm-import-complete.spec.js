@@ -251,7 +251,6 @@ async function getDdnFormValues(page) {
 // ========== 测试套件 ==========
 
 test.describe('数据模块导入 - ZIP文件解压和显示', () => {
-
   test('TC-01: 上传ZIP文件，显示内部XML文件名（不显示ZIP名）', async ({ page }) => {
     await page.goto(TEST_CONFIG.baseURL)
     await helpers.login(page, 'admin', 'admin')
@@ -317,7 +316,6 @@ test.describe('数据模块导入 - ZIP文件解压和显示', () => {
 })
 
 test.describe('数据模块导入 - 校验功能', () => {
-
   test('TC-04: 点击校验按钮，调用新API端点', async ({ page }) => {
     await page.goto(TEST_CONFIG.baseURL)
     await helpers.login(page, 'admin', 'admin')
@@ -367,7 +365,6 @@ test.describe('数据模块导入 - 校验功能', () => {
 })
 
 test.describe('数据模块导入 - DDN自动填充', () => {
-
   test('TC-06: 校验成功后，自动填充型号和密级', async ({ page }) => {
     await page.goto(TEST_CONFIG.baseURL)
     await helpers.login(page, 'admin', 'admin')
@@ -477,7 +474,6 @@ test.describe('数据模块导入 - DDN自动填充', () => {
 })
 
 test.describe('数据模块导入 - 完整流程', () => {
-
   test('TC-10: 完整流程：上传→校验→自动填充→导入', async ({ page }) => {
     await page.goto(TEST_CONFIG.baseURL)
     await helpers.login(page, 'admin', 'admin')
@@ -573,7 +569,6 @@ test.describe('数据模块导入 - 完整流程', () => {
 })
 
 test.describe('数据模块导入 - 边界和异常测试', () => {
-
   test('TC-12: 上传空ZIP文件', async ({ page }) => {
     await page.goto(TEST_CONFIG.baseURL)
     await helpers.login(page, 'admin', 'admin')
@@ -690,7 +685,6 @@ test.describe('数据模块导入 - 边界和异常测试', () => {
 })
 
 test.describe('数据模块导入 - UI交互细节', () => {
-
   test('TC-17: 清空列表功能', async ({ page }) => {
     await page.goto(TEST_CONFIG.baseURL)
     await helpers.login(page, 'admin', 'admin')

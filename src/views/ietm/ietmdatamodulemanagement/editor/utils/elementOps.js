@@ -47,8 +47,8 @@ export function generateXmlSnippet(elemName, schema, indent) {
     // 自闭合标签
     return `${indent}<${elemName}/>`
   } else if (isTextElem) {
-    // 文本元素：<para></para> 光标置于中间
-    return `${indent}<${elemName}></${elemName}>`
+    // 文本元素：para必须分行显示
+    return `${indent}<${elemName}>\n${indent}</${elemName}>`
   } else {
     // 容器元素：换行闭合
     return `${indent}<${elemName}>\n${indent}</${elemName}>`

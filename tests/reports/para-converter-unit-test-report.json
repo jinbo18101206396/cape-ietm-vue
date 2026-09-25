@@ -1,0 +1,75 @@
+{
+  "timestamp": "2026-09-25T12:20:31.741Z",
+  "summary": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0,
+    "successRate": "100.0%"
+  },
+  "results": [
+    {
+      "test": "TC-01: 基本2×2表格转S1000D格式",
+      "status": "PASS",
+      "checks": {
+        "hasTable": true,
+        "hasTgroup": true,
+        "hasRow": true,
+        "hasEntry": true,
+        "cols": true,
+        "noHtmlTags": true
+      }
+    },
+    {
+      "test": "TC-02: 移除HTML属性（class, style, width, valign）",
+      "status": "PASS",
+      "checks": {
+        "noClass": true,
+        "noStyle": true,
+        "noWidth": true,
+        "noValign": true
+      }
+    },
+    {
+      "test": "TC-03: 3列表格正确计算cols属性",
+      "status": "PASS",
+      "checks": {
+        "cols3": true
+      }
+    },
+    {
+      "test": "TC-04: 带thead的表格正确分离thead和tbody",
+      "status": "PASS",
+      "checks": {
+        "hasThead": true,
+        "hasTbody": true,
+        "theadBeforeTbody": true,
+        "hasTgroup": true,
+        "correctCols": true
+      }
+    },
+    {
+      "test": "TC-07: 空表格处理",
+      "status": "PASS",
+      "checks": {
+        "hasTable": true,
+        "hasTgroup": true,
+        "colsDefault": true
+      }
+    },
+    {
+      "test": "TC-08: 单行单列表格",
+      "status": "PASS",
+      "checks": {
+        "cols1": true,
+        "hasEntry": true
+      }
+    },
+    {
+      "test": "TC-09: 多行表格（5行）",
+      "status": "PASS",
+      "checks": {
+        "rowCount5": true
+      }
+    }
+  ]
+}

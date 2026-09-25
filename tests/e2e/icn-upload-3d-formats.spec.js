@@ -7,7 +7,7 @@ const path = require('path')
 
 describe('ICN 3D格式上传测试', () => {
   const testDataDir = path.join(__dirname, '../../../test-data/3d-models')
-  
+
   const testFiles = [
     { format: 'glTF', file: 'test-triangle.gltf', desc: 'glTF文本格式' },
     { format: 'GLB', file: 'DamagedHelmet.glb', desc: 'glTF二进制格式' },
@@ -74,7 +74,7 @@ describe('ICN 3D格式上传测试', () => {
 
         // 查找提示文字
         const tipsText = await page.textContent('.upload-tips')
-        
+
         // 验证包含新增的7种格式
         expect(tipsText).toContain('gltf')
         expect(tipsText).toContain('glb')

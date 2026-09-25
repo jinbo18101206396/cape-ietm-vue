@@ -19,8 +19,12 @@ import 'codemirror/addon/dialog/dialog.js'
 import 'codemirror/addon/dialog/dialog.css'
 import 'codemirror/addon/selection/active-line.js'
 
+// 生产环境关闭诊断日志（P1-1）
+const DEBUG = process.env.NODE_ENV === 'development'
+
 import { getLinenoOffset, findLineno, getnodeBylineno, formatXml } from '../utils/xmlTree'
 import { editorAtomic, editorKeyEvent, lineAtomic } from '../utils/editorProtect'
+import { refreshGutterMarkers } from '../utils/gutterMarker'
 
 export default {
   name: 'DmSourceView',
@@ -28,7 +32,9 @@ export default {
     value:    { type: String,  default: '' },
     schema:   { type: Object,  default: () => ({}) },
     theme:    { type: String,  default: 'idea' },
-    readonly: { type: Boolean, default: false }
+    readonly: { type: Boolean, default: false },
+    locale:   { type: String,  default: 'en' },
+    en2cnElem:{ type: Object,  default: () => ({}) }
   },
   data() {
     return {
@@ -47,7 +53,7 @@ export default {
       styleActiveLine: true,
       matchTags: { bothTags: true },
       foldGutter: true,
-      gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter', 'dmGutter'],
+      gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter', 'dmGutter'],  // dmGutter在折叠图标右侧
       hintOptions: { schemaInfo: this.schema || {} },
       extraKeys: {
         'Ctrl-S': () => this.$parent && this.$parent.doSave && this.$parent.doSave(),
@@ -78,6 +84,17 @@ export default {
       if (node) this.$emit('cursor-node', node)
     })
 
+    // 监听gutter点击事件（对标旧系统gutterClick事件）
+    cm.on('gutterClick', (editor, line, gutter, e) => {
+      if (gutter === 'dmGutter') {
+        // 找到点击行对应的节点
+        const node = getnodeBylineno(this.nodeList, line + 1, this.linenoOffset, editor)
+        if (node) {
+          this.$emit('gutter-click', { line, node, elemName: node.text })
+        }
+      }
+    })
+
     // 回车弹子元素提示（§50.3：keydown 拦回车不换行，keyup 弹提示分工）。
     // keydown 里的 preventDefault 不影响 keyup 触发，故提示逻辑必须放这里。
     cm.on('keyup', (editor, e) => {
@@ -98,7 +115,7 @@ export default {
     setValue(val) { this.cm.setValue(val || '') },
     getValue()    { return this.cm.getValue() },
 
-    /** 格式化 → 重算 linenoOffset → 全量原子化 → 折叠 identSection */
+    /** 格式化 → 重算 linenoOffset → 全量原子化 → 折叠 identSection → 刷新gutter图标 */
     formateDM() {
       const raw = this.cm.getValue()
       const formatted = formatXml(raw, 2)
@@ -107,12 +124,165 @@ export default {
       editorAtomic(this.cm)
       this._foldIdentSection()
       this.$emit('content-change', formatted)
+      // 格式化后刷新gutter图标（行号已变化）
+      this.refreshGutterMarkers()
     },
 
-    setNodeList(nodes)  { this.nodeList = nodes },
+    setNodeList(nodes)  {
+      this.nodeList = nodes
+      // nodeList更新后刷新gutter图标
+      this.refreshGutterMarkers()
+    },
     setHintSchema(s)    { this.cm.setOption('hintOptions', { schemaInfo: s || {} }) },
     setReadOnly(v)      { this.cm.setOption('readOnly', v) },
     setTheme(t)         { this.cm.setOption('theme', t) },
+
+    /** 🔧 强制修复gutters布局（供父组件在视图切换后调用） */
+    forceFixGuttersLayout() {
+      if (!this.cm) return
+
+      if (DEBUG) console.log('[DmSourceView] forceFixGuttersLayout 开始')
+
+      const wrapper = this.cm.display.wrapper
+      const gutters = this.cm.display.gutters
+
+      // ① 清除所有可能缓存的错误尺寸（从最外层到最内层依次清理）
+      const dmSourceView = this.$el
+      const tabPane = dmSourceView.closest('.ant-tabs-tabpane')
+
+      // 修复UEditor污染的font-size（导致.7em的foldgutter宽度异常）
+      if (wrapper) {
+        const currentFontSize = window.getComputedStyle(wrapper).fontSize
+        if (currentFontSize !== '14px') {
+          wrapper.style.fontSize = '14px'
+        }
+      }
+
+      // 清除TabPane上可能残留的height:0
+      if (tabPane) {
+        tabPane.style.removeProperty('height')
+        tabPane.style.removeProperty('min-height')
+        tabPane.style.removeProperty('max-height')
+      }
+
+      // 清除dm-source-view上可能的限制
+      if (dmSourceView) {
+        dmSourceView.style.removeProperty('height')
+        dmSourceView.style.removeProperty('max-height')
+      }
+
+      // 清除CodeMirror wrapper的缓存
+      if (wrapper) {
+        wrapper.style.removeProperty('height')
+        wrapper.style.removeProperty('max-height')
+      }
+
+      // ② 完全重置CodeMirror的布局
+      this.cm.setSize(null, null)
+
+      // ③ 使用requestAnimationFrame等待DOM更新
+      requestAnimationFrame(() => {
+        this.cm.setSize('100%', '100%')
+        this.cm.refresh()
+
+        requestAnimationFrame(() => {
+          // 修复gutters宽度
+          if (gutters) {
+            const children = Array.from(gutters.children)
+
+            // P1-2: 动态计算行号列宽度（基于总行数）
+            const lineCount = this.cm.lineCount()
+            const linenoDigits = String(lineCount).length
+            const linenoWidth = Math.max(40, linenoDigits * 10 + 10)
+
+            // 强制修复每个子元素宽度（覆盖CodeMirror动态设置的.7em相对宽度）
+            children.forEach((child) => {
+              if (child.classList.contains('CodeMirror-linenumbers')) {
+                child.style.width = linenoWidth + 'px'
+                child.style.minWidth = linenoWidth + 'px'
+                child.style.maxWidth = linenoWidth + 'px'
+                child.style.boxSizing = 'border-box'
+              } else if (child.classList.contains('CodeMirror-foldgutter')) {
+                child.style.width = '17px'
+                child.style.minWidth = '17px'
+                child.style.maxWidth = '17px'
+                child.style.boxSizing = 'border-box'
+              } else if (child.classList.contains('dmGutter')) {
+                child.style.width = '18px'
+                child.style.minWidth = '18px'
+                child.style.maxWidth = '18px'
+                child.style.boxSizing = 'border-box'
+              }
+            })
+
+            // 重新计算总宽度并修复子元素定位
+            const totalWidth = children.reduce((sum, child) => sum + child.offsetWidth, 0)
+
+            if (totalWidth > 0) {
+              // 获取 gutters 容器的 border-right 宽度（通常是 1px）
+              const guttersStyle = window.getComputedStyle(gutters)
+              const borderRightWidth = parseFloat(guttersStyle.borderRightWidth) || 0
+
+              // 总宽度 = 子元素宽度之和 + 右边框宽度
+              gutters.style.width = (totalWidth + borderRightWidth) + 'px'
+
+              let leftPosition = 0
+              children.forEach((child) => {
+                child.style.left = leftPosition + 'px'
+                leftPosition += child.offsetWidth
+              })
+            }
+          }
+
+          // ④ 修复CodeMirror内容区域高度（解决下方空白问题）
+          const scroller = wrapper.querySelector('.CodeMirror-scroll')
+          const sizer = wrapper.querySelector('.CodeMirror-sizer')
+          if (scroller && sizer) {
+            // 清除可能缓存的错误高度
+            scroller.style.removeProperty('height')
+            scroller.style.removeProperty('min-height')
+            scroller.style.removeProperty('max-height')
+            sizer.style.removeProperty('height')
+            sizer.style.removeProperty('min-height')
+            sizer.style.removeProperty('max-height')
+          }
+
+          // ⑤ 强制修复 scroller 高度（CodeMirror 的 refresh() 不会重新计算）
+          if (scroller && wrapper) {
+            const wrapperHeight = wrapper.offsetHeight
+            scroller.style.height = wrapperHeight + 'px'
+            this.cm.refresh()
+
+            // 验证修复结果
+            const heightDiff = wrapper.offsetHeight - scroller.offsetHeight
+            if (heightDiff > 10) {
+              if (DEBUG) console.warn('[DmSourceView] 高度误差:', heightDiff + 'px')
+            }
+          }
+
+          if (DEBUG) console.log('[DmSourceView] forceFixGuttersLayout 完成')
+        })
+      })
+    },
+
+    /** 刷新gutter图标（对标旧系统setGutterMarker逻辑） */
+    refreshGutterMarkers() {
+      if (!this.cm || !this.nodeList || this.nodeList.length === 0) return
+      refreshGutterMarkers(
+        this.cm,
+        this.nodeList,
+        this.linenoOffset,
+        (line, elemName) => {
+          // 图标点击回调：触发gutter-click事件（由父组件处理）
+          const node = getnodeBylineno(this.nodeList, line + 1, this.linenoOffset, this.cm)
+          if (node) {
+            this.$emit('gutter-click', { line, node, elemName })
+          }
+        },
+        this.locale,
+        this.en2cnElem
+      )
+    },
 
     /** 按树节点行号定位（§7.2） */
     locateNode(node) {
@@ -323,6 +493,56 @@ function _writeAttr(line, name, val) {
 <style lang="less" scoped>
 .dm-source-view { flex: 1; min-height: 0; }
 /deep/ .CodeMirror { height: 100%; font-family: 'Consolas', monospace; font-size: 14px; }
-/deep/ .CodeMirror-gutters { border-right: 1px solid #ddd; }
-/deep/ .dmGutter { width: 18px; cursor: pointer; }
+/deep/ .CodeMirror-gutters {
+  border-right: 1px solid #ddd;
+  background-color: #f7f7f7;
+}
+
+/deep/ .CodeMirror-linenumbers {
+  /* P1-2: 移除固定宽度，改为最小宽度（JavaScript动态设置） */
+  min-width: 40px !important;
+  padding-left: 3px !important;
+  text-align: left !important;  /* 行号左对齐 */
+  border-right: none !important;  /* 移除右边框 */
+}
+
+/deep/ .CodeMirror-foldgutter {
+  border-right: none !important;  /* 移除右边框 */
+}
+
+/* dmGutter独立列样式 - 对标旧系统 */
+/deep/ .dmGutter {
+  width: 18px !important;
+  cursor: pointer;
+  text-align: right !important;  /* 铅笔图标右对齐 */
+  padding-right: 3px !important;
+  border-right: none !important;  /* 移除右边框 */
+}
+
+/* gutter设计图标样式 - 对标旧系统极简风格 */
+/deep/ .gutter-design-marker {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  text-align: right !important;  /* 右对齐 */
+}
+
+/deep/ .gutter-design-link {
+  display: inline-block !important;
+  color: #337ab7 !important;              /* Bootstrap默认蓝色 */
+  text-decoration: none !important;
+  line-height: 1 !important;
+}
+
+/deep/ .gutter-design-link:hover {
+  color: #23527c !important;              /* Bootstrap悬停深蓝 */
+}
+
+/* Font Awesome铅笔图标样式 - 对标旧系统 */
+/deep/ .gutter-pencil-icon {
+  font-size: 14px !important;             /* 标准尺寸，对标旧系统 */
+  display: inline-block !important;
+  vertical-align: middle !important;
+  font-style: normal !important;
+}
 </style>

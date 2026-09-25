@@ -158,15 +158,14 @@
           bordered
         >
           <template #uniqueId="text, record, index">
-            <a-input-number
+            <a-input
               v-model="record.uniqueId"
-              :min="currentUniqueIdNum"
-              :max="99999"
-              :formatter="value => formatUniqueId(value)"
-              :parser="value => value.replace(/^0+/, '')"
+              placeholder="请输入5位数字"
+              maxlength="5"
               style="width: 100%;"
               size="small"
               @change="validateUniqueIds"
+              @blur="formatUniqueIdOnBlur(record)"
             />
           </template>
 
@@ -444,7 +443,7 @@ export default {
         id: this.fileIdCounter++,
         name: file.name,
         size: file.size,
-        uniqueId: this.currentUniqueIdNum + this.fileList.length,
+        uniqueId: this.formatUniqueId(this.currentUniqueIdNum + this.fileList.length),
         file: file
       }
       this.fileList.push(fileItem)
@@ -456,6 +455,17 @@ export default {
     formatUniqueId(value) {
       if (!value) return '00001'
       return String(value).padStart(5, '0')
+    },
+
+    // 失焦时格式化唯一识别码
+    formatUniqueIdOnBlur(record) {
+      if (record.uniqueId) {
+        // 去除前导零，转为数字再格式化
+        const numValue = parseInt(record.uniqueId) || 0
+        record.uniqueId = this.formatUniqueId(numValue)
+      } else {
+        record.uniqueId = this.currentUniqueId
+      }
     },
 
     // 格式化文件大小
@@ -518,7 +528,8 @@ export default {
       }
 
       for (let i = 0; i < this.fileList.length; i++) {
-        if (this.fileList[i].uniqueId < this.currentUniqueIdNum) {
+        const uniqueIdNum = parseInt(this.fileList[i].uniqueId) || 0
+        if (uniqueIdNum < this.currentUniqueIdNum) {
           this.$message.warning(`第${i + 1}行的唯一识别码小于初始值${this.currentUniqueId}`)
           return false
         }
