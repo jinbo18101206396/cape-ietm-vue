@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeMirror 布局一致性验证测试</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldcode.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/xml-fold.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+    .test-section {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .test-section h2 {
+      color: #0066cc;
+      margin-bottom: 15px;
+      font-size: 18px;
+      border-bottom: 2px solid #0066cc;
+      padding-bottom: 8px;
+    }
+    .buttons {
+      margin: 15px 0;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: #0066cc;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #0052a3;
+    }
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+    .btn-secondary:hover {
+      background: #545b62;
+    }
+    .btn-success {
+      background: #28a745;
+      color: white;
+    }
+    .btn-success:hover {
+      background: #218838;
+    }
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+    .editor-container {
+      margin-top: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .CodeMirror {
+      height: 500px;
+      font-size: 14px;
+    }
+    .result {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 15px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .result.success {
+      background: #d4edda;
+      border-color: #c3e6cb;
+      color: #155724;
+    }
+    .result.error {
+      background: #f8d7da;
+      border-color: #f5c6cb;
+      color: #721c24;
+    }
+    .tabs-simulation {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .tabs-nav {
+      display: flex;
+      background: #f5f5f5;
+      border-bottom: 2px solid #ddd;
+    }
+    .tab {
+      padding: 12px 24px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .tab:hover {
+      background: #e0e0e0;
+    }
+    .tab.active {
+      background: white;
+      border-bottom: 2px solid #0066cc;
+      font-weight: 600;
+      color: #0066cc;
+    }
+    .tab-content {
+      display: none;
+      padding: 20px;
+      background: white;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    .comparison-table th,
+    .comparison-table td {
+      padding: 10px;
+      text-align: left;
+      border: 1px solid #ddd;
+    }
+    .comparison-table th {
+      background: #f5f5f5;
+      font-weight: 600;
+    }
+    .match { color: #28a745; font-weight: 600; }
+    .mismatch { color: #dc3545; font-weight: 600; }
+    .info-box {
+      background: #e7f3ff;
+      border-left: 4px solid #0066cc;
+      padding: 15px;
+      margin: 15px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔬 CodeMirror 布局一致性验证测试</h1>
+
+    <div class="info-box">
+      <strong>测试目标：</strong>验证"直接初始化"与"隐藏后显示再重建"两种场景下，CodeMirror 的布局是否完全一致。
+    </div>
+
+    <!-- 场景A：直接初始化 -->
+    <div class="test-section">
+      <h2>📌 场景A：直接初始化（对照组）</h2>
+      <p>模拟直接进入源码视图的场景</p>
+      <div class="buttons">
+        <button class="btn-primary" onclick="runScenarioA()">▶️ 运行场景A</button>
+        <button class="btn-secondary" onclick="measureScenarioA()">📏 测量布局</button>
+        <button class="btn-danger" onclick="clearScenarioA()">🗑️ 清除</button>
+      </div>
+      <div id="editor-a" class="editor-container"></div>
+      <div id="result-a" class="result" style="display:none;"></div>
+    </div>
+
+    <!-- 场景B：Tabs切换（模拟Ant Design Tabs） -->
+    <div class="test-section">
+      <h2>📌 场景B：Tabs 切换（测试组）</h2>
+      <p>模拟从设计视图切换到源码视图的场景</p>
+      <div class="buttons">
+        <button class="btn-primary" onclick="initScenarioB()">⚙️ 初始化Tabs</button>
+        <button class="btn-secondary" onclick="switchToDesign()">🎨 切换到设计视图</button>
+        <button class="btn-success" onclick="switchToSource()">📝 切换到源码视图（触发重建）</button>
+        <button class="btn-secondary" onclick="measureScenarioB()">📏 测量布局</button>
+        <button class="btn-danger" onclick="clearScenarioB()">🗑️ 清除</button>
+      </div>
+
+      <div id="tabs-container" class="tabs-simulation" style="display:none;">
+        <div class="tabs-nav">
+          <button class="tab" id="tab-design" onclick="switchToDesign()">设计视图</button>
+          <button class="tab" id="tab-source" onclick="switchToSource()">源码视图</button>
+        </div>
+        <div class="tab-content" id="content-design">
+          <p style="padding: 50px; text-align: center; color: #999;">
+            🎨 这是设计视图的占位内容
+          </p>
+        </div>
+        <div class="tab-content" id="content-source">
+          <div id="editor-b" class="editor-container"></div>
+        </div>
+      </div>
+      <div id="result-b" class="result" style="display:none;"></div>
+    </div>
+
+    <!-- 对比结果 -->
+    <div class="test-section">
+      <h2>📊 场景对比</h2>
+      <div class="buttons">
+        <button class="btn-success" onclick="compareResults()">🔍 对比两个场景</button>
+      </div>
+      <div id="comparison-result" class="result" style="display:none;"></div>
+    </div>
+  </div>
+
+  <script>
+    // 测试用的XML内容
+    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="TEST" systemDiffCode="A" systemCode="00"
+                subSystemCode="00" assyCode="00" disassyCode="00"
+                infoCode="000" itemLocationCode="A"/>
+        <language languageIsoCode="zh" countryIsoCode="CN"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="09" day="24"/>
+        <dmTitle>
+          <techName>测试技术手册</techName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+  </identAndStatusSection>
+  <content>
+    <description>
+      <levelledPara>
+        <title>测试内容</title>
+        <para>这是第一个测试段落，用于验证 CodeMirror 的布局一致性。</para>
+        <para>这是第二个测试段落。</para>
+        <levelledPara>
+          <title>子章节</title>
+          <para>嵌套段落内容。</para>
+          <para>更多测试内容，确保有足够的行数来测试滚动高度。</para>
+        </levelledPara>
+      </levelledPara>
+    </description>
+  </content>
+</dmodule>`;
+
+    let cmA = null;
+    let cmB = null;
+    let measurementsA = null;
+    let measurementsB = null;
+
+    // CodeMirror 配置
+    const cmConfig = {
+      mode: 'xml',
+      lineNumbers: true,
+      lineWrapping: false,
+      foldGutter: true,
+      gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter'],
+      theme: 'default'
+    };
+
+    // 场景A：直接初始化
+    function runScenarioA() {
+      clearScenarioA();
+      const container = document.getElementById('editor-a');
+      const textarea = document.createElement('textarea');
+      textarea.value = xmlContent;
+      container.appendChild(textarea);
+
+      cmA = CodeMirror.fromTextArea(textarea, cmConfig);
+      cmA.setSize('100%', 500);
+
+      showResult('result-a', '✅ 场景A 初始化完成', 'success');
+      setTimeout(() => measureScenarioA(), 100);
+    }
+
+    function measureScenarioA() {
+      if (!cmA) {
+        showResult('result-a', '❌ 请先运行场景A', 'error');
+        return;
+      }
+
+      measurementsA = measureCodeMirror(cmA, 'A');
+      displayMeasurements('result-a', measurementsA, 'A');
+    }
+
+    function clearScenarioA() {
+      if (cmA) {
+        cmA.toTextArea();
+        cmA = null;
+      }
+      document.getElementById('editor-a').innerHTML = '';
+      document.getElementById('result-a').style.display = 'none';
+      measurementsA = null;
+    }
+
+    // 场景B：Tabs切换
+    function initScenarioB() {
+      document.getElementById('tabs-container').style.display = 'block';
+
+      // 默认显示设计视图
+      switchToDesign();
+
+      // 在隐藏状态下初始化 CodeMirror（模拟bug场景）
+      const container = document.getElementById('editor-b');
+      container.innerHTML = '';
+      const textarea = document.createElement('textarea');
+      textarea.value = xmlContent;
+      container.appendChild(textarea);
+
+      cmB = CodeMirror.fromTextArea(textarea, cmConfig);
+      cmB.setSize('100%', 500);
+
+      showResult('result-b', '⚙️ 场景B 已初始化（源码视图当前隐藏）', 'success');
+    }
+
+    function switchToDesign() {
+      document.getElementById('tab-design').classList.add('active');
+      document.getElementById('tab-source').classList.remove('active');
+      document.getElementById('content-design').classList.add('active');
+      document.getElementById('content-source').classList.remove('active');
+
+      showResult('result-b', '🎨 已切换到设计视图（源码视图被隐藏：display:none）', 'success');
+    }
+
+    function switchToSource() {
+      if (!cmB) {
+        showResult('result-b', '❌ 请先初始化场景B', 'error');
+        return;
+      }
+
+      document.getElementById('tab-design').classList.remove('active');
+      document.getElementById('tab-source').classList.add('active');
+      document.getElementById('content-design').classList.remove('active');
+      document.getElementById('content-source').classList.add('active');
+
+      // 🔥 关键：模拟我们的修复逻辑
+      console.log('[switchToSource] 开始重建 CodeMirror...');
+      rebuildCodeMirror();
+    }
+
+    function rebuildCodeMirror() {
+      if (!cmB) return;
+
+      // 保存状态
+      const content = cmB.getValue();
+      const cursor = cmB.getCursor();
+      const scrollInfo = cmB.getScrollInfo();
+
+      // 销毁旧实例
+      cmB.toTextArea();
+      cmB = null;
+
+      // 检查容器可见性
+      const rebuild = () => {
+        const tabPane = document.getElementById('content-source');
+        const computedStyle = window.getComputedStyle(tabPane);
+
+        if (computedStyle.display === 'none') {
+          console.warn('[rebuildCodeMirror] TabPane 仍然隐藏，延迟重建');
+          setTimeout(rebuild, 100);
+          return;
+        }
+
+        if (tabPane.offsetHeight === 0) {
+          console.warn('[rebuildCodeMirror] 容器高度为 0，延迟重建');
+          setTimeout(rebuild, 100);
+          return;
+        }
+
+        console.log('[rebuildCodeMirror] 容器已可见，开始重建');
+
+        // 重新创建
+        const container = document.getElementById('editor-b');
+        const textarea = document.createElement('textarea');
+        textarea.value = content;
+        container.innerHTML = '';
+        container.appendChild(textarea);
+
+        cmB = CodeMirror.fromTextArea(textarea, cmConfig);
+        cmB.setSize('100%', 500);
+        cmB.setCursor(cursor);
+        cmB.scrollTo(scrollInfo.left, scrollInfo.top);
+
+        console.log('[rebuildCodeMirror] CodeMirror 已重建');
+        showResult('result-b', '✅ 已切换到源码视图（CodeMirror 已重建）', 'success');
+
+        // 自动测量
+        setTimeout(() => measureScenarioB(), 100);
+      };
+
+      // 使用 requestAnimationFrame 确保 DOM 更新完成
+      requestAnimationFrame(() => {
+        requestAnimationFrame(rebuild);
+      });
+    }
+
+    function measureScenarioB() {
+      if (!cmB) {
+        showResult('result-b', '❌ 请先切换到源码视图', 'error');
+        return;
+      }
+
+      measurementsB = measureCodeMirror(cmB, 'B');
+      displayMeasurements('result-b', measurementsB, 'B');
+    }
+
+    function clearScenarioB() {
+      if (cmB) {
+        cmB.toTextArea();
+        cmB = null;
+      }
+      document.getElementById('tabs-container').style.display = 'none';
+      document.getElementById('editor-b').innerHTML = '';
+      document.getElementById('result-b').style.display = 'none';
+      measurementsB = null;
+    }
+
+    // 测量 CodeMirror
+    function measureCodeMirror(cm, label) {
+      const wrapper = cm.display.wrapper;
+      const gutters = wrapper.querySelector('.CodeMirror-gutters');
+      const lineNumbers = wrapper.querySelector('.CodeMirror-linenumbers');
+      const foldGutter = wrapper.querySelector('.CodeMirror-foldgutter');
+      const scroll = wrapper.querySelector('.CodeMirror-scroll');
+      const sizer = wrapper.querySelector('.CodeMirror-sizer');
+      const firstLine = wrapper.querySelector('.CodeMirror-line');
+
+      return {
+        label,
+        timestamp: new Date().toISOString(),
+        layout: {
+          guttersWidth: gutters?.offsetWidth || 0,
+          guttersHeight: gutters?.offsetHeight || 0,
+          lineNumbersWidth: lineNumbers?.offsetWidth || 0,
+          lineNumbersLeft: lineNumbers?.offsetLeft || 0,
+          foldGutterWidth: foldGutter?.offsetWidth || 0,
+          foldGutterLeft: foldGutter?.offsetLeft || 0,
+          sizerWidth: sizer?.offsetWidth || 0,
+          sizerHeight: sizer?.offsetHeight || 0,
+          sizerLeft: sizer?.offsetLeft || 0,
+          scrollWidth: scroll?.offsetWidth || 0,
+          scrollHeight: scroll?.offsetHeight || 0,
+          scrollScrollWidth: scroll?.scrollWidth || 0,
+          scrollScrollHeight: scroll?.scrollHeight || 0
+        },
+        text: {
+          lineHeight: firstLine?.offsetHeight || 0,
+          charWidth: cm.defaultCharWidth(),
+          lineCount: cm.lineCount()
+        },
+        internal: {
+          cachedCharWidth: cm.display.cachedCharWidth,
+          cachedTextHeight: cm.display.cachedTextHeight,
+          cachedPaddingH: cm.display.cachedPaddingH
+        },
+        checks: {}
+      };
+    }
+
+    // 显示测量结果
+    function displayMeasurements(resultId, data, label) {
+      const checks = {
+        guttersOK: data.layout.guttersWidth > 50,
+        foldGutterOK: data.layout.foldGutterLeft === 44,
+        scrollOK: data.layout.scrollHeight > 400,
+        lineHeightOK: data.text.lineHeight > 15 && data.text.lineHeight < 30,
+        charWidthOK: data.text.charWidth > 5 && data.text.charWidth < 15
+      };
+
+      data.checks = checks;
+      const allOK = Object.values(checks).every(v => v);
+
+      const html = `
+<strong>场景${label} 测量结果：</strong>
+
+<strong>布局尺寸:</strong>
+  ${checks.guttersOK ? '✅' : '❌'} Gutters 宽度: ${data.layout.guttersWidth} px (期望 > 50)
+  ${checks.foldGutterOK ? '✅' : '❌'} 折叠列位置: ${data.layout.foldGutterLeft} px (期望 = 44)
+  ${checks.scrollOK ? '✅' : '❌'} Scroll 高度: ${data.layout.scrollHeight} px (期望 > 400)
+
+<strong>文本测量:</strong>
+  ${checks.lineHeightOK ? '✅' : '❌'} 行高: ${data.text.lineHeight} px (期望 15-30)
+  ${checks.charWidthOK ? '✅' : '❌'} 字符宽度: ${data.text.charWidth.toFixed(2)} px (期望 5-15)
+
+<strong>内部状态:</strong>
+  缓存字符宽度: ${data.internal.cachedCharWidth?.toFixed(2) || 'N/A'} px
+  缓存文本高度: ${data.internal.cachedTextHeight?.toFixed(2) || 'N/A'} px
+
+<strong>总结: ${allOK ? '✅ 所有检查通过' : '❌ 发现问题'}</strong>
+      `;
+
+      showResult(resultId, html, allOK ? 'success' : 'error');
+    }
+
+    // 对比结果
+    function compareResults() {
+      if (!measurementsA || !measurementsB) {
+        showResult('comparison-result', '❌ 请先完成两个场景的测量', 'error');
+        return;
+      }
+
+      const tolerance = {
+        width: 5,
+        height: 50,
+        position: 2,
+        charWidth: 1,
+        lineHeight: 2
+      };
+
+      const comparisons = [
+        {
+          name: 'Gutters 宽度',
+          a: measurementsA.layout.guttersWidth,
+          b: measurementsB.layout.guttersWidth,
+          tol: tolerance.width
+        },
+        {
+          name: '折叠列位置',
+          a: measurementsA.layout.foldGutterLeft,
+          b: measurementsB.layout.foldGutterLeft,
+          tol: tolerance.position
+        },
+        {
+          name: 'Scroll 高度',
+          a: measurementsA.layout.scrollHeight,
+          b: measurementsB.layout.scrollHeight,
+          tol: tolerance.height
+        },
+        {
+          name: '行高',
+          a: measurementsA.text.lineHeight,
+          b: measurementsB.text.lineHeight,
+          tol: tolerance.lineHeight
+        },
+        {
+          name: '字符宽度',
+          a: measurementsA.text.charWidth,
+          b: measurementsB.text.charWidth,
+          tol: tolerance.charWidth
+        },
+        {
+          name: '缓存字符宽度',
+          a: measurementsA.internal.cachedCharWidth,
+          b: measurementsB.internal.cachedCharWidth,
+          tol: tolerance.charWidth
+        },
+        {
+          name: '缓存文本高度',
+          a: measurementsA.internal.cachedTextHeight,
+          b: measurementsB.internal.cachedTextHeight,
+          tol: tolerance.lineHeight
+        }
+      ];
+
+      let tableHTML = `<table class="comparison-table">
+        <thead>
+          <tr>
+            <th>指标</th>
+            <th>场景A（直接）</th>
+            <th>场景B（切换）</th>
+            <th>差异</th>
+            <th>容差</th>
+            <th>结果</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      let allMatch = true;
+      comparisons.forEach(comp => {
+        const diff = Math.abs(comp.a - comp.b);
+        const match = diff <= comp.tol;
+        if (!match) allMatch = false;
+
+        const resultClass = match ? 'match' : 'mismatch';
+        const resultIcon = match ? '✅' : '❌';
+
+        tableHTML += `<tr>
+          <td><strong>${comp.name}</strong></td>
+          <td>${comp.a.toFixed?.(2) || comp.a}</td>
+          <td>${comp.b.toFixed?.(2) || comp.b}</td>
+          <td class="${resultClass}">${diff.toFixed(2)}</td>
+          <td>${comp.tol}</td>
+          <td class="${resultClass}">${resultIcon}</td>
+        </tr>`;
+      });
+
+      tableHTML += '</tbody></table>';
+
+      const summary = allMatch
+        ? '<p style="color: #28a745; font-weight: 600; font-size: 16px; margin-top: 15px;">🎉 完美匹配！两种场景完全一致！</p>'
+        : '<p style="color: #dc3545; font-weight: 600; font-size: 16px; margin-top: 15px;">⚠️ 发现差异！需要进一步修复。</p>';
+
+      showResult('comparison-result', '<strong>对比分析结果：</strong><br><br>' + tableHTML + summary, allMatch ? 'success' : 'error');
+    }
+
+    // 显示结果
+    function showResult(id, message, type = '') {
+      const element = document.getElementById(id);
+      element.innerHTML = message.replace(/\n/g, '<br>');
+      element.className = 'result ' + type;
+      element.style.display = 'block';
+    }
+  </script>
+</body>
+</html>

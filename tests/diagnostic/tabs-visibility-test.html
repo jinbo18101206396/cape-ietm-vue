@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Ant Design Tabs + CodeMirror 可见性测试</title>
+  <link rel="stylesheet" href="https://unpkg.com/ant-design-vue@1.7.8/dist/antd.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+  <script src="https://unpkg.com/ant-design-vue@1.7.8/dist/antd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+  <style>
+    body { padding: 20px; font-family: Arial, sans-serif; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .test-section { margin-bottom: 40px; border: 1px solid #ddd; padding: 20px; }
+    .CodeMirror { height: 400px; border: 1px solid #ccc; }
+    .info { background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; }
+    button { margin: 5px; }
+  </style>
+</head>
+<body>
+  <div id="app" class="container">
+    <h1>Ant Design Tabs + CodeMirror 可见性测试</h1>
+
+    <div class="test-section">
+      <h2>测试1：直接初始化（对照组）</h2>
+      <button @click="initDirectEditor">初始化编辑器</button>
+      <button @click="measureDirect">测量</button>
+      <div class="info" v-if="directMeasure">
+        <div>Gutters 宽度: {{ directMeasure.guttersWidth }}px</div>
+        <div>折叠列位置: {{ directMeasure.foldGutterLeft }}px</div>
+        <div>Scroll 高度: {{ directMeasure.scrollHeight }}px</div>
+      </div>
+      <div ref="directEditor"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>测试2：Tabs 中初始化（:animated="false"）</h2>
+      <a-tabs :active-key="tabKey" :animated="false" @change="onTabChange">
+        <a-tab-pane key="tab1" tab="Tab 1">
+          <div style="padding: 20px;">这是第一个标签页</div>
+        </a-tab-pane>
+        <a-tab-pane key="tab2" tab="Tab 2 (CodeMirror)">
+          <button @click="initTabEditor">初始化编辑器</button>
+          <button @click="measureTab">测量</button>
+          <button @click="refreshTab">调用 refresh()</button>
+          <button @click="rebuildTab">重建实例</button>
+          <div class="info" v-if="tabMeasure">
+            <div>Gutters 宽度: {{ tabMeasure.guttersWidth }}px</div>
+            <div>折叠列位置: {{ tabMeasure.foldGutterLeft }}px</div>
+            <div>Scroll 高度: {{ tabMeasure.scrollHeight }}px</div>
+            <div>容器 display: {{ tabMeasure.containerDisplay }}</div>
+            <div>TabPane display: {{ tabMeasure.tabPaneDisplay }}</div>
+          </div>
+          <div ref="tabEditor"></div>
+        </a-tab-pane>
+      </a-tabs>
+    </div>
+
+    <div class="test-section">
+      <h2>操作序列测试</h2>
+      <ol>
+        <li>点击"Tab 1"</li>
+        <li>点击"Tab 2 (CodeMirror)"</li>
+        <li>点击"初始化编辑器"</li>
+        <li>点击"测量" - 查看结果</li>
+        <li>返回"Tab 1"</li>
+        <li>再次进入"Tab 2 (CodeMirror)"</li>
+        <li>再次点击"测量" - 查看结果是否变化</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    Vue.use(antd);
+
+    new Vue({
+      el: '#app',
+      data() {
+        return {
+          directCm: null,
+          tabCm: null,
+          tabKey: 'tab1',
+          directMeasure: null,
+          tabMeasure: null,
+          xmlContent: `<?xml version="1.0" encoding="UTF-8"?>
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="TEST" systemDiffCode="A" systemCode="00"/>
+      </dmIdent>
+    </dmAddress>
+  </identAndStatusSection>
+  <content>
+    <description>
+      <levelledPara>
+        <title>测试内容</title>
+        <para>这是一个测试段落。</para>
+      </levelledPara>
+    </description>
+  </content>
+</dmodule>`
+        };
+      },
+      methods: {
+        initDirectEditor() {
+          if (this.directCm) {
+            this.directCm.toTextArea();
+          }
+          const textarea = document.createElement('textarea');
+          textarea.value = this.xmlContent;
+          this.$refs.directEditor.innerHTML = '';
+          this.$refs.directEditor.appendChild(textarea);
+
+          this.directCm = CodeMirror.fromTextArea(textarea, {
+            mode: 'xml',
+            lineNumbers: true,
+            foldGutter: true,
+            gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']
+          });
+          this.directCm.setSize('100%', 400);
+        },
+
+        measureDirect() {
+          if (!this.directCm) {
+            alert('请先初始化编辑器');
+            return;
+          }
+          const wrapper = this.directCm.display.wrapper;
+          const gutters = wrapper.querySelector('.CodeMirror-gutters');
+          const foldGutter = wrapper.querySelector('.CodeMirror-foldgutter');
+          const scroll = wrapper.querySelector('.CodeMirror-scroll');
+
+          this.directMeasure = {
+            guttersWidth: gutters.offsetWidth,
+            foldGutterLeft: foldGutter.offsetLeft,
+            scrollHeight: scroll.offsetHeight
+          };
+        },
+
+        initTabEditor() {
+          if (this.tabCm) {
+            this.tabCm.toTextArea();
+          }
+          const textarea = document.createElement('textarea');
+          textarea.value = this.xmlContent;
+          this.$refs.tabEditor.innerHTML = '';
+          this.$refs.tabEditor.appendChild(textarea);
+
+          console.log('[initTabEditor] 初始化前，容器状态：');
+          console.log('  $refs.tabEditor display:', getComputedStyle(this.$refs.tabEditor).display);
+          const tabPane = this.$refs.tabEditor.closest('.ant-tabs-tabpane');
+          console.log('  TabPane display:', tabPane ? getComputedStyle(tabPane).display : 'N/A');
+          console.log('  TabPane aria-hidden:', tabPane ? tabPane.getAttribute('aria-hidden') : 'N/A');
+
+          this.tabCm = CodeMirror.fromTextArea(textarea, {
+            mode: 'xml',
+            lineNumbers: true,
+            foldGutter: true,
+            gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']
+          });
+          this.tabCm.setSize('100%', 400);
+
+          console.log('[initTabEditor] 初始化后，立即测量：');
+          this.measureTabInternal();
+        },
+
+        measureTab() {
+          this.measureTabInternal();
+        },
+
+        measureTabInternal() {
+          if (!this.tabCm) {
+            alert('请先初始化编辑器');
+            return;
+          }
+          const wrapper = this.tabCm.display.wrapper;
+          const gutters = wrapper.querySelector('.CodeMirror-gutters');
+          const foldGutter = wrapper.querySelector('.CodeMirror-foldgutter');
+          const scroll = wrapper.querySelector('.CodeMirror-scroll');
+          const tabPane = wrapper.closest('.ant-tabs-tabpane');
+
+          this.tabMeasure = {
+            guttersWidth: gutters.offsetWidth,
+            foldGutterLeft: foldGutter.offsetLeft,
+            scrollHeight: scroll.offsetHeight,
+            containerDisplay: getComputedStyle(this.$refs.tabEditor).display,
+            tabPaneDisplay: tabPane ? getComputedStyle(tabPane).display : 'N/A'
+          };
+
+          console.log('[measureTab] 测量结果:', this.tabMeasure);
+        },
+
+        refreshTab() {
+          if (!this.tabCm) {
+            alert('请先初始化编辑器');
+            return;
+          }
+          console.log('[refreshTab] 调用 refresh() 前：');
+          this.measureTabInternal();
+
+          this.tabCm.refresh();
+
+          this.$nextTick(() => {
+            console.log('[refreshTab] 调用 refresh() 后：');
+            this.measureTabInternal();
+          });
+        },
+
+        rebuildTab() {
+          if (!this.tabCm) {
+            alert('请先初始化编辑器');
+            return;
+          }
+          console.log('[rebuildTab] 重建前：');
+          this.measureTabInternal();
+
+          const content = this.tabCm.getValue();
+          this.tabCm.toTextArea();
+          this.tabCm = null;
+
+          this.$nextTick(() => {
+            const textarea = document.createElement('textarea');
+            textarea.value = content;
+            this.$refs.tabEditor.innerHTML = '';
+            this.$refs.tabEditor.appendChild(textarea);
+
+            this.tabCm = CodeMirror.fromTextArea(textarea, {
+              mode: 'xml',
+              lineNumbers: true,
+              foldGutter: true,
+              gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']
+            });
+            this.tabCm.setSize('100%', 400);
+
+            this.$nextTick(() => {
+              console.log('[rebuildTab] 重建后：');
+              this.measureTabInternal();
+            });
+          });
+        },
+
+        onTabChange(key) {
+          console.log('[onTabChange] 切换到:', key);
+          this.tabKey = key;
+
+          if (key === 'tab2' && this.tabCm) {
+            this.$nextTick(() => {
+              console.log('[onTabChange] Tab2 激活，自动测量：');
+              setTimeout(() => {
+                this.measureTabInternal();
+              }, 100);
+            });
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

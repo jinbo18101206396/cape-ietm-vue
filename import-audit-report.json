@@ -1,0 +1,744 @@
+{
+  "total": 87,
+  "checked": 87,
+  "issues": [],
+  "correct": [
+    {
+      "file": "src\\views\\ietm\\dashboard\\modules\\BatchApproveModal.vue",
+      "status": "correct",
+      "used": [
+        "postAction"
+      ],
+      "imported": [
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\dashboard\\ProjectList.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\dashboard\\TodoList.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\icnmanage\\IetmIcnManageList.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "deleteAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\icnmanage\\modules\\IcnBatchAddModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\icnmanage\\modules\\IcnImportModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\icnmanage\\modules\\IcnInfoModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\icnmanage\\modules\\IcnReferenceModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\icnmanage\\modules\\IcnUploadForm.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\icnmanage\\modules\\IcnUploadModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\icnmanage\\modules\\IcnViewerModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\icnmanage\\modules\\IetmIcnManageForm.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\icnmanage\\modules\\IetmIcnManageModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\icnmanage\\modules\\VrmlViewer.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\BatchRestartFlowModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\BatchStartFlowModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\ConfigTree.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DataModuleFormModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction",
+        "putAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmCopyModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmDiffModal.vue",
+      "status": "correct",
+      "used": [
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmEditorModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction",
+        "putAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction",
+        "putAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmEditPropModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmHistoryModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmImportModal.vue",
+      "status": "correct",
+      "used": [
+        "postAction"
+      ],
+      "imported": [
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmRefContentModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmReferenceChainModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmReferenceModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmResourceModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmValidationModal.vue",
+      "status": "correct",
+      "used": [
+        "postAction"
+      ],
+      "imported": [
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmViewModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\DmWorkflowModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\InfoCodeSelector.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\UserSelector.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\workflow\\WfInstanceDtlTable.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\components\\WorkflowInfoPanel.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\DmHistoryView.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\components\\DmAttrPanel.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\components\\DmIdListModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\components\\DmNodePreviewModal.vue",
+      "status": "correct",
+      "used": [
+        "postAction"
+      ],
+      "imported": [
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\components\\DmPreviewModal.vue",
+      "status": "correct",
+      "used": [
+        "postAction"
+      ],
+      "imported": [
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\components\\DmSourceView.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\components\\DmStructureTree.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\components\\DmValidatePanel.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\components\\IcnPreviewPane.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\components\\IcnSuffixModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\components\\IetmDmRefDialog.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\components\\IetmInterrefDialog.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\components\\IetmSymbolDialog.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\editor\\DmContentEditor.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmdatamodulemanagement\\IetmDataModuleList.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmeditor\\IetmXmlEditorPage.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\ietmprojectcompany\\IetmProjectCompanyList.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "deleteAction"
+      ],
+      "imported": [
+        "getAction",
+        "deleteAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmprojectcompany\\modules\\IetmProjectCompanyForm.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\ietmprojectcompany\\modules\\IetmProjectCompanyModal.Style#Drawer.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\ietmprojectcompany\\modules\\IetmProjectCompanyModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\ietmroleauth\\IetmRoleauthList.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmroleauth\\modules\\IetmCmAuthTab.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmroleauth\\modules\\IetmProjectAuthTab.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmstandardconfigurationmanagement\\IetmStandardConfigurationManagementList.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\ietmstandardconfigurationmanagement\\modules\\IetmStandardConfigurationManagementModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\playertool\\playAudio.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\playertool\\playImg.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\playertool\\playVideo.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\projectconfigurationmanagement\\IetmProjectConfigurationManagementList.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction",
+        "deleteAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\projectconfigurationmanagement\\modules\\ExcelImportModal.vue",
+      "status": "correct",
+      "used": [
+        "postAction"
+      ],
+      "imported": [
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\projectconfigurationmanagement\\modules\\IetmProjectConfigurationManagementModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\projectconfigurationmanagement\\modules\\TemplateImportModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\projectinformationcode\\IetmProjectInformationCodeList.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\projectinformationcode\\modules\\IetmProjectInformationCodeForm.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\projectinformationcode\\modules\\IetmProjectInformationCodeModal.Style#Drawer.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\projectinformationcode\\modules\\IetmProjectInformationCodeModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\projectinformationcode\\modules\\TemplateImportModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\projectmanagement\\IetmProjectList.vue",
+      "status": "correct",
+      "used": [
+        "putAction"
+      ],
+      "imported": [
+        "putAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\projectmanagement\\modules\\IetmCodeRuleModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\projectmanagement\\modules\\IetmCopyProjectModal.vue",
+      "status": "correct",
+      "used": [
+        "getAction",
+        "postAction"
+      ],
+      "imported": [
+        "getAction",
+        "postAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\projectmanagement\\modules\\IetmProjectForm.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\projectmanagement\\modules\\IetmProjectModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\projectmanagement\\modules\\IetmProjectParamsForm.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\standardinformationcode\\IetmStandardInformationCodeList.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\standardinformationcode\\modules\\IetmStandardInformationCodeForm.vue",
+      "status": "correct",
+      "used": [
+        "getAction"
+      ],
+      "imported": [
+        "getAction"
+      ]
+    },
+    {
+      "file": "src\\views\\ietm\\standardinformationcode\\modules\\IetmStandardInformationCodeModal.Style#Drawer.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\standardinformationcode\\modules\\IetmStandardInformationCodeModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\standardmanagement\\IetmStandardDmtypeList.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\standardmanagement\\IetmStandardList.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\standardmanagement\\modules\\IetmStandardDmtypeModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\standardmanagement\\modules\\IetmStandardModal.vue",
+      "status": "no-api-usage"
+    },
+    {
+      "file": "src\\views\\ietm\\standardtemplatemanagement\\StandardTemplateManagement.vue",
+      "status": "no-api-usage"
+    }
+  ]
+}
