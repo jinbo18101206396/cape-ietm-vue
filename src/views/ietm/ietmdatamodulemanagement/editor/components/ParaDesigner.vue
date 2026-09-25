@@ -183,33 +183,23 @@ export default {
   },
 
   methods: {
-    // §5.3 UEditor实例化
+    // § 5.3 UEditor实例化
     initUEditor() {
-      // 检查实例是否已存在
+      // 🔧 修复P1-5: UEditor实例复用污染 - 强制销毁旧实例
       if (window.UE && window.UE.getEditor(this.ueditorInstanceId)) {
-        console.warn('UEditor实例已存在，跳过加载:', this.ueditorInstanceId)
-        this.ueditor = window.UE.getEditor(this.ueditorInstanceId)
+        const oldInstance = window.UE.getEditor(this.ueditorInstanceId)
+        console.warn('[ParaDesigner] 检测到旧UEditor实例，强制销毁以避免状态污染:', this.ueditorInstanceId)
 
-        // 🔧 修复3：实例复用时也要调用setcontent()设置endline
-        // Bug根因：实例复用时直接return，导致this.endline保持初始值-1
-        // 修复：等待UEditor ready后再调用setcontent
-        if (this.ueditor.isReady) {
-          // UEditor已经ready，立即调用
-          this.ueditorReady = true
-          if (this.lineno !== null && this.lineno !== '') {
-            this.setcontent()
-          }
-        } else {
-          // UEditor未ready，等待ready事件
-          this.ueditor.ready(() => {
-            this.ueditorReady = true
-            if (this.lineno !== null && this.lineno !== '') {
-              this.setcontent()
-            }
-          })
+        try {
+          // 移除事件监听
+          oldInstance.removeListener('contentChange')
+          oldInstance.removeListener('ready')
+          // 销毁实例
+          oldInstance.destroy()
+          console.log('[ParaDesigner] ✓ 旧实例已销毁')
+        } catch (e) {
+          console.error('[ParaDesigner] ✗ 销毁旧实例失败:', e)
         }
-
-        return
       }
 
       const config = getUEditorConfig({
