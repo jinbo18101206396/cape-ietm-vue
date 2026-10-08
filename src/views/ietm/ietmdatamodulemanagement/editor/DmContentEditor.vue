@@ -38,6 +38,7 @@
                   :dm-code="dmc"
                   :node-list="nodeList"
                   :ifedit="readonly ? '0' : '1'"
+                  simple="1"
                   @save="onParaSave"
                   @refresh="onParaRefresh"
                 />
@@ -244,6 +245,7 @@ export default {
       viewMode: 'source',  // 视图模式：source源码视图, design设计视图
       treeVisible: true, attrVisible: false,  // 属性面板默认隐藏，浏览模式下保持隐藏
       autoSaveTimer: null,
+      treeRefreshTimer: null,    // 源码直接编辑后防抖刷新树（消除lineno陈旧，见onContentChange）
       editorcursorFlag: false,   // 防三区联动循环（§7.0）
       cursorLine: 1,
       hasNotice: false,
@@ -313,6 +315,7 @@ export default {
   beforeDestroy() {
     this.isClosing = true  // 标记页面正在关闭
     if (this.autoSaveTimer) clearInterval(this.autoSaveTimer)
+    if (this.treeRefreshTimer) clearTimeout(this.treeRefreshTimer)
     window.removeEventListener('beforeunload', this._beforeUnload)
     // 清理南区拖拽监听
     document.removeEventListener('mousemove', this.handleWorkflowResize)
@@ -428,7 +431,12 @@ export default {
       const elemName = this.locale === 'cn' ? this.cn2enElem[node.text] || node.text : node.text
 
       if (elemName === 'para') {
-        this._openParaDesigner(node.lineno)
+        // 🔧 修复"保存后多出一个<para>"根因：树节点无顶层.lineno（行号在attributes.lineno，
+        //   且为dmodule相对1-based）。旧代码传node.lineno=undefined，导致定位失效。
+        //   用与gutter图标相同的公式换算为0-based编辑器行(=<para>开始标签行)。
+        const linenoOffset = this.$refs.editor.getLinenoOffset()
+        const editorLine = node.attributes.lineno + linenoOffset - 2
+        this._openParaDesigner(editorLine)
       } else {
         this.$message.info('仅支持para元素的设计视图编辑')
       }
@@ -447,7 +455,10 @@ export default {
       const enElemName = this.locale === 'cn' ? this.cn2enElem[node.text] || node.text : node.text
 
       if (enElemName === 'para') {
-        this._openParaDesigner(node.lineno || (line + 1))
+        // 🔧 修复"保存后多出一个<para>"根因：node.lineno为undefined(行号在attributes.lineno)，
+        //   旧代码回退到line+1，比<para>开始标签行多1行→落到内容行→保存时开始标签未被替换而重复。
+        //   gutterClick发出的line已是0-based的<para>开始标签行，直接用line即可。
+        this._openParaDesigner(line)
       } else {
         // 一期仅支持para，二期扩展其他元素
         this.$message.info('仅支持para元素的设计视图编辑')
@@ -488,6 +499,16 @@ export default {
     onContentChange(val) {
       this.content = val
       this.dirty = (val !== this.originalContent)
+
+      // 🔧 根因修复：源码直接编辑会移动行号，但树的nodeList/lineno不随之更新
+      //   （历史上为性能故意不在每次按键全量解析XML）。结果树双击/选中定位用的
+      //   node.attributes.lineno陈旧，双击para节点会打开错行 → Para保存崩溃/数据损坏。
+      //   方案：防抖500ms，用户停止输入后静默刷新一次树（畸形XML中间态不弹错，见refreshTree的silent参数）。
+      if (this.treeRefreshTimer) clearTimeout(this.treeRefreshTimer)
+      this.treeRefreshTimer = setTimeout(() => {
+        this.treeRefreshTimer = null
+        this.refreshTree(true)  // silent：编辑中途XML可能不完整，解析失败不打扰用户
+      }, 500)
     },
     // 回车补全插入元素后：刷新树，使新元素出现在导航树中（§14.1）
     onElementInserted() {
@@ -851,7 +872,9 @@ export default {
         })
       }
     },
-    refreshTree() {
+    // silent=true：编辑中途触发的防抖刷新，畸形XML解析失败时不弹错误提示、不清空已有树
+    //   （避免打字过程中标签未闭合就报错/树闪烁）。手动触发(格式化/增删元素)仍用默认非静默。
+    refreshTree(silent = false) {
       try {
         const content = this.$refs.editor.getValue()
         if (!content || !content.trim()) {
@@ -867,6 +890,7 @@ export default {
         // setNodeList内部会调用refreshGutterMarkers，无需重复调用
       } catch (error) {
         console.error('[refreshTree] XML解析失败:', error)
+        if (silent) return  // 编辑中途畸形XML：保留上一次成功解析的树，静默等待下次输入
         // 🔧 修复：畸形XML显示错误提示（P2缺陷#2）
         this.$message.error('XML格式错误，无法解析文档结构：' + (error.message || '请检查标签是否完整闭合'))
         this.nodeList = []

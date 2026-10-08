@@ -1,0 +1,13 @@
+{
+  "rootCause": "在 ParaDesigner.vue initUEditor 中，未在初始化时正确传递 initialFrameHeight 参数",
+  "solution": [
+    "1. 在 initUEditor 中，初始化前计算 ueditorContainer 的实际高度",
+    "2. 将正确的高度传给 UEditor 的 initialFrameHeight 参数",
+    "3. 在 ready 事件中额外强制设置 iframe 内部的样式（保险起见）"
+  ],
+  "codeChanges": {
+    "beforeInitUEditor": "const containerHeight = this.$refs.editorContainer?.clientHeight || 600",
+    "initialFrameHeightParam": "initialFrameHeight: Math.max(containerHeight, 400)",
+    "readyEventFix": "setTimeout(() => { body.style.height = \"100% !important\"; }, 0)"
+  }
+}

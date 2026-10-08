@@ -222,7 +222,10 @@ export function findLineno(cm, elename, from = 0) {
 /** XML 2 空格格式化（§14.4 等价） */
 export function formatXml(xml, baseIndent = 0) {
   let out = '', depth = 0
-  const baseSpace = ' '.repeat(baseIndent)  // 基础缩进（para所在列的缩进）
+  // 🔧 防御：baseIndent为负（如调用方传入indexOf('<')的-1）会使' '.repeat()抛
+  //   "Invalid count value: -1"。此处兜底为非负整数，任何调用方都不会触发崩溃。
+  const safeIndent = Math.max(0, Math.floor(Number(baseIndent) || 0))
+  const baseSpace = ' '.repeat(safeIndent)  // 基础缩进（para所在列的缩进）
   const stepSpace = '  '  // 每层递增2空格
   const lines = _splitGluedTags(xml).map(l => l.trim()).filter(l => l)
   for (const line of lines) {

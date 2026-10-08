@@ -1,0 +1,190 @@
+
+> vue-antd-jeecg@3.4.3 test:e2e
+> playwright test para-designer-complete-diagnosis.spec.ts
+
+
+Running 7 tests using 1 worker
+
+[1/7] [chromium] › tests\para-designer-complete-diagnosis.spec.ts:13:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 1: 启动应用并导航到编辑页面
+[chromium] › tests\para-designer-complete-diagnosis.spec.ts:13:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 1: 启动应用并导航到编辑页面
+启动诊断...
+
+✅ 已导航到编辑页面
+
+✅ 应用已就绪
+
+[2/7] [chromium] › tests\para-designer-complete-diagnosis.spec.ts:40:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 2: 打开 Para 设计器
+[chromium] › tests\para-designer-complete-diagnosis.spec.ts:40:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 2: 打开 Para 设计器
+发现 0 个树节点
+
+
+未找到树节点，尝试扩展树...
+直接查找 para 节点失败，尝试在所有节点中查找...
+
+
+❌ 未找到 para 节点
+
+✅ 诊断完成，所有测试已执行
+
+  1) [chromium] › tests\para-designer-complete-diagnosis.spec.ts:40:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 2: 打开 Para 设计器 
+
+    Error: 无法找到 para 节点
+
+      74 |     } else {
+      75 |       console.error('❌ 未找到 para 节点')
+    > 76 |       throw new Error('无法找到 para 节点')
+         |             ^
+      77 |     }
+      78 |   })
+      79 |
+        at D:\workspace\IETM\cape-ietm-vue\tests\para-designer-complete-diagnosis.spec.ts:76:13
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\para-designer-complete-dia-dbc10--and-Fix-Step-2-打开-Para-设计器-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\para-designer-complete-dia-dbc10--and-Fix-Step-2-打开-Para-设计器-chromium\error-context.md
+
+    Error Context: test-results\para-designer-complete-dia-dbc10--and-Fix-Step-2-打开-Para-设计器-chromium\error-context.md
+
+
+[3/7] [chromium] › tests\para-designer-complete-diagnosis.spec.ts:80:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 3: 执行深层诊断 - 测量所有容器高度
+[chromium] › tests\para-designer-complete-diagnosis.spec.ts:80:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 3: 执行深层诊断 - 测量所有容器高度
+启动诊断...
+
+
+=== 深层诊断：容器高度链 ===
+
+
+
+✅ 诊断完成，所有测试已执行
+
+  2) [chromium] › tests\para-designer-complete-diagnosis.spec.ts:80:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 3: 执行深层诊断 - 测量所有容器高度 
+
+    TypeError: Cannot read properties of undefined (reading 'evaluate')
+
+      81 |     console.log('\n=== 深层诊断：容器高度链 ===\n')
+      82 |
+    > 83 |     diagnosisResults = await page.evaluate(() => {
+         |                                   ^
+      84 |       const results: any = {
+      85 |         timestamp: new Date().toISOString(),
+      86 |         viewport: {
+        at D:\workspace\IETM\cape-ietm-vue\tests\para-designer-complete-diagnosis.spec.ts:83:35
+
+    Error Context: test-results\para-designer-complete-dia-d97be-ix-Step-3-执行深层诊断---测量所有容器高度-chromium\error-context.md
+
+    Error Context: test-results\para-designer-complete-dia-d97be-ix-Step-3-执行深层诊断---测量所有容器高度-chromium\error-context.md
+
+
+[4/7] [chromium] › tests\para-designer-complete-diagnosis.spec.ts:225:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 4: 根据诊断结果实施根本修复
+[chromium] › tests\para-designer-complete-diagnosis.spec.ts:225:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 4: 根据诊断结果实施根本修复
+启动诊断...
+
+
+=== 实施根本修复 ===
+
+
+
+✅ 诊断完成，所有测试已执行
+
+  3) [chromium] › tests\para-designer-complete-diagnosis.spec.ts:225:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 4: 根据诊断结果实施根本修复 
+
+    TypeError: Cannot read properties of undefined (reading 'evaluate')
+
+      227 |
+      228 |     // 基于诊断结果，应用修复
+    > 229 |     const fixResults = await page.evaluate(() => {
+          |                                   ^
+      230 |       const iframe = document.querySelector('iframe') as HTMLIFrameElement
+      231 |       if (!iframe) return { error: 'iframe 不存在' }
+      232 |
+        at D:\workspace\IETM\cape-ietm-vue\tests\para-designer-complete-diagnosis.spec.ts:229:35
+
+    Error Context: test-results\para-designer-complete-dia-af588-and-Fix-Step-4-根据诊断结果实施根本修复-chromium\error-context.md
+
+    Error Context: test-results\para-designer-complete-dia-af588-and-Fix-Step-4-根据诊断结果实施根本修复-chromium\error-context.md
+
+
+[5/7] [chromium] › tests\para-designer-complete-diagnosis.spec.ts:290:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 5: 修复代码在 ParaDesigner.vue 中的实施
+[chromium] › tests\para-designer-complete-diagnosis.spec.ts:290:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 5: 修复代码在 ParaDesigner.vue 中的实施
+启动诊断...
+
+
+=== 分析需要在代码中实施的修复 ===
+
+
+根本原因: 在 ParaDesigner.vue initUEditor 中，未在初始化时正确传递 initialFrameHeight 参数
+
+
+解决方案:
+
+  1. 在 initUEditor 中，初始化前计算 ueditorContainer 的实际高度
+
+  2. 将正确的高度传给 UEditor 的 initialFrameHeight 参数
+
+  3. 在 ready 事件中额外强制设置 iframe 内部的样式（保险起见）
+
+[6/7] [chromium] › tests\para-designer-complete-diagnosis.spec.ts:317:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 6: 验证修复不影响其他功能
+[chromium] › tests\para-designer-complete-diagnosis.spec.ts:317:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 6: 验证修复不影响其他功能
+
+=== 回归测试：验证其他功能完整性 ===
+
+
+
+✅ 诊断完成，所有测试已执行
+
+  4) [chromium] › tests\para-designer-complete-diagnosis.spec.ts:317:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 6: 验证修复不影响其他功能 
+
+    TypeError: Cannot read properties of undefined (reading 'evaluate')
+
+      319 |
+      320 |     // 验证编辑功能
+    > 321 |     const editTest = await page.evaluate(() => {
+          |                                 ^
+      322 |       const iframe = document.querySelector('iframe') as HTMLIFrameElement
+      323 |       if (!iframe) return { success: false, error: 'iframe 不存在' }
+      324 |
+        at D:\workspace\IETM\cape-ietm-vue\tests\para-designer-complete-diagnosis.spec.ts:321:33
+
+    Error Context: test-results\para-designer-complete-dia-944d4--and-Fix-Step-6-验证修复不影响其他功能-chromium\error-context.md
+
+    Error Context: test-results\para-designer-complete-dia-944d4--and-Fix-Step-6-验证修复不影响其他功能-chromium\error-context.md
+
+
+[7/7] [chromium] › tests\para-designer-complete-diagnosis.spec.ts:366:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 7: 最终验证 - 确认问题已解决
+[chromium] › tests\para-designer-complete-diagnosis.spec.ts:366:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 7: 最终验证 - 确认问题已解决
+启动诊断...
+
+
+=== 最终验证 ===
+
+
+
+✅ 诊断完成，所有测试已执行
+
+  5) [chromium] › tests\para-designer-complete-diagnosis.spec.ts:366:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 7: 最终验证 - 确认问题已解决 
+
+    TypeError: Cannot read properties of undefined (reading 'evaluate')
+
+      367 |     console.log('\n=== 最终验证 ===\n')
+      368 |
+    > 369 |     const finalVerification = await page.evaluate(() => {
+          |                                          ^
+      370 |       const iframe = document.querySelector('iframe') as HTMLIFrameElement
+      371 |       const ueditorContainer = document.querySelector('.ueditor-container') as HTMLElement
+      372 |
+        at D:\workspace\IETM\cape-ietm-vue\tests\para-designer-complete-diagnosis.spec.ts:369:42
+
+    Error Context: test-results\para-designer-complete-dia-74e1a-d-Fix-Step-7-最终验证---确认问题已解决-chromium\error-context.md
+
+    Error Context: test-results\para-designer-complete-dia-74e1a-d-Fix-Step-7-最终验证---确认问题已解决-chromium\error-context.md
+
+
+  5 failed
+    [chromium] › tests\para-designer-complete-diagnosis.spec.ts:40:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 2: 打开 Para 设计器 
+    [chromium] › tests\para-designer-complete-diagnosis.spec.ts:80:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 3: 执行深层诊断 - 测量所有容器高度 
+    [chromium] › tests\para-designer-complete-diagnosis.spec.ts:225:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 4: 根据诊断结果实施根本修复 
+    [chromium] › tests\para-designer-complete-diagnosis.spec.ts:317:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 6: 验证修复不影响其他功能 
+    [chromium] › tests\para-designer-complete-diagnosis.spec.ts:366:7 › Para Designer Layout - Complete Root Cause Diagnosis and Fix › Step 7: 最终验证 - 确认问题已解决 
+  2 passed (19.1s)

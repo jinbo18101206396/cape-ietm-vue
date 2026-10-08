@@ -40,18 +40,17 @@ export function getUEditorConfig(options = {}) {
   ]
 
   // §5.2.2 简化工具栏（简单模式）
+  // 对标旧系统Para设计器：仅保留核心编辑功能，15个按钮
+  // 🔧 2026-09-28修复：移除inserttable，添加insertrow/deleterow（对标全局配置）
   const simpleToolbar = [
     [
       'undo', 'redo', '|',
-      'bold', 'italic', 'underline', '|',
-      'forecolor', 'backcolor', '|',
+      'bold', 'italic', 'strikethrough', 'superscript', 'subscript', '|',
       'insertorderedlist', 'insertunorderedlist', '|',
-      'justifyleft', 'justifycenter', 'justifyright', '|',
-      'link', 'unlink', '|',
-      'simpleupload', 'insertimage', '|',
-      'inserttable', 'insertrow', 'insertcol', 'mergecells', '|',
-      // 自定义按钮
-      'deflist', 'insertnextrow', 'interrefbutton', 'dmrefbutton', 'symbolbutton', '|',
+      'insertrow', 'deleterow', '|',
+      // S1000D自定义按钮
+      'deflist', 'interrefbutton', 'dmrefbutton', 'symbolbutton', '|',
+      // 公式编辑器（对标旧系统完整模式；插件见/static/ueditor/kityformula-plugin）
       'kityformula'
     ]
   ]
@@ -71,18 +70,44 @@ export function getUEditorConfig(options = {}) {
 
   // 返回配置对象
   return {
+    // 工具栏配置
     toolbars,
-    // 其他配置项
+
+    // 国际化与通用配置
     lang: locale === 'cn' ? 'zh-cn' : 'en',
+
+    // 编辑器容器配置（Para设计器中会被覆盖）
     initialFrameWidth: '100%',
     initialFrameHeight: 500,
-    autoHeightEnabled: false,
-    autoFloatEnabled: false,
-    enableAutoSave: false,
+
+    // 编辑功能配置 - 关键限制
+    allowDivTransToP: false,  // 阻止div转p
+    enableContextMenu: false,  // 禁用右键菜单
+
+    // 自动功能配置 - 全部禁用（Para设计器不需要）
+    autoHeightEnabled: false,  // 禁止自动长高
+    autoFloatEnabled: false,  // 禁止工具栏浮动
+    enableAutoSave: false,  // 禁止自动保存
     saveInterval: 500000,
-    imageScaleEnabled: true,
-    allowDivTransToP: false,  // 关键：阻止div转p
+
+    // 拉伸与缩放配置
+    scaleEnabled: false,  // Para设计器禁用拉伸（固定高度600px）
+    imageScaleEnabled: true,  // 图片可缩放
+
+    // UI元素配置 - 所有不需要的元素都禁用
+    elementPathEnabled: false,  // 禁用element path栏
+    wordCount: false,  // 禁用字数统计显示
+    imagePopup: false,  // Para设计器不需要图片弹窗
+    tableDragable: false,  // Para设计器禁用表格拖拽
+    fullscreen: false,  // 禁用全屏模式
+
+    // 自动排版与清理
+    autotypeset: false,  // 禁用自动排版（保留原始格式）
+    autoClearEmptyNode: false,  // 保留空节点
+
+    // 内容限制
     maximumWords: 100000000,
+
     // Kity Formula插件配置
     kityformulaImagePath: '/static/ueditor/kityformula-plugin',
     kityformulaImageRender: 'latex'

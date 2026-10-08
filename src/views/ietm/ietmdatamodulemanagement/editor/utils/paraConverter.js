@@ -13,7 +13,7 @@ import axios from 'axios'
  * @param {String} xml - 原始XML字符串
  * @returns {String} - 安全编码后的XML字符串
  */
-function escapeXmlForAttribute(xml) {
+export function escapeXmlForAttribute(xml) {
   if (!xml) return ''
   return xml
     .replace(/&/g, '&amp;')   // & 必须最先替换
@@ -158,10 +158,11 @@ export async function para2html(parent, str) {
  * @returns {Promise<String>} - 完整的para XML字符串
  */
 export async function html2para(parent, html, projectParameters, allocatedUniqueids = [], depth = 0) {
-  // 递归深度限制
+  // 修复P1-BUG-2: 递归深度限制抛出异常，避免数据污染
+  // 原逻辑: return '[递归深度超限]' 会污染XML，导致数据永久丢失
+  // 新逻辑: 抛出异常，阻止保存，提示用户简化para结构
   if (depth > 10) {
-    console.error('html2para递归深度超过限制(10层)，终止转换')
-    return '[递归深度超限]'
+    throw new Error('para嵌套层级过深（超过10层），请简化内容结构后重试')
   }
 
   // 空内容时返回空字符串（由调用方包裹para标签）
@@ -286,7 +287,8 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
       table_ = table_.replace(/<td(\s[^>]*)?>(\s*(?:<para>[\s\S]*?<\/para>\s*)+)<\/td>/g, '<listItemDefinition>$2</listItemDefinition>')
 
       // 处理无<para>的<td>（添加para）
-      table_ = table_.replace(/<td(\s[^>]*)>([\s\S]*?)<\/td>/g, '<listItemDefinition><para>$2</para></listItemDefinition>')
+      // 🔧 修复边界bug: 属性组改为可选(\s[^>]*)?，避免裸<td>(无属性)不匹配残留标签
+      table_ = table_.replace(/<td(\s[^>]*)?>([\s\S]*?)<\/td>/g, '<listItemDefinition><para>$2</para></listItemDefinition>')
 
       para = para.replace(m, table_)
     })
@@ -300,15 +302,22 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     })
   }
 
-  // §9.2.5 普通table转S1000D标准table
-  // 匹配不含deflist或caption标记的普通HTML table
+  // §9.2.5 处理普通table（对标旧系统：删除而不是转换）
+  // 🔥 旧系统逻辑：Para中不支持普通table，只支持definitionList和captionGroup
+  // 旧系统代码：para.replace(/<table.*?<\/table>/g,'').replace(/<table.*?\/>/g,'')
+  // 匹配不含deflist或caption标记的普通HTML table，直接删除
   const normalTables = para.match(/<table(?![^>]*(?:deflist|caption)="1")[^>]*>[\s\S]*?<\/table>/g)
   if (normalTables != null) {
-    normalTables.forEach(m => {
-      const s1000dTable = convertHtmlTableToS1000D(m)
-      para = para.replace(m, s1000dTable)
+    console.warn('[html2para] 发现', normalTables.length, '个普通表格，将被删除（对标旧系统：Para不支持普通表格）')
+    normalTables.forEach((m, idx) => {
+      console.warn(`[html2para] 删除表格 ${idx + 1}/${normalTables.length}:`, m.substring(0, 100))
+      para = para.replace(m, '')
     })
+    console.warn('[html2para] ⚠️ 提示：Para中应使用definitionList（定义列表）而不是普通表格')
   }
+
+  // 同时删除自闭合的table标签
+  para = para.replace(/<table(?![^>]*(?:deflist|caption)="1")[^>]*>.*?\/>/g, '')
 
   // §9.2.7 公式（kfformula）转symbol
   const formula = para.match(/<img class="kfformula".*?\/>/g)
@@ -649,79 +658,6 @@ async function tosymbol(symbols, html) {
   })
 
   return html
-}
-
-/**
- * 将HTML table转换为S1000D标准table
- * @param {String} htmlTable - UEditor生成的HTML table
- * @returns {String} - S1000D格式的table XML
- */
-function convertHtmlTableToS1000D(htmlTable) {
-  console.log('[convertHtmlTableToS1000D] 输入HTML table:', htmlTable.substring(0, 200))
-
-  // 1. 移除HTML属性和标签，转换为S1000D元素
-  let xml = htmlTable
-    // 移除table标签的所有属性
-    .replace(/<table[^>]*>/g, '<table>')
-    // 移除tbody标签（S1000D中tbody在tgroup内）
-    .replace(/<tbody[^>]*>/g, '')
-    .replace(/<\/tbody>/g, '')
-    // 保留thead但移除属性
-    .replace(/<thead[^>]*>/g, '<thead>')
-    // 转换tr为row，移除所有属性（class, style等）
-    .replace(/<tr[^>]*>/g, '<row>')
-    .replace(/<\/tr>/g, '</row>')
-    // 转换td/th为entry，移除所有属性（width, valign, style, colspan, rowspan等）
-    // 注意：必须使用词边界或空格/闭合符号，避免 <th[^>]*> 误匹配 <thead>
-    .replace(/<th(\s[^>]*)?\>/g, '<entry>')
-    .replace(/<\/th>/g, '</entry>')
-    .replace(/<td[^>]*>/g, '<entry>')
-    .replace(/<\/td>/g, '</entry>')
-
-  // 2. 计算列数（从第一个row中统计entry数量）
-  const firstRowMatch = xml.match(/<row>([\s\S]*?)<\/row>/)
-  let cols = 1
-  if (firstRowMatch) {
-    const entryMatches = firstRowMatch[1].match(/<entry>/g)
-    cols = entryMatches ? entryMatches.length : 1
-  }
-
-  // 3. 检测是否有thead
-  const hasTheadMatch = xml.match(/<thead>([\s\S]*?)<\/thead>/)
-  const hasTheadSection = hasTheadMatch && hasTheadMatch[0].includes('<row>')
-
-  // 4. 构建S1000D结构
-  let s1000dTable = ''
-
-  if (hasTheadSection) {
-    // 有thead的情况：<table><tgroup><thead>...</thead><tbody>...</tbody></tgroup></table>
-    const theadContent = hasTheadMatch[0]
-    const restContent = xml.replace(/<table>/, '').replace(/<\/table>/, '').replace(theadContent, '').trim()
-
-    s1000dTable = `<table>
-  <tgroup cols="${cols}">
-${theadContent.split('\n').map(line => '    ' + line).join('\n')}
-    <tbody>
-${restContent.split('\n').map(line => '      ' + line).join('\n')}
-    </tbody>
-  </tgroup>
-</table>`
-  } else {
-    // 无thead的情况：<table><tgroup><tbody>...</tbody></tgroup></table>
-    const bodyContent = xml.replace(/<table>/, '').replace(/<\/table>/, '').trim()
-
-    s1000dTable = `<table>
-  <tgroup cols="${cols}">
-    <tbody>
-${bodyContent.split('\n').map(line => '      ' + line).join('\n')}
-    </tbody>
-  </tgroup>
-</table>`
-  }
-
-  console.log('[convertHtmlTableToS1000D] 输出S1000D table:', s1000dTable.substring(0, 200))
-
-  return s1000dTable
 }
 
 /**

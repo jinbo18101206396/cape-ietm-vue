@@ -6,12 +6,6 @@
       <a-button type="primary" icon="save" @click="handleSave" :loading="saving">保存</a-button>
     </div>
 
-    <!-- Para ID输入框（§3.2） -->
-    <div class="para-header">
-      <label>ID：</label>
-      <a-input v-model="paraId" style="width:200px" :disabled="readonly"/>
-    </div>
-
     <!-- UEditor容器（§3.2） -->
     <div ref="editorContainer" class="ueditor-container">
       <textarea :id="ueditorInstanceId" ref="textarea"></textarea>
@@ -71,7 +65,8 @@ export default {
       saving: false,
       newformulaCnt: 0,  // §13.3 公式计数器
       deflistConfig: { termWidth: 0.3, defWidth: 0.7 },  // deflist列宽配置
-      ueditorInstanceId: `para_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`  // 唯一实例ID
+      ueditorInstanceId: `para_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,  // 唯一实例ID
+      domObserver: null  // MutationObserver实例，用于监听UEditor DOM变化
     }
   },
 
@@ -103,26 +98,37 @@ export default {
   },
 
   mounted() {
-    this.initUEditor()
+    // 🔧 关键修复：在 nextTick 之后初始化 UEditor，确保容器高度已正确计算
+    // 原因：直接在 mounted 中初始化时，flex 容器的高度可能还未完全计算
+    this.$nextTick(() => {
+      this.initUEditor()
+    })
   },
 
   beforeDestroy() {
-    // 🔧 关键修复：在组件销毁前**同步**清理UEditor对父容器的样式污染
+    // 关键修复：在组件销毁前同步清理UEditor对父容器的样式污染
     // 问题根因：UEditor初始化时会修改父容器的height/overflow/width等CSS属性，
     // 导致切换回源码视图后CodeMirror的gutters布局计算错误（行号列过宽、内容区域空白）。
     // 必须在this.$el还在DOM树中时同步清理，否则closest()返回null清理失败。
 
-    // ① 先同步清理样式污染（此时this.$el仍在DOM中）
-    try {
-      console.log('[ParaDesigner] 🧹 开始清理UEditor样式污染')
+    // ① 先清理MutationObserver（修复P0-PERF-1内存泄漏）
+    if (this.domObserver) {
+      this.domObserver.disconnect()
+      this.domObserver = null
+    }
 
+    // ② 修复P1-BUG-1：重置endline状态，防止切换视图后状态残留
+    this.endline = -1
+    this.paraId = ''
+
+    // ③ 同步清理样式污染（此时this.$el仍在DOM中）
+    try {
       const designContainer = this.$el.closest('.design-view-container')
       if (designContainer) {
         // 彻底清理：直接清空所有内联样式（保留class）
         const savedClass = designContainer.className
         designContainer.style.cssText = ''
         designContainer.className = savedClass
-        console.log('[ParaDesigner] ✓ 已清理 .design-view-container 的内联样式')
       }
 
       const viewTabs = this.$el.closest('.view-tabs')
@@ -130,7 +136,6 @@ export default {
         const savedClass = viewTabs.className
         viewTabs.style.cssText = ''
         viewTabs.className = savedClass
-        console.log('[ParaDesigner] ✓ 已清理 .view-tabs 的内联样式')
       }
 
       // 清理可能被污染的ant-tabs-content层
@@ -139,7 +144,6 @@ export default {
         const savedClass = tabsContent.className
         tabsContent.style.cssText = ''
         tabsContent.className = savedClass
-        console.log('[ParaDesigner] ✓ 已清理 .ant-tabs-content 的内联样式')
       }
 
       // 清理TabPane层
@@ -148,15 +152,12 @@ export default {
         const savedClass = tabPane.className
         tabPane.style.cssText = ''
         tabPane.className = savedClass
-        console.log('[ParaDesigner] ✓ 已清理 .ant-tabs-tabpane 的内联样式')
       }
-
-      console.log('[ParaDesigner] ✅ UEditor样式污染清理完成')
     } catch (error) {
-      console.error('[ParaDesigner] ❌ 清理样式污染失败:', error)
+      // 清理样式污染失败，继续销毁编辑器
     }
 
-    // ② 再销毁UEditor实例
+    // ④ 销毁UEditor实例
     if (this.ueditor) {
       try {
         // 1. 移除事件监听
@@ -174,10 +175,8 @@ export default {
         if (container) {
           container.innerHTML = ''
         }
-
-        console.log('[ParaDesigner] ✅ UEditor实例销毁完成')
       } catch (error) {
-        console.error('[ParaDesigner] ❌ UEditor销毁失败:', error)
+        // UEditor销毁失败，继续清理
       }
     }
   },
@@ -185,10 +184,9 @@ export default {
   methods: {
     // § 5.3 UEditor实例化
     initUEditor() {
-      // 🔧 修复P1-5: UEditor实例复用污染 - 强制销毁旧实例
+      // 修复P1-5: UEditor实例复用污染 - 强制销毁旧实例
       if (window.UE && window.UE.getEditor(this.ueditorInstanceId)) {
         const oldInstance = window.UE.getEditor(this.ueditorInstanceId)
-        console.warn('[ParaDesigner] 检测到旧UEditor实例，强制销毁以避免状态污染:', this.ueditorInstanceId)
 
         try {
           // 移除事件监听
@@ -196,9 +194,8 @@ export default {
           oldInstance.removeListener('ready')
           // 销毁实例
           oldInstance.destroy()
-          console.log('[ParaDesigner] ✓ 旧实例已销毁')
         } catch (e) {
-          console.error('[ParaDesigner] ✗ 销毁旧实例失败:', e)
+          // 销毁旧实例失败，继续
         }
       }
 
@@ -209,29 +206,127 @@ export default {
         readonly: this.readonly
       })
 
-      // §5.3 配置项
+      // §5.3 配置项 - 使用config作为基础，仅覆盖Para设计器特定的参数
       this.ueditor = UE.getEditor(this.ueditorInstanceId, {
-        initialFrameWidth: '100%',
-        initialFrameHeight: window.innerHeight - 180,
-        scaleEnabled: true,
-        allowDivTransToP: false,  // 关键：阻止div转p
-        toolbars: config.toolbars,
-        labelMap: { 'bold': '强调' },
-        enableContextMenu: false,
-        elementPathEnabled: false,
-        wordCount: false
+        ...config,
+        initialFrameHeight: 710,  // Para设计器固定高度：35行数据（每行20px）
+        autoHeightEnabled: false  // 禁用自动高度，启用滚动条
       })
 
       // §5.4 ready事件
       this.ueditor.ready(() => {
         this.ueditorReady = true  // 标记初始化完成
+
+        // 🔧 修复P0-PERF-1: 使用MutationObserver替代setTimeout轮询
+        // 根因：UEditor会动态设置inline style覆盖CSS，必须监听DOM变化并修正
+        const fixEditorHeight = () => {
+          // 1. 固定最外层UEditor容器（.edui-editor）
+          const editorContainer = document.querySelector('.edui-editor')
+          if (editorContainer) {
+            editorContainer.style.height = '710px'
+            editorContainer.style.maxHeight = '710px'
+            editorContainer.style.overflow = 'hidden'
+          }
+
+          // 2. 固定iframe容器（.edui-editor-iframeholder）
+          const iframeHolder = document.querySelector('.edui-editor-iframeholder')
+          if (iframeHolder) {
+            iframeHolder.style.height = '670px'  // 710px - 工具栏高度
+            iframeHolder.style.maxHeight = '670px'
+            iframeHolder.style.overflow = 'hidden'
+          }
+
+          // 3. 固定iframe本身
+          const iframe = document.querySelector('.edui-editor iframe')
+          if (iframe) {
+            iframe.style.height = '670px'
+            iframe.style.maxHeight = '670px'
+          }
+
+          // 4. iframe内部body启用滚动
+          if (iframe) {
+            try {
+              const iframeDoc = iframe.contentDocument || iframe.contentWindow.document
+              if (iframeDoc && iframeDoc.body) {
+                iframeDoc.body.style.height = 'auto'  // 允许内容撑开
+                iframeDoc.body.style.overflowY = 'auto'  // Y轴滚动
+                iframeDoc.body.style.overflowX = 'hidden'
+                iframeDoc.body.style.margin = '0'
+                iframeDoc.body.style.padding = '10px'
+
+                iframeDoc.documentElement.style.height = '100%'
+                iframeDoc.documentElement.style.overflowY = 'auto'
+              }
+            } catch (e) {
+              // 设置iframe内部样式失败，忽略
+            }
+          }
+        }
+
+        const hideElementPath = () => {
+          const editorContainer = document.querySelector('.edui-editor')
+          if (editorContainer) {
+            const bottomBar = editorContainer.querySelector('[class*="bottomContainer"]')
+            if (bottomBar) {
+              const tds = bottomBar.querySelectorAll('td')
+              if (tds.length > 0) {
+                // 隐藏第一个td（元素路径）
+                tds[0].style.display = 'none'
+                tds[0].style.width = '0'
+                tds[0].style.padding = '0'
+                tds[0].style.margin = '0'
+              }
+              if (tds.length > 1) {
+                // 第二个td（字数统计）左对齐
+                tds[1].style.textAlign = 'left'
+                tds[1].style.paddingLeft = '12px'
+              }
+            }
+          }
+        }
+
+        // 立即执行一次修正
+        fixEditorHeight()
+        hideElementPath()
+
+        // 使用MutationObserver监听DOM变化，自动修正UEditor的样式覆盖
+        const editorContainer = document.querySelector('.edui-editor')
+        if (editorContainer && window.MutationObserver) {
+          this.domObserver = new MutationObserver((mutations) => {
+            // 只处理style属性变化和子树变化
+            let needFix = false
+            for (const mutation of mutations) {
+              if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                needFix = true
+                break
+              }
+              if (mutation.type === 'childList') {
+                needFix = true
+                break
+              }
+            }
+
+            if (needFix) {
+              fixEditorHeight()
+              hideElementPath()
+            }
+          })
+
+          // 监听editorContainer及其子树的属性和子节点变化
+          this.domObserver.observe(editorContainer, {
+            attributes: true,
+            attributeFilter: ['style'],
+            childList: true,
+            subtree: true
+          })
+        }
+
         if (this.lineno !== null && this.lineno !== '') {
           this.setcontent()
         }
         if (this.readonly) {
           this.ueditor.setDisabled()
         }
-        // 调整对话框高度
         document.querySelectorAll('.edui-dialog-content').forEach(el => {
           el.style.height = '200px'
         })
@@ -320,19 +415,12 @@ export default {
     async setcontent() {
       // 等待UEditor初始化完成
       if (!this.ueditorReady || !this.ueditor) {
-        console.warn('UEditor未初始化完成，等待ready回调...')
         return
       }
 
       try {
         const paraName = this.getLocaleName('para')
         const nowstr = this.editor.getLine(this.lineno)
-
-        console.log('[ParaDesigner] 🔍 setcontent开始:', {
-          lineno: this.lineno,
-          currentLine: JSON.stringify(nowstr),
-          lineCount: this.editor.lineCount()
-        })
 
         // 提取para id
         if (nowstr.indexOf('id=') > 0) {
@@ -341,28 +429,20 @@ export default {
         }
 
         // 判断单行/多行para
-        // 🔧 修复5：必须同时包含<para>和</para>才是单行para
+        // 修复5：必须同时包含<para>和</para>才是单行para
         // Bug根因：只检查</para>存在，导致点击多行para的结束行时误判为单行para
         const hasOpenTag = nowstr.indexOf('<' + paraName) > -1
         const hasClosingTag = nowstr.lastIndexOf(`</${paraName}>`) > 0
         const isSingleLine = hasOpenTag && hasClosingTag
-
-        console.log('[ParaDesigner] 🔍 判断单行/多行para:', {
-          hasOpenTag,
-          hasClosingTag,
-          isSingleLine,
-          判定结果: isSingleLine ? '单行para' : '多行para'
-        })
 
         if (isSingleLine) {
           // 单行para
           const html = await para2html(this.Parent, nowstr)
           this.ueditor.setContent(html)
           this.endline = this.lineno
-          console.log('[ParaDesigner] ✓ 单行para: endline =', this.endline)
         } else {
           // 多行para
-          // 🔧 修复6：如果当前行只有</para>没有<para>，需要向上搜索开始标签
+          // 修复6：如果当前行只有</para>没有<para>，需要向上搜索开始标签
           // Bug根因：点击多行para的结束行时，从当前行向下搜索，导致只提取了结束标签
           let startLine = this.lineno
           let beginidx = nowstr.indexOf('<')
@@ -370,24 +450,21 @@ export default {
           // 检查当前行是否是结束行（只有</para>没有<para>）
           if (!hasOpenTag && hasClosingTag) {
             // 当前行是结束行，向上搜索开始标签
-            console.log('[ParaDesigner] 🔍 当前行是结束标签，向上搜索开始标签...')
             for (let i = this.lineno - 1; i >= 0; i--) {
               const str = this.editor.getLine(i)
               if (str && str.indexOf('<' + paraName) > -1 && str.indexOf('</' + paraName + '>') === -1) {
                 // 找到开始标签（有<para>但没有</para>）
                 startLine = i
-                // 🔧 修复8：更新beginidx为开始行的缩进位置
+                // 修复8：更新beginidx为开始行的缩进位置
                 beginidx = str.indexOf('<')
-                console.log('[ParaDesigner] ✓ 找到开始标签:', { startLine: i, beginidx, line: JSON.stringify(str) })
                 break
               }
             }
           }
 
           this.endline = -1
-          console.log('[ParaDesigner] 🔍 多行para搜索开始:', { startLine, beginidx, 从行号: startLine })
 
-          // 🔧 修复11：放宽缩进匹配条件，解决"找不到结束标签"错误
+          // 修复11：放宽缩进匹配条件，解决"找不到结束标签"错误
           // Bug根因：严格的 beginidx === indentIdx 要求开始和结束标签缩进完全相同
           // 实际场景：用户手动编辑、格式化工具、之前的保存逻辑都可能产生缩进不一致
           // 修复策略：
@@ -399,24 +476,20 @@ export default {
             const str = this.editor.getLine(i)
             const closingTagIdx = str.indexOf(`</${paraName}>`)
             const indentIdx = str.indexOf('<')
-            console.log('[ParaDesigner] 🔍 搜索第', i, '行:', { line: JSON.stringify(str), closingTagIdx, indentIdx, beginidx })
 
             // 优先匹配：结束标签缩进 <= 开始标签缩进
             if (closingTagIdx > -1 && indentIdx <= beginidx) {
               this.endline = i
-              console.log('[ParaDesigner] ✓ 找到结束标签(严格匹配):', { endline: i, line: JSON.stringify(str), indentMatch: indentIdx === beginidx })
               break
             }
           }
 
           // 第二轮：兜底匹配（如果第一轮没找到，放弃缩进检查）
           if (this.endline === -1) {
-            console.warn('[ParaDesigner] ⚠️  严格匹配失败，启动兜底匹配（忽略缩进）')
             for (let i = startLine; i < this.editor.lineCount(); i++) {
               const str = this.editor.getLine(i)
               if (str.indexOf(`</${paraName}>`) > -1) {
                 this.endline = i
-                console.log('[ParaDesigner] ✓ 找到结束标签(兜底匹配):', { endline: i, line: JSON.stringify(str) })
                 break
               }
             }
@@ -424,8 +497,7 @@ export default {
 
           // 找不到结束标签时抛出错误
           if (this.endline === -1) {
-            console.error('[ParaDesigner] ❌ 找不到结束标签')
-            // 🔧 修复12：错误消息显示用户实际点击的行号
+            // 修复12：错误消息显示用户实际点击的行号
             this.$message.error(`XML格式错误：找不到 </${paraName}> 结束标签（从第${this.lineno + 1}行开始搜索，开始标签在第${startLine + 1}行）`)
             throw new Error(`找不到 </${paraName}> 结束标签`)
           }
@@ -437,7 +509,6 @@ export default {
             { line: startLine, ch: 0 },
             { line: this.endline, ch: this.editor.getLine(this.endline).length }
           )
-          console.log('[ParaDesigner] 🔍 多行para XML:', JSON.stringify(xml))
 
           if (this.locale === 'cn') {
             xml = this.toEnXml(xml)
@@ -447,7 +518,6 @@ export default {
         }
       } catch (error) {
         this.$message.error('加载内容失败：' + error.message)
-        console.error('setcontent错误:', error)
       }
     },
 
@@ -484,55 +554,35 @@ export default {
 
         // 2. 转换HTML→XML（传入分配的uniqueid数组）
         let paraContent = await html2para(this.Parent, html, this.projectParameters, allocatedUniqueids)
-        console.log('[ParaDesigner] 🔍 Step 2 - html2para结果:', JSON.stringify(paraContent))
 
         // 3. 包裹para标签
         let paraTag = '<para>'
         if (this.paraId && this.paraId.trim()) {
           paraTag = `<para id="${this.paraId}">`
-          console.log('[ParaDesigner] 🔍 Step 3 - para标签带id:', paraTag)
         }
 
         // 构建完整的para XML
         let xml = paraContent ? `${paraTag}\n${paraContent}\n</para>` : `${paraTag}\n</para>`
-        console.log('[ParaDesigner] 🔍 Step 3 - 包裹para后:', JSON.stringify(xml))
 
         // 4. 格式化XML
         const indent = this.editor.getLine(this.lineno).indexOf('<')
-        console.log('[ParaDesigner] 🔍 Step 4a - 计算缩进:', {
-          lineno: this.lineno,
-          line: JSON.stringify(this.editor.getLine(this.lineno)),
-          indent
-        })
         xml = this.formateXml(xml, indent)
-        console.log('[ParaDesigner] 🔍 Step 4b - formateXml后:', JSON.stringify(xml))
-        console.log('[ParaDesigner] 🔍 XML长度:', xml.length, '字符')
-        console.log('[ParaDesigner] 🔍 XML末尾字符码:', xml.charCodeAt(xml.length - 1))
 
-        // 🔧 修复9：移除formatXml添加的末尾换行符，避免生成额外空行
+        // 修复9：移除formatXml添加的末尾换行符，避免生成额外空行
         // Bug根因：formatXml每行都加\n，导致最后一行</para>后面有\n，replaceRange时会在下一行生成空行
         if (xml.endsWith('\n')) {
           xml = xml.replace(/\n+$/, '')
-          console.log('[ParaDesigner] 🔧 修复9 - 移除末尾换行符:', JSON.stringify(xml))
         }
 
         // 5. 中文转换
         if (this.locale === 'cn') {
           xml = this.toCnXml(xml)
-          console.log('[ParaDesigner] 🔍 Step 5 - toCnXml后:', JSON.stringify(xml))
         }
 
         // 6. 回写CodeMirror（精确替换para范围，避免误删后续内容）
-        console.log('[ParaDesigner] 🔍 保存前状态:', {
-          lineno: this.lineno,
-          endline: this.endline,
-          lineCount: this.editor.lineCount()
-        })
-
-        // 🔧 修复2：验证endline的有效性，防止误删其他行
+        // 修复2：验证endline的有效性，防止误删其他行
         // Bug根因：如果endline=-1或无效，重新搜索可能找到错误的结束标签
         if (this.endline < this.lineno) {
-          console.error('[ParaDesigner] ❌ endline无效:', this.endline, '< lineno:', this.lineno)
           throw new Error(`内部错误：endline(${this.endline}) < lineno(${this.lineno})，保存失败。请刷新页面重试。`)
         }
 
@@ -540,12 +590,8 @@ export default {
         let endlineContent = this.editor.getLine(this.endline)
         let actualEndline = this.endline
 
-        console.log('[ParaDesigner] 🔍 endline行内容:', JSON.stringify(endlineContent))
-
         if (!endlineContent) {
           // endline行不存在，重新查找para结束标签
-          console.warn(`[ParaDesigner] endline行不存在: endline=${this.endline}, lineCount=${this.editor.lineCount()}, 重新搜索...`)
-
           const paraName = this.getLocaleName('para')
           actualEndline = -1
 
@@ -562,59 +608,18 @@ export default {
           }
 
           endlineContent = this.editor.getLine(actualEndline)
-          console.warn(`[ParaDesigner] 重新找到para结束行: actualEndline=${actualEndline}`)
         }
 
-        // 🔧 P0修复：单行para只替换当前行，避免删除下一行内容
+        // 修复P0：单行para只替换当前行，避免删除下一行内容
         // Bug根因：{line: actualEndline + 1, ch: 0} 会删除下一行的开头，导致下一行内容丢失
         // 修复方案：单行和多行都使用 {line: actualEndline, ch: lineContent.length}
         const currentLineContent = this.editor.getLine(actualEndline)
-
-        console.log('[ParaDesigner] 🔍 replaceRange参数:', {
-          from: { line: this.lineno, ch: 0 },
-          to: { line: actualEndline, ch: currentLineContent.length },
-          xmlToInsert: JSON.stringify(xml),
-          currentLineContent: JSON.stringify(currentLineContent)
-        })
-
-        // 保存替换前的全文（用于对比）
-        const beforeContent = this.editor.getValue()
-        console.log('[ParaDesigner] 🔍 替换前第', this.lineno, '行:', JSON.stringify(this.editor.getLine(this.lineno)))
-        console.log('[ParaDesigner] 🔍 替换前第', this.lineno + 1, '行:', JSON.stringify(this.editor.getLine(this.lineno + 1)))
 
         this.editor.replaceRange(
           xml,
           { line: this.lineno, ch: 0 },
           { line: actualEndline, ch: currentLineContent.length }
         )
-
-        // 保存替换后的全文（用于对比）
-        const afterContent = this.editor.getValue()
-        console.log('[ParaDesigner] 🔍 替换后第', this.lineno, '行:', JSON.stringify(this.editor.getLine(this.lineno)))
-        console.log('[ParaDesigner] 🔍 替换后第', this.lineno + 1, '行:', JSON.stringify(this.editor.getLine(this.lineno + 1)))
-        console.log('[ParaDesigner] 🔍 替换前后行数变化:', this.editor.lineCount())
-
-        // 对比替换前后的差异（只显示改变的部分）
-        const beforeLines = beforeContent.split('\n')
-        const afterLines = afterContent.split('\n')
-        if (beforeLines.length !== afterLines.length) {
-          console.warn('[ParaDesigner] ⚠️  行数变化:', beforeLines.length, '→', afterLines.length)
-        }
-
-        // 显示变化的行
-        const changedLines = []
-        for (let i = Math.max(0, this.lineno - 2); i < Math.min(afterLines.length, this.lineno + 5); i++) {
-          if (beforeLines[i] !== afterLines[i]) {
-            changedLines.push({
-              lineNo: i,
-              before: beforeLines[i],
-              after: afterLines[i]
-            })
-          }
-        }
-        if (changedLines.length > 0) {
-          console.log('[ParaDesigner] 🔍 变化的行:', changedLines)
-        }
 
         // 6. 触发父组件保存
         this.$emit('save')
@@ -667,41 +672,60 @@ export default {
   flex-direction: column;
   height: 100%;
   background: #fff;
+  min-height: 0;  /* 关键：允许flex子元素小于内容高度 */
 
   .para-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 16px;
+    padding: 4px 12px;  /* 减少 padding */
     background: whitesmoke;
     border-bottom: 1px solid #e8e8e8;
+    flex-shrink: 0;
+    height: 36px;  /* 限制高度 */
 
     .para-title {
-      font-size: 12pt;
+      font-size: 11pt;  /* 减小字体 */
       font-weight: bold;
       color: #2d75cd;
       font-family: 'Microsoft YaHei';
     }
   }
 
-  .para-header {
-    padding: 10px 20px;
-    border-bottom: 1px solid #e8e8e8;
-
-    label {
-      margin-right: 8px;
-      font-weight: 500;
-    }
-  }
-
   .ueditor-container {
-    flex: 1;
-    overflow: hidden;
+    flex-shrink: 0;
+    height: 710px !important;  /* 固定高度：35行 */
+    overflow: visible;  /* 允许子元素显示滚动条 */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 
     textarea {
-      width: 100%;
-      height: 100%;
+      display: none;  /* 隐藏原始textarea */
+    }
+
+    /* 强制iframe填充容器并显示滚动条 */
+    iframe {
+      width: 100% !important;
+      height: 100% !important;
+      flex: 1;
+      border: none;
+      overflow-y: auto !important;  /* Y轴滚动条 */
     }
   }
+}
+
+/* 隐藏UEditor底部栏的第一个td（元素路径） */
+/deep/ .edui-editor-bottomContainer td:first-child {
+  display: none !important;
+  width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 字数统计左对齐 */
+/deep/ .edui-editor-wordcount {
+  text-align: left !important;
+  padding-left: 12px !important;
 }
 </style>
