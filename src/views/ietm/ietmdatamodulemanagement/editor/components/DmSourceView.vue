@@ -19,9 +19,6 @@ import 'codemirror/addon/dialog/dialog.js'
 import 'codemirror/addon/dialog/dialog.css'
 import 'codemirror/addon/selection/active-line.js'
 
-// 生产环境关闭诊断日志（P1-1）
-const DEBUG = process.env.NODE_ENV === 'development'
-
 import { getLinenoOffset, findLineno, getnodeBylineno, formatXml } from '../utils/xmlTree'
 import { editorAtomic, editorKeyEvent, lineAtomic } from '../utils/editorProtect'
 import { refreshGutterMarkers } from '../utils/gutterMarker'
@@ -118,18 +115,31 @@ export default {
     /** 格式化 → 重算 linenoOffset → 全量原子化 → 折叠 identSection → 刷新gutter图标 */
     formateDM() {
       const raw = this.cm.getValue()
-      const formatted = formatXml(raw, 2)
-      this.cm.setValue(formatted)
-      this.linenoOffset = getLinenoOffset(this.cm)
-      editorAtomic(this.cm)
-      this._foldIdentSection()
-      this.$emit('content-change', formatted)
-      // 格式化后刷新gutter图标（行号已变化）
-      this.refreshGutterMarkers()
+      try {
+        const formatted = formatXml(raw, 2)
+        // 验证格式化输出不为空且长度合理
+        if (!formatted || formatted.length === 0) {
+          this.$message.error('格式化失败：输出为空，已保留原内容')
+          return
+        }
+        this.cm.setValue(formatted)
+        this.linenoOffset = getLinenoOffset(this.cm)
+        editorAtomic(this.cm)
+        this._foldIdentSection()
+        this.$emit('content-change', formatted)
+        // 格式化后刷新gutter图标（行号已变化）
+        this.refreshGutterMarkers()
+      } catch (error) {
+        console.error('formatXml异常:', error)
+        this.$message.error('格式化XML失败: ' + error.message + '，已保留原内容')
+      }
     },
 
     setNodeList(nodes)  {
       this.nodeList = nodes
+      // 🔧 P1-4修复: 树更新时同时刷新linenoOffset，确保时序一致
+      // refreshGutterMarkers依赖linenoOffset准确，必须先更新再使用
+      this.linenoOffset = getLinenoOffset(this.cm)
       // nodeList更新后刷新gutter图标
       this.refreshGutterMarkers()
     },
@@ -141,126 +151,78 @@ export default {
     forceFixGuttersLayout() {
       if (!this.cm) return
 
-      if (DEBUG) console.log('[DmSourceView] forceFixGuttersLayout 开始')
-
       const wrapper = this.cm.display.wrapper
       const gutters = this.cm.display.gutters
+      const scroller = wrapper.querySelector('.CodeMirror-scroll')
 
-      // ① 清除所有可能缓存的错误尺寸（从最外层到最内层依次清理）
-      const dmSourceView = this.$el
-      const tabPane = dmSourceView.closest('.ant-tabs-tabpane')
+      // 🔧 修复 scroller 高度：CodeMirror 默认高度计算有问题，强制设置
+      if (scroller) {
+        const scrollerStyle = getComputedStyle(scroller)
+        const paddingTop = parseFloat(scrollerStyle.paddingTop) || 0
+        const paddingBottom = parseFloat(scrollerStyle.paddingBottom) || 0
+        const borderTop = parseFloat(scrollerStyle.borderTopWidth) || 0
+        const borderBottom = parseFloat(scrollerStyle.borderBottomWidth) || 0
 
-      // 修复UEditor污染的font-size（导致.7em的foldgutter宽度异常）
-      if (wrapper) {
-        const currentFontSize = window.getComputedStyle(wrapper).fontSize
-        if (currentFontSize !== '14px') {
-          wrapper.style.fontSize = '14px'
-        }
+        // 目标高度 = wrapper 内部高度 - scroller 的 padding 和 border
+        const targetHeight = wrapper.clientHeight - paddingTop - paddingBottom - borderTop - borderBottom
+        scroller.style.height = targetHeight + 'px'
       }
 
-      // 清除TabPane上可能残留的height:0
-      if (tabPane) {
-        tabPane.style.removeProperty('height')
-        tabPane.style.removeProperty('min-height')
-        tabPane.style.removeProperty('max-height')
-      }
-
-      // 清除dm-source-view上可能的限制
-      if (dmSourceView) {
-        dmSourceView.style.removeProperty('height')
-        dmSourceView.style.removeProperty('max-height')
-      }
-
-      // 清除CodeMirror wrapper的缓存
-      if (wrapper) {
-        wrapper.style.removeProperty('height')
-        wrapper.style.removeProperty('max-height')
-      }
-
-      // ② 完全重置CodeMirror的布局
+      // 强制 CodeMirror 重新计算布局
+      this.cm.refresh()
       this.cm.setSize(null, null)
-
-      // ③ 使用requestAnimationFrame等待DOM更新
       requestAnimationFrame(() => {
         this.cm.setSize('100%', '100%')
         this.cm.refresh()
 
         requestAnimationFrame(() => {
-          // 修复gutters宽度
-          if (gutters) {
-            const children = Array.from(gutters.children)
+          // 修复 gutters 宽度
+        if (gutters) {
+          const children = Array.from(gutters.children)
 
-            // P1-2: 动态计算行号列宽度（基于总行数）
-            const lineCount = this.cm.lineCount()
-            const linenoDigits = String(lineCount).length
-            const linenoWidth = Math.max(40, linenoDigits * 10 + 10)
+          // P1-2: 动态计算行号列宽度（基于总行数）
+          const lineCount = this.cm.lineCount()
+          const linenoDigits = String(lineCount).length
+          const linenoWidth = Math.max(40, linenoDigits * 10 + 10)
 
-            // 强制修复每个子元素宽度（覆盖CodeMirror动态设置的.7em相对宽度）
+          // 强制修复每个子元素宽度
+          children.forEach((child) => {
+            if (child.classList.contains('CodeMirror-linenumbers')) {
+              child.style.width = linenoWidth + 'px'
+              child.style.minWidth = linenoWidth + 'px'
+              child.style.maxWidth = linenoWidth + 'px'
+              child.style.boxSizing = 'border-box'
+            } else if (child.classList.contains('CodeMirror-foldgutter')) {
+              child.style.width = '17px'
+              child.style.minWidth = '17px'
+              child.style.maxWidth = '17px'
+              child.style.boxSizing = 'border-box'
+            } else if (child.classList.contains('dmGutter')) {
+              child.style.width = '18px'
+              child.style.minWidth = '18px'
+              child.style.maxWidth = '18px'
+              child.style.boxSizing = 'border-box'
+            }
+          })
+
+          // 重新计算总宽度并修复子元素定位
+          const totalWidth = children.reduce((sum, child) => sum + child.offsetWidth, 0)
+
+          if (totalWidth > 0) {
+            const guttersStyle = window.getComputedStyle(gutters)
+            const borderRightWidth = parseFloat(guttersStyle.borderRightWidth) || 0
+            gutters.style.width = (totalWidth + borderRightWidth) + 'px'
+
+            let leftPosition = 0
             children.forEach((child) => {
-              if (child.classList.contains('CodeMirror-linenumbers')) {
-                child.style.width = linenoWidth + 'px'
-                child.style.minWidth = linenoWidth + 'px'
-                child.style.maxWidth = linenoWidth + 'px'
-                child.style.boxSizing = 'border-box'
-              } else if (child.classList.contains('CodeMirror-foldgutter')) {
-                child.style.width = '17px'
-                child.style.minWidth = '17px'
-                child.style.maxWidth = '17px'
-                child.style.boxSizing = 'border-box'
-              } else if (child.classList.contains('dmGutter')) {
-                child.style.width = '18px'
-                child.style.minWidth = '18px'
-                child.style.maxWidth = '18px'
-                child.style.boxSizing = 'border-box'
-              }
+              child.style.left = leftPosition + 'px'
+              leftPosition += child.offsetWidth
             })
-
-            // 重新计算总宽度并修复子元素定位
-            const totalWidth = children.reduce((sum, child) => sum + child.offsetWidth, 0)
-
-            if (totalWidth > 0) {
-              // 获取 gutters 容器的 border-right 宽度（通常是 1px）
-              const guttersStyle = window.getComputedStyle(gutters)
-              const borderRightWidth = parseFloat(guttersStyle.borderRightWidth) || 0
-
-              // 总宽度 = 子元素宽度之和 + 右边框宽度
-              gutters.style.width = (totalWidth + borderRightWidth) + 'px'
-
-              let leftPosition = 0
-              children.forEach((child) => {
-                child.style.left = leftPosition + 'px'
-                leftPosition += child.offsetWidth
-              })
-            }
           }
+        }
 
-          // ④ 修复CodeMirror内容区域高度（解决下方空白问题）
-          const scroller = wrapper.querySelector('.CodeMirror-scroll')
-          const sizer = wrapper.querySelector('.CodeMirror-sizer')
-          if (scroller && sizer) {
-            // 清除可能缓存的错误高度
-            scroller.style.removeProperty('height')
-            scroller.style.removeProperty('min-height')
-            scroller.style.removeProperty('max-height')
-            sizer.style.removeProperty('height')
-            sizer.style.removeProperty('min-height')
-            sizer.style.removeProperty('max-height')
-          }
-
-          // ⑤ 强制修复 scroller 高度（CodeMirror 的 refresh() 不会重新计算）
-          if (scroller && wrapper) {
-            const wrapperHeight = wrapper.offsetHeight
-            scroller.style.height = wrapperHeight + 'px'
-            this.cm.refresh()
-
-            // 验证修复结果
-            const heightDiff = wrapper.offsetHeight - scroller.offsetHeight
-            if (heightDiff > 10) {
-              if (DEBUG) console.warn('[DmSourceView] 高度误差:', heightDiff + 'px')
-            }
-          }
-
-          if (DEBUG) console.log('[DmSourceView] forceFixGuttersLayout 完成')
+        // 最后刷新确保布局正确
+        this.cm.refresh()
         })
       })
     },
@@ -300,6 +262,12 @@ export default {
      *  0-based 行索引 = lineno - 1；取列与落点用同一行（修正 §17.4 源码取下一行的偏移隐患）：
      *  光标置于标签名首字符（'<' 后第 1 个字符），即 begintagidx + 1。 */
     locateByLineno(lineno) {
+      // 🔧 P2-A修复: lineno应该至少是1（对应XML的第一个实际元素行）
+      // lineno=0表示未初始化的节点，不应该定位
+      if (!lineno || lineno <= 0) {
+        console.warn('[locateByLineno] 无效的lineno:', lineno)
+        return
+      }
       const line = Math.max(0, lineno - 1)
       const text = this.cm.getLine(line) || ''
       const begintagidx = text.indexOf('<')
@@ -492,7 +460,7 @@ function _writeAttr(line, name, val) {
 </script>
 <style lang="less" scoped>
 .dm-source-view { flex: 1; min-height: 0; }
-/deep/ .CodeMirror { height: 100%; font-family: 'Consolas', monospace; font-size: 14px; }
+/deep/ .CodeMirror { height: 100%; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; }
 /deep/ .CodeMirror-gutters {
   border-right: 1px solid #ddd;
   background-color: #f7f7f7;

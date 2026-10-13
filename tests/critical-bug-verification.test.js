@@ -6,13 +6,11 @@
 const { para2html, html2para } = require('../src/views/ietm/ietmdatamodulemanagement/editor/utils/paraConverter')
 
 describe('CRITICAL Bug修复验证', () => {
-
   // ==========================================
   // CRITICAL-01: td内多个para残留标签问题
   // ==========================================
 
   describe('CRITICAL-01: td内多个para不应留下残留标签', () => {
-
     test('td包含单个para - 应正常转换', () => {
       const html = '<table deflist="1"><tbody><tr><td><para>定义A</para></td></tr></tbody></table>'
       const xml = html2para(html, { dmCode: 'TEST-A-00-0-0-00' })
@@ -109,7 +107,6 @@ describe('CRITICAL Bug修复验证', () => {
   // ==========================================
 
   describe('CRITICAL-02: ueditorInstanceId唯一性验证', () => {
-
     test('生成100个实例ID - 应全部唯一', () => {
       const ids = new Set()
 
@@ -153,7 +150,6 @@ describe('CRITICAL Bug修复验证', () => {
   // ==========================================
 
   describe('边界情况补充验证', () => {
-
     test('嵌套列表 - para内包含列表', () => {
       const html = '<p>外层<ul><li>内层项目</li></ul></p>'
       const xml = html2para(html, { dmCode: 'TEST-A-00-0-0-00' })
@@ -207,7 +203,6 @@ describe('CRITICAL Bug修复验证', () => {
   // ==========================================
 
   describe('dmCode验证边界测试', () => {
-
     test('正常dmCode - 6段', () => {
       const html = '<p>测试</p>'
 

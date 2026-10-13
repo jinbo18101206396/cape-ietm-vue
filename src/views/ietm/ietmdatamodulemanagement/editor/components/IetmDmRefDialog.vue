@@ -123,9 +123,11 @@ const GROUP_MAP = {
 export default {
   name: 'IetmDmRefDialog',
   components: { ConfigTree },
+  props: {
+    visible: { type: Boolean, default: false }
+  },
   data() {
     return {
-      visible: false,
       confirming: false,
       activeTab: 'latest',
 
@@ -265,9 +267,14 @@ export default {
     }
   },
   methods: {
+    // 打开弹窗：标准方法，由ParaDesigner按钮调用
+    open() {
+      this.$emit('update:visible', true)
+      this.show()
+    },
+
     // 打开弹窗：重置会话内所有状态（含版本标记不跨open保留）
     show() {
-      this.visible = true
       this.confirming = false
       this.activeTab = 'latest'
       this.cmNode = null
@@ -285,7 +292,7 @@ export default {
       this.fragmentGroups = []
       this.fragmentsLoading = false
     },
-    handleClose() { this.visible = false },
+    handleClose() { this.$emit('update:visible', false) },
 
     // ── 树选择联动 ────────────────────────────────────────────────
     onTreeSelect(node) {
@@ -459,7 +466,7 @@ export default {
           } else {
             this.$message.warning('生成的dmRef XML为空，请检查目标DM内容是否含有效dmCode。')
           }
-          this.visible = false
+          this.$emit('update:visible', false)
         } else {
           this.$message.error(res.message || '生成dmRef失败')
         }

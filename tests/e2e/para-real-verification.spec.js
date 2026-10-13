@@ -24,7 +24,7 @@ test.describe('Para设计器真实验证', () => {
     const firstRow = page.locator('tbody tr').first()
     const dmCodeCell = firstRow.locator('td').nth(1)
     const dmCode = await dmCodeCell.textContent()
-    
+
     console.log('找到DM:', dmCode)
 
     // 点击编辑按钮（假设在操作列）
@@ -56,7 +56,7 @@ test.describe('Para设计器真实验证', () => {
       try {
         await page.dblclick(`text=para#${firstParaId}`, { timeout: 5000 })
         await page.waitForSelector('.para-designer', { timeout: 5000 })
-        
+
         console.log('✅ 成功打开Para设计视图')
 
         // 检查UEditor是否加载
@@ -85,7 +85,7 @@ test.describe('Para设计器真实验证', () => {
           // 测试保存功能
           await page.click('.para-designer button:has-text("保存")')
           await page.waitForSelector('.source-pane', { state: 'visible', timeout: 5000 })
-          
+
           console.log('✅ 成功保存并返回源码视图')
 
           // 验证内容一致性
@@ -100,11 +100,9 @@ test.describe('Para设计器真实验证', () => {
           // 验证para数量不变
           expect(finalParaMatches.length).toBe(paraMatches.length)
           console.log('✅ Para数量保持不变（往返一致性）')
-
         } else {
           console.log('❌ UEditor未加载')
         }
-
       } catch (e) {
         console.log('无法打开设计视图:', e.message)
       }
@@ -115,7 +113,7 @@ test.describe('Para设计器真实验证', () => {
 
   test('REAL-02: 验证Console无错误', async ({ page }) => {
     const consoleErrors = []
-    
+
     page.on('console', msg => {
       if (msg.type() === 'error') {
         consoleErrors.push(msg.text())
@@ -142,8 +140,8 @@ test.describe('Para设计器真实验证', () => {
 
     // 过滤掉无关错误
     const relevantErrors = consoleErrors.filter(err => {
-      return err.includes('para') || 
-             err.includes('UEditor') || 
+      return err.includes('para') ||
+             err.includes('UEditor') ||
              err.includes('JSON.parse') ||
              err.includes('dmCode') ||
              err.includes('uniqueid')

@@ -16,7 +16,6 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Para设计器 - 全面功能验证', () => {
-
   let dmId = null
   let editorPage = null
 
@@ -58,7 +57,6 @@ test.describe('Para设计器 - 全面功能验证', () => {
   // ========================================
 
   test.describe('基本工作流', () => {
-
     test('WF-01: 打开标准单行para → 编辑 → 保存 → 验证', async () => {
       // 1. 插入测试数据
       const testXml = `    <para id="wf01-single-line">单行para测试内容</para>`
@@ -211,11 +209,10 @@ test.describe('Para设计器 - 全面功能验证', () => {
   // ========================================
 
   test.describe('缩进不一致场景', () => {
-
     test('INDENT-01: 结束标签缩进小于开始标签（左对齐）', async () => {
       const testXml = `      <para id="indent01-left-align">
         <emphasis>左对齐格式化风格</emphasis>
-    </para>`  // 结束标签缩进4，开始标签缩进6
+    </para>` // 结束标签缩进4，开始标签缩进6
 
       const lineNo = await editorPage.evaluate((xml) => {
         const cm = document.querySelector('.CodeMirror').CodeMirror
@@ -239,7 +236,7 @@ test.describe('Para设计器 - 全面功能验证', () => {
     test('INDENT-02: 结束标签缩进大于开始标签（兜底匹配）', async () => {
       const testXml = `    <para id="indent02-right-indent">
       <emphasis>异常缩进</emphasis>
-        </para>`  // 结束标签缩进8，开始标签缩进4
+        </para>` // 结束标签缩进8，开始标签缩进4
 
       const lineNo = await editorPage.evaluate((xml) => {
         const cm = document.querySelector('.CodeMirror').CodeMirror
@@ -262,7 +259,7 @@ test.describe('Para设计器 - 全面功能验证', () => {
     test('INDENT-03: 极端左对齐（缩进差距很大）', async () => {
       const testXml = `        <para id="indent03-extreme">
           <emphasis>极端缩进测试</emphasis>
-  </para>`  // 结束标签缩进2，开始标签缩进8
+  </para>` // 结束标签缩进2，开始标签缩进8
 
       const lineNo = await editorPage.evaluate((xml) => {
         const cm = document.querySelector('.CodeMirror').CodeMirror
@@ -311,7 +308,7 @@ test.describe('Para设计器 - 全面功能验证', () => {
       // 注意：使用\t表示制表符
       const testXml = `\t<para id="indent05-mixed">
 \t  <emphasis>混合缩进</emphasis>
-    </para>`  // 混合制表符和空格
+    </para>` // 混合制表符和空格
 
       const lineNo = await editorPage.evaluate((xml) => {
         const cm = document.querySelector('.CodeMirror').CodeMirror
@@ -337,7 +334,6 @@ test.describe('Para设计器 - 全面功能验证', () => {
   // ========================================
 
   test.describe('边界场景', () => {
-
     test('EDGE-01: 空para', async () => {
       const testXml = `    <para id="edge01-empty"></para>`
 
@@ -520,7 +516,6 @@ test.describe('Para设计器 - 全面功能验证', () => {
   // ========================================
 
   test.describe('保存功能', () => {
-
     test('SAVE-01: 保存后endline正确更新', async () => {
       const testXml = `    <para id="save01-endline">
       <emphasis>测试endline更新</emphasis>
@@ -671,7 +666,6 @@ test.describe('Para设计器 - 全面功能验证', () => {
   // ========================================
 
   test.describe('压力测试', () => {
-
     test('STRESS-01: 连续打开关闭10个para', async () => {
       // 插入10个para
       let testXml = ''

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UEditor工具栏按钮测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #2196F3;
+        }
+        .buttons-to-check {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #ffc107;
+        }
+        .buttons-to-check ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .buttons-to-check li {
+            margin: 5px 0;
+            color: #856404;
+        }
+    </style>
+    <script type="text/javascript" src="/static/ueditor/ueditor.config.js"></script>
+    <script type="text/javascript" src="/static/ueditor/ueditor.all.min.js"></script>
+    <script type="text/javascript" src="/static/ueditor/lang/zh-cn/zh-cn.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 UEditor工具栏按钮显示测试</h1>
+
+        <div class="info">
+            <strong>📝 说明：</strong>
+            <p>此页面用于测试UEditor编辑器是否正确显示所有工具栏按钮。请检查编辑器工具栏中是否包含以下按钮：</p>
+        </div>
+
+        <div class="buttons-to-check">
+            <strong>⚠️ 需要检查的按钮：</strong>
+            <ul>
+                <li><strong>fontsize</strong> - 字号选择（通常显示为字号下拉框，如"12px"等）</li>
+                <li><strong>rowspacingtop</strong> - 段前距（段落上方间距）</li>
+                <li><strong>rowspacingbottom</strong> - 段后距（段落下方间距）</li>
+                <li><strong>lineheight</strong> - 行高（行间距，如"1.5"等）</li>
+                <li><strong>customstyle</strong> - 自定义样式（预设样式选择）</li>
+            </ul>
+        </div>
+
+        <!-- UEditor编辑器容器 -->
+        <script id="editor" type="text/plain" style="height: 400px;">
+            <p>这是一段测试文本。请在工具栏中查找以下按钮：</p>
+            <ul>
+                <li>字号选择（fontsize）</li>
+                <li>段前距（rowspacingtop）</li>
+                <li>段后距（rowspacingbottom）</li>
+                <li>行高（lineheight）</li>
+                <li>自定义样式（customstyle）</li>
+            </ul>
+            <p>选中文本后，这些按钮应该在工具栏中可见。</p>
+        </script>
+
+        <div style="margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 4px;">
+            <strong>💡 提示：</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>如果看不到某些按钮，请检查浏览器控制台是否有JavaScript错误</li>
+                <li>某些按钮可能需要选中文本后才会激活</li>
+                <li>工具栏中的竖线"|"表示按钮分组</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // 初始化UEditor编辑器
+        var ue = UE.getEditor('editor', {
+            // 使用默认配置（从ueditor.config.js中读取）
+            autoHeightEnabled: false,
+            initialFrameHeight: 400,
+            initialFrameWidth: '100%'
+        });
+
+        // 编辑器准备就绪后的回调
+        ue.ready(function() {
+            console.log('✅ UEditor编辑器初始化成功');
+
+            // 获取工具栏配置
+            var toolbars = ue.options.toolbars;
+            console.log('📋 工具栏配置：', toolbars);
+
+            // 检查特定按钮是否在配置中
+            var buttonsToCheck = ['fontsize', 'rowspacingtop', 'rowspacingbottom', 'lineheight', 'customstyle'];
+            var toolbarFlat = toolbars[0].join(',');
+
+            console.log('\n🔍 按钮检查结果：');
+            buttonsToCheck.forEach(function(btn) {
+                var exists = toolbarFlat.indexOf(btn) !== -1;
+                console.log(btn + ': ' + (exists ? '✅ 已配置' : '❌ 未配置'));
+            });
+        });
+    </script>
+</body>
+</html>

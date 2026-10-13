@@ -15,10 +15,10 @@ const PROJECT_ID = '2078348945532030978' // 项目1（含5个真实DM）
 
 // 真实DM样本（从后端实测确认的4种para形态）
 const DMS = {
-  text: '2104221587304550402',    // <para>XXX</para>
-  table: '2102970667065356289',   // 多行，含2个<table>
-  symbol: '2100916775137787905',  // 含<symbol> ICN图符
-  empty: '2099812980483919874'    // 空<para></para>
+  text: '2104221587304550402', // <para>XXX</para>
+  table: '2102970667065356289', // 多行，含2个<table>
+  symbol: '2100916775137787905', // 含<symbol> ICN图符
+  empty: '2099812980483919874' // 空<para></para>
 }
 
 let backendUp = false
@@ -95,7 +95,7 @@ describe('Para设计视图 - 真实后端完整流程', () => {
     expect(block).toContain('<symbol')
 
     // para2html 内部 tosymbol 会 POST /ietm/icn/getIcnContent（已实测404）
-    let html, convertError = null
+    let html; let convertError = null
     try {
       html = await para2html({ locale: 'en' }, block)
     } catch (e) {

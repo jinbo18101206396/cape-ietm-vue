@@ -13,15 +13,18 @@ const http = require('http')
 const FE = 'http://localhost:3000'
 const BE = 'http://127.0.0.1:9999/jeecg-boot'
 const PROJECT_ID = '2078348945532030978'
-const DM_ID = '2104221587304550402'  // 已被admin签出+含para
+const DM_ID = '2104221587304550402' // 已被admin签出+含para
 
 function api(method, path, token, body) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : null
     const u = new URL(BE + path)
     const req = http.request({
-      hostname: u.hostname, port: u.port, path: u.pathname + u.search,
-      method, headers: {
+      hostname: u.hostname,
+port: u.port,
+path: u.pathname + u.search,
+      method,
+headers: {
         'Content-Type': 'application/json',
         ...(token ? { 'X-Access-Token': token } : {}),
         ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {})
@@ -228,12 +231,12 @@ test('公式编辑器安装验证', async ({ page }) => {
   console.log('① 插件资源200:', assets.length, '个全部通过 → PASS')
   console.log('② 公式按钮渲染:', btnCount > 0 ? 'PASS' : 'FAIL')
   console.log('③ 公式弹窗+引擎加载: PASS(见截图)')
-  console.log('④ 插入公式→保存→symbol:', hasSymbol ? 'PASS' :
-    `未产出(根因: 后端/ietm/icn/save-formula=${sfResp.status()}, 既有后端缺口，非本次插件安装问题)`)
+  console.log('④ 插入公式→保存→symbol:', hasSymbol ? 'PASS'
+    : `未产出(根因: 后端/ietm/icn/save-formula=${sfResp.status()}, 既有后端缺口，非本次插件安装问题)`)
 
   // 硬断言:本次交付物(插件安装+按钮+弹窗)必须通过
-  expect(btnCount).toBeGreaterThan(0)          // 公式按钮已渲染
-  expect(failed404).toEqual([])                // 无kityformula资源404
+  expect(btnCount).toBeGreaterThan(0) // 公式按钮已渲染
+  expect(failed404).toEqual([]) // 无kityformula资源404
   // 记录后端缺口:save-formula当前404。若后端将来实现,此断言会失败→提醒更新
   expect(sfResp.status()).toBe(404)
   console.log('资源200:', assets.length, '个全部通过')

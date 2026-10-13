@@ -81,6 +81,12 @@ export default {
     }
   },
   methods: {
+    // 打开弹窗：标准方法，由ParaDesigner按钮调用
+    open() {
+      this.$emit('update:visible', true)
+      this.resetState()
+    },
+
     resetState() {
       this.selectedType = undefined
       this.selectedId   = undefined

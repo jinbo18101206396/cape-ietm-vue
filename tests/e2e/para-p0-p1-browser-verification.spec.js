@@ -388,7 +388,7 @@ test.describe('Para设计器 - P1修复浏览器验证', () => {
     // 多次打开关闭设计视图
     for (let i = 0; i < 3; i++) {
       await openParaDesigner(page, 'p1')
-      await setParaDesignerContent(page, `<p>第${i+1}次编辑</p>`)
+      await setParaDesignerContent(page, `<p>第${i + 1}次编辑</p>`)
       await saveParaDesigner(page)
     }
 

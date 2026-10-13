@@ -144,7 +144,7 @@ Object.entries(fixes).forEach(([name, applied]) => {
   console.log(`  ${applied ? '✅' : '❌'} ${name}`)
 })
 
-console.log(`\n应用率: ${applied}/${total} (${(applied/total*100).toFixed(1)}%)`)
+console.log(`\n应用率: ${applied}/${total} (${(applied / total * 100).toFixed(1)}%)`)
 
 if (applied === total) {
   console.log('\n🎉 结论: 所有修复已确认应用到生产代码中！')
@@ -166,7 +166,7 @@ const codeLines = totalLines - commentLines
 console.log(`总行数: ${totalLines}`)
 console.log(`代码行: ${codeLines}`)
 console.log(`注释行: ${commentLines}`)
-console.log(`注释率: ${(commentLines/totalLines*100).toFixed(1)}%`)
+console.log(`注释率: ${(commentLines / totalLines * 100).toFixed(1)}%`)
 
 // 统计修复注释
 const fixComments = lines.filter(line =>

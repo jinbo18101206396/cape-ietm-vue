@@ -6,7 +6,6 @@
 const { test, expect } = require('@playwright/test')
 
 test.describe('Para设计器正则修复冒烟测试', () => {
-
   test.beforeEach(async ({ page }) => {
     // 设置较长的超时时间
     test.setTimeout(60000)

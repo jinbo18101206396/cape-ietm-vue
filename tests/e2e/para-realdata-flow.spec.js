@@ -16,7 +16,7 @@ const BASE = 'http://localhost:3000'
 const BACKEND = 'http://localhost:9999'
 
 // 真实DM（实测确认的para形态）
-const DM_TEXT = '2104221587304550402'   // <para>XXX</para>
+const DM_TEXT = '2104221587304550402' // <para>XXX</para>
 const DM_SYMBOL = '2100916775137787905' // 含<symbol>
 
 async function loginUI(page) {
@@ -130,8 +130,8 @@ test.describe('Para设计视图 - 真实数据流程', () => {
     //   影响：用户在设计视图打开任何含图符的para并保存，图符即丢失。
     //   待后端补 getIcnContent 端点（或前端改用 metadata/view 契约）修复后，
     //   本断言会变红，届时应改为 expect(symbolAfter).toBe(symbolBefore)。
-    expect(imgCount).toBe(0)          // 图符未渲染成img（getIcnContent 404）
-    expect(symbolBefore).toBe(1)      // 打开前确有1个图符
-    expect(symbolAfter).toBe(0)       // 保存后图符被销毁（当前缺陷行为）
+    expect(imgCount).toBe(0) // 图符未渲染成img（getIcnContent 404）
+    expect(symbolBefore).toBe(1) // 打开前确有1个图符
+    expect(symbolAfter).toBe(0) // 保存后图符被销毁（当前缺陷行为）
   })
 })

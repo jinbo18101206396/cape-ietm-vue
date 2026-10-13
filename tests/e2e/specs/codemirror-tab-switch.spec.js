@@ -125,7 +125,7 @@ describe('CodeMirror Tab Switch Test', () => {
       // 验证高度保持一致
       cy.window().then((win) => {
         const cmScroll = win.document.querySelector('.CodeMirror-scroll')
-        expect(cmScroll.offsetHeight, `第${i+1}次切换后的高度`)
+        expect(cmScroll.offsetHeight, `第${i + 1}次切换后的高度`)
           .to.be.closeTo(win.initialHeight, 5)
       })
     }

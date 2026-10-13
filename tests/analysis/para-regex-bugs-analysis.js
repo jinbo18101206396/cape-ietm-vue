@@ -88,7 +88,7 @@ const REGEX_BUGS = [
 ]
 
 console.log('📋 Para转换器正则表达式Bug清单\n')
-console.log('=' .repeat(80))
+console.log('='.repeat(80))
 
 REGEX_BUGS.forEach((bug, idx) => {
   const statusSymbol = bug.fix.startsWith('✅') ? '✅' : '❌'

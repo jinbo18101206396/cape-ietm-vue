@@ -562,8 +562,8 @@ test.describe('Para设计器全面测试 - 需求文档v3.3对标', () => {
       expect(paraSize).toBeGreaterThan(1000) // 至少1KB
       expect(converterSize).toBeGreaterThan(1000)
 
-      console.log(`✓ ParaDesigner.vue 大小: ${(paraSize/1024).toFixed(2)} KB`)
-      console.log(`✓ paraConverter.js 大小: ${(converterSize/1024).toFixed(2)} KB`)
+      console.log(`✓ ParaDesigner.vue 大小: ${(paraSize / 1024).toFixed(2)} KB`)
+      console.log(`✓ paraConverter.js 大小: ${(converterSize / 1024).toFixed(2)} KB`)
     })
 
     test('TC-Q03: 注释和文档完整性验证', async () => {

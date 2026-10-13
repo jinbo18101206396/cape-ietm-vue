@@ -9,7 +9,6 @@ const BASE_URL = 'http://localhost:3000'
 const API_BASE = 'http://localhost:9999'
 
 test.describe('Para设计器保存功能（§3.3）', () => {
-
   test.beforeEach(async ({ page }) => {
     // 登录
     await page.goto(`${BASE_URL}/user/login`)

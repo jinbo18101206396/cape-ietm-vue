@@ -38,9 +38,10 @@
                   :dm-code="dmc"
                   :node-list="nodeList"
                   :ifedit="readonly ? '0' : '1'"
-                  simple="1"
+                  simple="0"
                   @save="onParaSave"
                   @refresh="onParaRefresh"
+                  @refreshLayout="onParaRefreshLayout"
                 />
                 <div v-else class="design-placeholder">
                   <a-icon type="file-text" class="dp-icon"/>
@@ -124,7 +125,11 @@
     <dm-validate-panel ref="validatePanel" @locate="onLocateValid"/>
     <dm-preview-modal  ref="previewModal"/>
     <dm-node-preview-modal ref="nodePreviewModal"/>
-    <ietm-dm-ref-dialog ref="dmRefDialog" @insert="onDmRefInsert"/>
+    <ietm-dm-ref-dialog
+      v-if="dmRefDialogVisible"
+      ref="dmRefDialog"
+      :visible.sync="dmRefDialogVisible"
+      @insert="onDmRefInsert"/>
     <ietm-symbol-dialog
       v-if="symbolDialogVisible"
       :visible.sync="symbolDialogVisible"
@@ -250,6 +255,7 @@ export default {
       cursorLine: 1,
       hasNotice: false,
       moveRowVisible: false, moveRowFrom: 1, moveRowTo: 1,
+      dmRefDialogVisible:    false,
       symbolDialogVisible:   false,
       interrefVisible:       false,
       icnlist: [],  // ICN后缀映射数组（§16.4.3 四时机维护）
@@ -586,6 +592,21 @@ export default {
         }
       })
     },
+    // 🔧 修复P0-LAYOUT: Para设计器布局刷新事件
+    // 根因：UEditor 可能设置内联样式，导致 CodeMirror 无法继承 Ant Design 的默认 line-height: 1.5
+    // 解决：触发 DmSourceView 的布局刷新，清除污染并重新测量
+    onParaRefreshLayout() {
+      console.log('[DmContentEditor] 收到 refreshLayout 事件')
+
+      // 直接调用 DmSourceView 的 forceFixGuttersLayout 方法
+      // 它会清除所有内联样式污染，并让 CodeMirror 重新测量
+      this.$nextTick(() => {
+        if (this.$refs.editor && this.$refs.editor.forceFixGuttersLayout) {
+          this.$refs.editor.forceFixGuttersLayout()
+          console.log('[DmContentEditor] 布局刷新完成')
+        }
+      })
+    },
     onSetProperty({ lineno, attrName, attrVal }) {
       this.$refs.editor.setProperty(lineno, attrName, attrVal)
       this.dirty = true
@@ -680,7 +701,21 @@ export default {
       // E-PRE-10：防止快速连续点击，预览期间禁用按钮
       if (this.previewing) return
 
-      const body = this.locale === 'cn' ? toEnXml(this.content, this.cn2enElem) : this.content
+      let body = this.locale === 'cn' ? toEnXml(this.content, this.cn2enElem) : this.content
+      // 🔧 关键修复：去掉 XML 开头的前导空白（后端 XML 解析器要求 XML 声明必须在文件最开始）
+      if (body) {
+        body = body.replace(/^(\s*)/, (match) => {
+          // 记录前导空白数，然后清除
+          if (match.length > 0) {
+            // 检查是否后面跟着 XML 声明或其他内容
+            const afterTrim = body.substring(match.length)
+            if (afterTrim.startsWith('<?xml') || afterTrim.startsWith('<!DOCTYPE') || afterTrim.startsWith('<')) {
+              return ''  // 清除前导空白
+            }
+          }
+          return match
+        })
+      }
       if (!body || !body.trim()) { this.$message.info('DM内容为空,无法预览。'); return }
 
       // E-PRE-12：大文档预警（超过 500KB）
@@ -954,7 +989,7 @@ export default {
         this.$message.info('此处不能插入DM。')
         return
       }
-      this.$refs.dmRefDialog.show()
+      this.dmRefDialogVisible = true
     },
     // 三个插入功能（引用DM/图符/内部引用）统一的插入原语：在光标处插入 XML 片段。
     // 若用户存在选区，折叠到选区起点插入而非替换选区——避免删除跨标签边界的选中文本

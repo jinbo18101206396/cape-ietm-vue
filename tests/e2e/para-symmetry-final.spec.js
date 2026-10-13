@@ -156,7 +156,6 @@ test.describe('Para转换对称性 - 源码直接执行验证', () => {
             specificMsg: specificMsg,
             passed: isSymmetric && specificCheck
           })
-
         } catch (error) {
           testResults.push({
             id: tc.id,

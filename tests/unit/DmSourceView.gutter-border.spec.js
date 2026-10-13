@@ -9,9 +9,9 @@
 function simulateGutterCalculation() {
   // 模拟子元素宽度
   const children = [
-    { offsetWidth: 40 },  // CodeMirror-linenumbers
-    { offsetWidth: 17 },  // CodeMirror-foldgutter
-    { offsetWidth: 18 }   // dmGutter
+    { offsetWidth: 40 }, // CodeMirror-linenumbers
+    { offsetWidth: 17 }, // CodeMirror-foldgutter
+    { offsetWidth: 18 } // dmGutter
   ]
 
   // 子元素总宽度
@@ -57,7 +57,7 @@ console.log('\n📦 forceFixGuttersLayout 边框计算测试')
 
 it('应该正确计算子元素总宽度', () => {
   const { totalWidth } = simulateGutterCalculation()
-  expect(totalWidth).toBe(75)  // 40 + 17 + 18
+  expect(totalWidth).toBe(75) // 40 + 17 + 18
 })
 
 it('应该包含 border-right 宽度', () => {
@@ -67,18 +67,18 @@ it('应该包含 border-right 宽度', () => {
 
 it('容器总宽度应该等于子元素宽度 + 边框宽度', () => {
   const { guttersWidth } = simulateGutterCalculation()
-  expect(guttersWidth).toBe(76)  // 75 + 1
+  expect(guttersWidth).toBe(76) // 75 + 1
 })
 
 it('修复前后的宽度差异应该等于边框宽度', () => {
-  const beforeFix = 75  // 旧代码：只算子元素
-  const afterFix = 76   // 新代码：子元素 + 边框
+  const beforeFix = 75 // 旧代码：只算子元素
+  const afterFix = 76 // 新代码：子元素 + 边框
   const diff = afterFix - beforeFix
-  expect(diff).toBe(1)  // 正好是 border-right 的 1px
+  expect(diff).toBe(1) // 正好是 border-right 的 1px
 })
 
 it('首次进入和切换后的宽度应该一致', () => {
-  const firstTimeWidth = 76  // CodeMirror 初始化时的自然宽度（含边框）
+  const firstTimeWidth = 76 // CodeMirror 初始化时的自然宽度（含边框）
   const switchBackWidth = 76 // forceFixGuttersLayout 修复后的宽度（含边框）
   expect(switchBackWidth).toBe(firstTimeWidth)
 })

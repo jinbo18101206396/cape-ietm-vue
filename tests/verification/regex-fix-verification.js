@@ -96,7 +96,7 @@ const tests = [
 ]
 
 console.log('🔍 正则表达式修复验证\n')
-console.log('=' .repeat(80))
+console.log('='.repeat(80))
 
 let totalTests = 0
 let passedTests = 0
@@ -111,7 +111,7 @@ tests.forEach(({ id, name, regex, cases }) => {
 
   cases.forEach(({ input, shouldMatch }) => {
     totalTests++
-    regex.lastIndex = 0  // 重置正则状态
+    regex.lastIndex = 0 // 重置正则状态
     const actualMatch = regex.test(input)
     const passed = actualMatch === shouldMatch
 
@@ -135,7 +135,7 @@ console.log(`\n📊 测试结果:`)
 console.log(`   总测试: ${totalTests}`)
 console.log(`   ✅ 通过: ${passedTests}`)
 console.log(`   ❌ 失败: ${failedTests}`)
-console.log(`   成功率: ${(passedTests/totalTests*100).toFixed(1)}%`)
+console.log(`   成功率: ${(passedTests / totalTests * 100).toFixed(1)}%`)
 
 console.log(`\n📋 Bug修复状态:`)
 console.log(`   修复总数: ${tests.length} 个bug`)

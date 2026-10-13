@@ -3,6 +3,15 @@
     <!-- 顶部工具栏（§3.2，可选，save=1时显示） -->
     <div class="para-toolbar" v-if="showSaveBtn">
       <span class="para-title">◤段落◢</span>
+
+      <!-- 🔧 修复P0-DATALOSS-5: 添加帮助提示，引导用户正确使用 -->
+      <a-tooltip
+        title="使用工具栏按钮插入DM引用、内部引用、图符等特殊元素。不要手动修改已插入的元素文本，否则保存时会丢失数据。"
+        placement="bottomLeft"
+      >
+        <a-icon type="info-circle" style="color: #1890ff; margin-right: 12px; cursor: help; font-size: 14px;"/>
+      </a-tooltip>
+
       <a-button type="primary" icon="save" @click="handleSave" :loading="saving">保存</a-button>
     </div>
 
@@ -12,15 +21,15 @@
     </div>
 
     <!-- 3个对话框组件（§7，复用现有） -->
-    <ietm-interref-dialog ref="interrefDialog" @confirm="insertInterref"/>
-    <ietm-dm-ref-dialog ref="dmrefDialog" @confirm="insertDmRef"/>
-    <ietm-symbol-dialog ref="symbolDialog" @confirm="insertSymbol"/>
+    <ietm-interref-dialog ref="interrefDialog" :visible.sync="interrefDialogVisible" :node-list="nodeList" @insert="insertInterref"/>
+    <ietm-dm-ref-dialog ref="dmrefDialog" :visible.sync="dmrefDialogVisible" @insert="insertDmRef"/>
+    <ietm-symbol-dialog ref="symbolDialog" :visible.sync="symbolDialogVisible" @insert="insertSymbol"/>
   </div>
 </template>
 
 <script>
-import { para2html, html2para } from '../utils/paraConverter'
-import { getUEditorConfig } from '../utils/ueditorConfig'
+import { para2html, html2para, escapeXmlForAttribute } from '../utils/paraConverter'
+import { getUEditorConfig, loadUEditor } from '../utils/ueditorConfig'
 import IetmInterrefDialog from './IetmInterrefDialog'
 import IetmDmRefDialog from './IetmDmRefDialog'
 import IetmSymbolDialog from './IetmSymbolDialog'
@@ -66,7 +75,11 @@ export default {
       newformulaCnt: 0,  // §13.3 公式计数器
       deflistConfig: { termWidth: 0.3, defWidth: 0.7 },  // deflist列宽配置
       ueditorInstanceId: `para_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,  // 唯一实例ID
-      domObserver: null  // MutationObserver实例，用于监听UEditor DOM变化
+      domObserver: null,  // MutationObserver实例，用于监听UEditor DOM变化
+      // Dialog visible 状态（与子组件 .sync 绑定）
+      interrefDialogVisible: false,
+      dmrefDialogVisible: false,
+      symbolDialogVisible: false
     }
   },
 
@@ -98,10 +111,15 @@ export default {
   },
 
   mounted() {
-    // 🔧 关键修复：在 nextTick 之后初始化 UEditor，确保容器高度已正确计算
-    // 原因：直接在 mounted 中初始化时，flex 容器的高度可能还未完全计算
-    this.$nextTick(() => {
-      this.initUEditor()
+    // 🔧 关键修复：先加载UEditor脚本，再初始化编辑器
+    // 原因：首次进入页面时window.UE可能未定义，导致registerCustomButtons()中的UE.registerUI()静默失败
+    loadUEditor().then(() => {
+      this.$nextTick(() => {
+        this.initUEditor()
+      })
+    }).catch((error) => {
+      console.error('UEditor脚本加载失败:', error)
+      this.$message.error('富文本编辑器加载失败')
     })
   },
 
@@ -157,6 +175,10 @@ export default {
       // 清理样式污染失败，继续销毁编辑器
     }
 
+    // 🔧 修复P0-LAYOUT: 销毁前刷新CodeMirror布局
+    // 当组件被销毁（如从设计视图切换回源码视图）时，发射事件让父组件刷新布局
+    this.$emit('refreshLayout')
+
     // ④ 销毁UEditor实例
     if (this.ueditor) {
       try {
@@ -170,7 +192,12 @@ export default {
         // 3. 清空引用
         this.ueditor = null
 
-        // 4. 清理DOM（UEditor可能残留）
+        // 4. 清理全局实例映射（防止内存泄漏）
+        if (window.$PARA_DESIGNER_INSTANCES) {
+          delete window.$PARA_DESIGNER_INSTANCES[this.ueditorInstanceId]
+        }
+
+        // 5. 清理DOM（UEditor可能残留）
         const container = document.getElementById(this.ueditorInstanceId)
         if (container) {
           container.innerHTML = ''
@@ -199,6 +226,9 @@ export default {
         }
       }
 
+      // §6 注册5个自定义按钮（必须在UE.getEditor之前注册）
+      this.registerCustomButtons()
+
       const config = getUEditorConfig({
         ifedit: this.ifedit,
         simple: this.simple,
@@ -207,6 +237,7 @@ export default {
       })
 
       // §5.3 配置项 - 使用config作为基础，仅覆盖Para设计器特定的参数
+
       this.ueditor = UE.getEditor(this.ueditorInstanceId, {
         ...config,
         initialFrameHeight: 710,  // Para设计器固定高度：35行数据（每行20px）
@@ -215,7 +246,99 @@ export default {
 
       // §5.4 ready事件
       this.ueditor.ready(() => {
+        // 🔧 关键修复：在ready事件中手动添加自定义按钮并渲染到DOM
+        // 原因：EditorUI创建是异步的，首次进入时_initToolbars()读取_customizeUI时按钮还未注册
+        const toolbar = this.ueditor.ui.toolbars[0]
+        const toolbarContainer = toolbar.getDom()  // 获取工具栏DOM容器
+        const customButtons = ['deflist', 'insertnextrow', 'interrefbutton', 'dmrefbutton', 'symbolbutton']
+
+        customButtons.forEach(btnName => {
+          const btnConfig = window.UE._customizeUI[btnName]
+          if (btnConfig && btnConfig.execFn && typeof btnConfig.execFn === 'function') {
+            // 🔧 关键修复：检查DOM防止重复添加（注：item.uiName总是"button"，不能用于dedup）
+            const existsInDOM = toolbarContainer && toolbarContainer.querySelector(`.edui-for-${btnName}`)
+
+            if (!existsInDOM) {
+              const btnUI = btnConfig.execFn.call(this.ueditor, this.ueditor, btnName)
+              if (btnUI && toolbarContainer) {
+                const index = btnConfig.index !== undefined ? btnConfig.index : toolbar.items.length
+
+                // 1. 添加到items数组
+                toolbar.add(btnUI, index)
+
+                // 2. 手动渲染DOM并插入到工具栏容器
+                const btnHtml = btnUI.renderHtml()
+                const tempDiv = document.createElement('div')
+                tempDiv.innerHTML = btnHtml
+                const btnElement = tempDiv.firstChild
+
+                if (btnElement) {
+                  // 找到插入位置（按index插入）
+                  if (index < toolbarContainer.children.length) {
+                    toolbarContainer.insertBefore(btnElement, toolbarContainer.children[index])
+                  } else {
+                    toolbarContainer.appendChild(btnElement)
+                  }
+
+                  // 3. 调用postRender完成按钮初始化
+                  btnUI.postRender()
+                }
+              }
+            }
+          }
+        })
+
         this.ueditorReady = true  // 标记初始化完成
+
+        // 🔧 修复P0-DATALOSS-4: 监听UEditor内容变化，检测引用元素是否被破坏
+        // 防止用户无意中修改dmRef/internalRef/symbol的文本导致数据丢失
+        const checkBrokenReferences = () => {
+          if (!this.ueditor) return
+
+          const content = this.ueditor.getContent()
+          const brokenRefs = content.match(/<a[^>]*xml="[^"]*"[^>]*>([^<]*)<\/a>/g)
+
+          if (brokenRefs && brokenRefs.length > 0) {
+            brokenRefs.forEach(ref => {
+              const xmlMatch = ref.match(/xml="([^"]+)"/)
+              const textMatch = ref.match(/>([^<]+)<\/a>/)
+
+              if (xmlMatch && textMatch) {
+                const xmlContent = xmlMatch[1]
+                const displayText = textMatch[1]
+
+                // 规则1：dmRef的文本应包含"引用"和"DMC"或"DM"
+                const isDmRefXml = xmlContent.includes('dmRef')
+                const isDmRefText = (displayText.includes('引用') && (displayText.includes('DMC') || displayText.includes('DM')))
+
+                if (isDmRefXml && !isDmRefText) {
+                  console.warn(
+                    '[UEditor-Monitor] ⚠️ 检测到dmRef元素被手动修改\n' +
+                    `  原文本: "${displayText}"\n` +
+                    `  预期: 应包含 "引用" 和 "DMC/DM"\n` +
+                    `  建议: 删除此元素，使用工具栏"DM引用"按钮重新插入`
+                  )
+                }
+
+                // 规则2：internalRef的文本应包含"内部引用"
+                const isInternalRefXml = xmlContent.includes('internalRef')
+                const isInternalRefText = displayText.includes('内部引用')
+
+                if (isInternalRefXml && !isInternalRefText) {
+                  console.warn(
+                    '[UEditor-Monitor] ⚠️ 检测到internalRef元素被手动修改\n' +
+                    `  原文本: "${displayText}"\n` +
+                    `  预期: 应包含 "内部引用"\n` +
+                    `  建议: 删除此元素，使用工具栏"内部引用"按钮重新插入`
+                  )
+                }
+              }
+            })
+          }
+        }
+
+        // 监听内容变化（用户编辑时）
+        this.ueditor.addListener('contentChange', checkBrokenReferences)
 
         // 🔧 修复P0-PERF-1: 使用MutationObserver替代setTimeout轮询
         // 根因：UEditor会动态设置inline style覆盖CSS，必须监听DOM变化并修正
@@ -331,17 +454,37 @@ export default {
           el.style.height = '200px'
         })
       })
-
-      // §6 注册5个自定义按钮
-      this.registerCustomButtons()
     },
 
     // §6 注册5个自定义按钮
     registerCustomButtons() {
+      // 🔧 全局实例映射：避免registerUI的闭包捕获旧实例
+      if (!window.$PARA_DESIGNER_INSTANCES) {
+        window.$PARA_DESIGNER_INSTANCES = {}
+      }
+      // 注册当前实例
+      window.$PARA_DESIGNER_INSTANCES[this.ueditorInstanceId] = this
+
+      // 如果已经注册过全局按钮，直接返回（不重复注册）
+      if (window.UE._customizeUI && window.UE._customizeUI.interrefbutton) {
+        return
+      }
+      // 🔧 关键修复：清除UEditor的自定义UI缓存
+      // UEditor通过UE._customizeUI存储注册的自定义按钮
+      // 如果之前页面访问时已注册过，需要先清除旧注册
+      const buttonsToRegister = ['deflist', 'insertnextrow', 'interrefbutton', 'dmrefbutton', 'symbolbutton']
+      if (window.UE && window.UE._customizeUI) {
+        buttonsToRegister.forEach(btnName => {
+          if (window.UE._customizeUI[btnName]) {
+            delete window.UE._customizeUI[btnName]
+          }
+        })
+      }
+
       const ue = this.ueditor
 
       // §6.1 deflist按钮（列表定义）
-      UE.registerUI('deflist', (editor, uiName) => {
+      const deflistFn = (editor, uiName) => {
         const btn = new UE.ui.Button({
           name: uiName,
           title: '列表定义',
@@ -364,7 +507,8 @@ export default {
           }
         })
         return btn
-      }, 20)
+      }
+      UE.registerUI('deflist', deflistFn, 20)
 
       // §6.2 insertnextrow按钮（后插入行）
       UE.registerUI('insertnextrow', (editor, uiName) => {
@@ -378,12 +522,19 @@ export default {
       }, 21)
 
       // §6.3 interrefbutton按钮（内部引用）
+      // 🔧 修复全局注册旧闭包问题：从映射查找当前实例，而非捕获
       UE.registerUI('interrefbutton', (editor, uiName) => {
         const btn = new UE.ui.Button({
           name: uiName,
           title: '内部引用',
           cssRules: 'background-position: -500px -0px;',
-          onclick: () => this.$refs.interrefDialog.open()
+          onclick: () => {
+            const editorId = editor.key  // UEditor实例的唯一id
+            const instance = window.$PARA_DESIGNER_INSTANCES && window.$PARA_DESIGNER_INSTANCES[editorId]
+            if (instance && instance.$refs.interrefDialog) {
+              instance.$refs.interrefDialog.open()
+            }
+          }
         })
         return btn
       }, 25)
@@ -394,7 +545,13 @@ export default {
           name: uiName,
           title: 'DM引用',
           cssRules: 'background-position: -300px -20px;',
-          onclick: () => this.$refs.dmrefDialog.open()
+          onclick: () => {
+            const editorId = editor.key
+            const instance = window.$PARA_DESIGNER_INSTANCES && window.$PARA_DESIGNER_INSTANCES[editorId]
+            if (instance && instance.$refs.dmrefDialog) {
+              instance.$refs.dmrefDialog.open()
+            }
+          }
         })
         return btn
       }, 26)
@@ -405,7 +562,13 @@ export default {
           name: uiName,
           title: '图符',
           cssRules: 'background-position: -60px -20px;',
-          onclick: () => this.$refs.symbolDialog.open()
+          onclick: () => {
+            const editorId = editor.key
+            const instance = window.$PARA_DESIGNER_INSTANCES && window.$PARA_DESIGNER_INSTANCES[editorId]
+            if (instance && instance.$refs.symbolDialog) {
+              instance.$refs.symbolDialog.open()
+            }
+          }
         })
         return btn
       }, 27)
@@ -513,6 +676,7 @@ export default {
           if (this.locale === 'cn') {
             xml = this.toEnXml(xml)
           }
+
           const html = await para2html(this.Parent, xml)
           this.ueditor.setContent(html)
         }
@@ -555,6 +719,56 @@ export default {
         // 2. 转换HTML→XML（传入分配的uniqueid数组）
         let paraContent = await html2para(this.Parent, html, this.projectParameters, allocatedUniqueids)
 
+        // 🔧 修复P0-DATALOSS-2: 保存前验证转换结果
+        // 防止用户手动修改引用元素后数据丢失
+        if (html && paraContent) {
+          // 检查输入输出的内容类型是否匹配
+          const hasRefInHtml = html.includes('【引用') || html.includes('【内部引用】')
+          const hasDmRefInXml = paraContent.includes('dmRef') || paraContent.includes('internalRef')
+
+          if (hasRefInHtml && !hasDmRefInXml) {
+            // 输入有引用但输出没有 → 转换失败
+            throw new Error(
+              '保存失败：引用元素转换异常\n\n' +
+              '❌ 问题：UEditor中的引用元素（DMC引用/内部引用）无法正确转换为XML。\n\n' +
+              '🔍 原因：您可能手动编辑了这些引用元素的文本，导致系统数据格式丢失。\n\n' +
+              '✅ 解决方案：\n' +
+              '   1. 点击"取消"返回编辑\n' +
+              '   2. 删除这些被修改的引用元素\n' +
+              '   3. 使用工具栏上的"DM引用"或"内部引用"按钮重新插入\n' +
+              '   4. 然后点击"保存"'
+            )
+          }
+        }
+
+        // 🔧 修复P0-DATALOSS-3: 检查是否所有para都被意外清空
+        if (html && !paraContent) {
+          // 检查HTML是否实际上有内容
+          const stripHtml = html.replace(/<[^>]+>/g, '').trim()
+          if (stripHtml.length > 0 && paraContent.length === 0) {
+            // HTML有内容但转换后变空
+            throw new Error(
+              '保存失败：段落内容被意外清空\n\n' +
+              '❌ 问题：转换过程中段落内容完全丢失。\n\n' +
+              '🔍 可能原因：\n' +
+              '   • 内容格式不符合S1000D标准\n' +
+              '   • 包含不支持的元素或特殊字符\n' +
+              '   • 系统内部处理错误\n\n' +
+              '✅ 建议：\n' +
+              '   • 简化内容格式，避免复杂的嵌套结构\n' +
+              '   • 如果问题持续存在，请联系系统管理员'
+            )
+          }
+        }
+
+        // 🔧 DEBUG: 检查html2para输出
+        console.log('[ParaDesigner] html2para输出长度:', paraContent.length)
+        console.log('[ParaDesigner] html2para包含dmRef:', paraContent.includes('dmRef'))
+        if (paraContent.includes('dmRef')) {
+          console.log('[ParaDesigner] html2para输出换行数:', (paraContent.match(/\n/g) || []).length)
+          console.log('[ParaDesigner] html2para输出前500字符:', paraContent.substring(0, 500))
+        }
+
         // 3. 包裹para标签
         let paraTag = '<para>'
         if (this.paraId && this.paraId.trim()) {
@@ -564,9 +778,30 @@ export default {
         // 构建完整的para XML
         let xml = paraContent ? `${paraTag}\n${paraContent}\n</para>` : `${paraTag}\n</para>`
 
+        // 🔧 DEBUG: 检查formatXml前的XML
+        console.log('[ParaDesigner] formatXml前的xml长度:', xml.length)
+        console.log('[ParaDesigner] formatXml前的换行数:', (xml.match(/\n/g) || []).length)
+
         // 4. 格式化XML
         const indent = this.editor.getLine(this.lineno).indexOf('<')
+        console.log('[ParaDesigner] 基础缩进indent:', indent)
         xml = this.formateXml(xml, indent)
+
+        // 🔧 DEBUG: 检查formatXml后的XML
+        console.log('[ParaDesigner] formatXml后的xml长度:', xml.length)
+        console.log('[ParaDesigner] formatXml后的换行数:', (xml.match(/\n/g) || []).length)
+        if (xml.includes('dmRef')) {
+          console.log('[ParaDesigner] formatXml后包含techName:', xml.includes('techName'))
+          console.log('[ParaDesigner] formatXml后包含infoName:', xml.includes('infoName'))
+          const lines = xml.split('\n')
+          console.log('[ParaDesigner] formatXml后总行数:', lines.length)
+          lines.forEach((line, idx) => {
+            if (line.includes('dmRef') || line.includes('techName') || line.includes('infoName')) {
+              const indent = line.length - line.trimStart().length
+              console.log(`  行${idx}: [${indent}空格] ${line.trim().substring(0, 80)}`)
+            }
+          })
+        }
 
         // 修复9：移除formatXml添加的末尾换行符，避免生成额外空行
         // Bug根因：formatXml每行都加\n，导致最后一行</para>后面有\n，replaceRange时会在下一行生成空行
@@ -624,6 +859,11 @@ export default {
         // 6. 触发父组件保存
         this.$emit('save')
 
+        // 🔧 修复P0-LAYOUT: 保存后刷新CodeMirror布局
+        // 问题：从设计视图返回源码视图后，Modal CSS污染导致CodeMirror行距崩溃
+        // 解决：发射refresh事件让父组件调用editor.refresh()恢复布局
+        this.$emit('refreshLayout')
+
         // 7. 刷新设计器
         this.$message.success('保存成功')
         this.$nextTick(() => {
@@ -638,29 +878,58 @@ export default {
     },
 
     // §7.1 插入内部引用
-    insertInterref(data) {
-      const refxml = `<internalRef xlink:type="simple" xlink:show="replace" xlink:actuate="onRequest" internalRefId="${data.refid}" internalRefTargetType="${data.reftype}"></internalRef>`
-      const html = `<a href="javascript:void(0);" xml="${refxml.replace(/"/g, '`')}">【内部引用${data.reftype}(${data.refid})】</a>`
+    insertInterref(xml) {
+      // 🔧 修复：使用 HTML 实体编码 &quot; 而不是反引号，避免 XML 属性双引号丢失
+      const html = `<a href="javascript:void(0);" xml="${xml.replace(/"/g, '&quot;')}">【内部引用】</a>`
       this.ueditor.execCommand('inserthtml', html)
     },
 
     // §7.2 插入DM引用
-    insertDmRef(dms) {
-      let html = ''
-      dms.forEach(dm => {
-        html += `<a href="javascript:void(0);" xml="${dm.dmref.replace(/"/g, '`')}">【DM引用${dm.dmc}】</a>`
-      })
+    insertDmRef(xml) {
+      // 🔧 修复：使用 HTML 实体编码 &quot; 而不是反引号，避免 XML 属性双引号丢失
+      const html = `<a href="javascript:void(0);" xml="${xml.replace(/"/g, '&quot;')}">【DM引用】</a>`
       this.ueditor.execCommand('inserthtml', html)
     },
 
     // §7.3 插入图符
-    insertSymbol(rows) {
-      rows.forEach(row => {
-        const symbolxml = `<symbol infoEntityIdent="${row.icn}" symbolid="${row.id}" reproductionWidth="${row.width}" reproductionHeight="${row.height}" reproductionScale="${row.scale || 100}"></symbol>`
-        const imgSrc = `/jeecg-boot/ietm/icn/tmpICN/${row.id}${row.filename.substring(row.filename.lastIndexOf('.')).toLowerCase()}`
-        const html = `<img src="${imgSrc}" xml="${symbolxml.replace(/"/g, '`').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&/g, '&amp;')}">`
-        this.ueditor.execCommand('inserthtml', html)
-      })
+    // §7.3 插入图符
+    async insertSymbol(xml) {
+      // xml 是 symbol 标签，需要包裹成 img 标签供 UEditor 显示
+      const apiBaseUrl = window._CONFIG['domianURL'] || '/jeecg-boot'
+      const icnMatch = xml.match(/infoEntityIdent="([^"]+)"/)
+
+      if (!icnMatch || !icnMatch[1]) {
+        console.error('[insertSymbol] 无法从symbol标签中提取ICN编码')
+        return
+      }
+
+      const icn = icnMatch[1]
+      let imgSrc = null
+
+      try {
+        // 🔧 2026-10-10: 与tosymbol保持一致，优先使用viewFile
+        const token = localStorage.getItem('pro__Access-Token') ? JSON.parse(localStorage.getItem('pro__Access-Token')).value : ''
+        const icnInfo = await fetch(`${apiBaseUrl}/icnmanage/ietmIcnManage/queryByIcnCode?icn=${encodeURIComponent(icn)}`, {
+          headers: { 'X-Access-Token': token }
+        }).then(r => r.json())
+
+        if (icnInfo.success && icnInfo.result && icnInfo.result.ietmAttachment && icnInfo.result.ietmAttachment.fileKey) {
+          const fileKey = icnInfo.result.ietmAttachment.fileKey
+          imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/viewFile?fileKey=${encodeURIComponent(fileKey)}`
+        } else {
+          // Fallback
+          imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+        }
+      } catch (e) {
+        console.warn('[insertSymbol] queryByIcnCode失败，使用view fallback:', e.message)
+        imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+      }
+
+      // 🔧 修复P1-6: 使用统一的XSS防护函数
+      // 🔧 2026-10-10: 添加图片尺寸限制，避免显示过大（300x200）
+      const safeXml = escapeXmlForAttribute(xml)
+      const html = `<img src="${imgSrc}" xml="${safeXml}" style="max-width: 300px; max-height: 200px; width: auto; height: auto;">`
+      this.ueditor.execCommand('inserthtml', html)
     }
   }
 }

@@ -7,10 +7,9 @@ const { test, expect } = require('@playwright/test')
 
 // 测试环境配置
 const BASE_URL = 'http://localhost:3000'
-const TEST_DM_ID = process.env.TEST_DM_ID || '2102970667065356289'  // 从环境变量获取测试DM ID
+const TEST_DM_ID = process.env.TEST_DM_ID || '2102970667065356289' // 从环境变量获取测试DM ID
 
 test.describe('ParaDesigner - Table S1000D转换', () => {
-
   test.beforeEach(async ({ page }) => {
     // 登录
     await page.goto(BASE_URL)
@@ -39,7 +38,7 @@ test.describe('ParaDesigner - Table S1000D转换', () => {
 
     // 4. 插入表格（通过UEditor工具栏）
     await page.click('.edui-toolbar .edui-button:has-text("表格")')
-    await page.click('.edui-popup .edui-cellbutton:nth-child(2)')  // 选择2×2
+    await page.click('.edui-popup .edui-cellbutton:nth-child(2)') // 选择2×2
 
     // 5. 填入内容
     await frame.locator('table td:nth-child(1)').first().fill('1')
@@ -126,7 +125,7 @@ test.describe('ParaDesigner - Table S1000D转换', () => {
 
     // 2. 插入3列表格
     await page.click('.edui-toolbar .edui-button:has-text("表格")')
-    await page.click('.edui-popup .edui-cellbutton:nth-child(3)')  // 3列
+    await page.click('.edui-popup .edui-cellbutton:nth-child(3)') // 3列
 
     // 3. 保存
     await page.click('button:has-text("保存")')
@@ -270,7 +269,6 @@ test.describe('ParaDesigner - Table S1000D转换', () => {
 
     await previewPage.close()
   })
-
 })
 
 /**

@@ -46,7 +46,6 @@ test.describe('Para设计器全面UI交互测试', () => {
   // ========================================
 
   test.describe('Phase 1: 正则Bug修复验证', () => {
-
     test('TC-R01: 上标往返测试 - BUG-002修复验证', async ({ page }) => {
       console.log('🧪 测试上标往返转换（验证不会变成<superScriptcript>）')
 
@@ -270,7 +269,6 @@ test.describe('Para设计器全面UI交互测试', () => {
   // ========================================
 
   test.describe('Phase 2: 功能场景测试', () => {
-
     test('TC-F01: 基础文本编辑', async ({ page }) => {
       console.log('🧪 测试基础文本编辑和强调标签')
 
@@ -389,7 +387,6 @@ test.describe('Para设计器全面UI交互测试', () => {
   // ========================================
 
   test.describe('Phase 3: 边界条件测试', () => {
-
     test('TC-E01: 空内容保存', async ({ page }) => {
       console.log('🧪 测试空内容保存')
 

@@ -67,8 +67,8 @@ describe('行号公式命中<para>开始标签（真实函数）', () => {
     const nodes = getTreeNodesfromXml(formatted, 'dmodule')
     const para = nodes.find(n => n.text === 'para')
 
-    const correct = resolveEditorLine(para, linenoOffset)   // 修复后：命中 <para
-    const buggy = correct + 1                                // 旧逻辑 line+1：多一行
+    const correct = resolveEditorLine(para, linenoOffset) // 修复后：命中 <para
+    const buggy = correct + 1 // 旧逻辑 line+1：多一行
 
     expect((cm.getLine(correct) || '').trim().startsWith('<para')).toBe(true)
     expect((cm.getLine(buggy) || '').trim().startsWith('<para')).toBe(false)

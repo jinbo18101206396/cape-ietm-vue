@@ -14,8 +14,7 @@ function _writeAttr(line, name, val) {
   const en = esc(name)
   const exists = new RegExp('(^|\\s)' + en + '\\s*=\\s*"[^"]*"')
   if (exists.test(line)) {
-    if (val === '' || val == null)
-      return line.replace(new RegExp('(^|\\s)' + en + '\\s*=\\s*"[^"]*"'), '')
+    if (val === '' || val == null) { return line.replace(new RegExp('(^|\\s)' + en + '\\s*=\\s*"[^"]*"'), '') }
     return line.replace(new RegExp('(^|\\s)(' + en + ')(\\s*=\\s*")([^"]*)(")'),
       (m, g1, g2, g3) => g1 + g2 + g3 + escVal(val) + '"')
   }

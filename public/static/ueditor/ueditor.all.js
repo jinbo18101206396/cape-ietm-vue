@@ -28995,19 +28995,28 @@ UE.ui = baidu.editor.ui = {};
             }
 
             //接受外部定制的UI
+            console.log('[UEditor _initToolbars] 开始读取UE._customizeUI');
+            console.log('[UEditor _initToolbars] _customizeUI keys:', Object.keys(UE._customizeUI));
+            console.log('[UEditor _initToolbars] deflist存在?', !!UE._customizeUI.deflist);
+            console.log('[UEditor _initToolbars] deflist.execFn存在?', !!(UE._customizeUI.deflist && UE._customizeUI.deflist.execFn));
 
             utils.each(UE._customizeUI,function(obj,key){
+                console.log('[UEditor _initToolbars] 处理按钮:', key, 'obj.id:', obj.id, 'editor.key:', editor.key);
                 var itemUI,index;
                 if(obj.id && obj.id != editor.key){
+                   console.log('[UEditor _initToolbars] ❌ 跳过按钮 (id不匹配):', key);
                    return false;
                 }
+                console.log('[UEditor _initToolbars] ✅ 调用execFn:', key);
                 itemUI = obj.execFn.call(editor,editor,key);
+                console.log('[UEditor _initToolbars] execFn返回:', key, 'itemUI:', itemUI);
                 if(itemUI){
                     index = obj.index;
                     if(index === undefined){
                         index = toolbarUi.items.length;
                     }
                     toolbarUi.add(itemUI,index)
+                    console.log('[UEditor _initToolbars] ✅ 按钮已添加到工具栏:', key, 'index:', index);
                 }
             });
 

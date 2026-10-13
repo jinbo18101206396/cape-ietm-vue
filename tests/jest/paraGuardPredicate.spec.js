@@ -19,20 +19,20 @@ function handleSaveGuardRejects(line, paraName) {
 describe('setcontent入口守卫：只放行真正的para边界行', () => {
   const P = 'para'
   test.each([
-    ['<para>',                       false, '开始标签行(单/多行开始)'],
-    ['  <para id="x">内容</para>',    false, '带缩进带id的单行para'],
-    ['</para>',                       false, '结束标签行(多行para结束,靠向上搜索)'],
-    ['    </para>',                   false, '带缩进的结束行'],
+    ['<para>', false, '开始标签行(单/多行开始)'],
+    ['  <para id="x">内容</para>', false, '带缩进带id的单行para'],
+    ['</para>', false, '结束标签行(多行para结束,靠向上搜索)'],
+    ['    </para>', false, '带缩进的结束行']
   ])('放行: %s', (line, _rej, _desc) => {
     expect(setcontentGuardRejects(line, P)).toBe(false)
   })
 
   test.each([
-    ['',                    true,  '空行(行号漂移最常见落点)'],
-    ['   ',                 true,  '纯空白行'],
-    ['<title>标题</title>', true,  '别的元素行'],
-    ['一些普通文字',          true,  '纯内容行(无标签)'],
-    [null,                  true,  '越界返回null'],
+    ['', true, '空行(行号漂移最常见落点)'],
+    ['   ', true, '纯空白行'],
+    ['<title>标题</title>', true, '别的元素行'],
+    ['一些普通文字', true, '纯内容行(无标签)'],
+    [null, true, '越界返回null']
   ])('拦截: %s', (line, _rej, _desc) => {
     expect(setcontentGuardRejects(line, P)).toBe(true)
   })

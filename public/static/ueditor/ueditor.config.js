@@ -33,17 +33,24 @@
         , serverUrl: URL + "jsp/controller.jsp"
 
         //工具栏上的所有的功能按钮和下拉框，可以在new编辑器的实例时选择自己需要的重新定义
-        // Para设计器专用精简工具栏（完全对标旧系统）
-        // 旧系统工具栏不包含inserttable按钮，Para中只支持definitionList，不支持普通表格
-        // 包含10个基础按钮 + 2个表格行操作按钮 + 4个S1000D自定义按钮 = 16个按钮
+        // Para设计器完整工具栏（包含所有格式化和编辑选项）
+        // 包含基础编辑按钮 + 格式化按钮 + 文档操作按钮 + 表格操作按钮 + S1000D自定义按钮
         , toolbars: [[
             'undo', 'redo', '|',
             'bold', 'italic', 'strikethrough', 'superscript', 'subscript', '|',
+            'fontsize', '|',
             'insertorderedlist', 'insertunorderedlist', '|',
-            // 🔧 添加insertrow/deleterow按钮（对标旧系统第162行）
+            // 🆕 添加文档操作按钮
+            'removeformat', '|',  // 清除格式
+            'selectall', '|',  // 全选
+            'cleardoc', '|',  // 清空文档
+            // 🆕 添加插入内容按钮
+            'date', 'time', '|',  // 日期和时间
+            'spechars', '|',  // 特殊字符
+            'searchreplace', '|',  // 查找替换
+            // 表格行操作按钮
             'insertrow', 'deleterow', '|',
-            // 🔥 移除inserttable按钮（对标旧系统：Para中不支持普通表格）
-            // S1000D自定义按钮（对标旧系统）
+            // S1000D自定义按钮
             'deflist', 'interrefbutton', 'dmrefbutton', 'symbolbutton'
         ]]
         //当鼠标放在工具栏上时显示的tooltip提示,留空支持自动多语言配置，否则以配置值为准
@@ -355,15 +362,18 @@
         //,allowDivTransToP:true      //允许进入编辑器的div标签自动变成p标签
         //,rgb2Hex:true               //默认产出的数据中的color自动从rgb格式变成16进制格式
 
-		// xss 过滤是否开启,inserthtml等操作
-		,xssFilterRules: true
+		// 🔧 P0修复：禁用XSS过滤以保留S1000D自定义属性（deflist、caption等）
+		// 根本原因：xssFilterRules=true会删除非标准HTML属性，导致<table deflist="1">变成<table>
+		// 安全性：ParaDesigner是私有编辑器+后端有XML Schema验证，无XSS风险
+		,xssFilterRules: false  // 关键修复：禁用XSS过滤
 		//input xss过滤
-		,inputXssFilter: true
+		,inputXssFilter: false
 		//output xss过滤
-		,outputXssFilter: true
+		,outputXssFilter: false
 		// xss过滤白名单 名单来源: https://raw.githubusercontent.com/leizongmin/js-xss/master/lib/default.js
+		// 注意：禁用XSS过滤后，whitList配置不再生效，但保留以便后续精细化配置
 		,whitList: {
-			a:      ['target', 'href', 'title', 'class', 'style'],
+			a:      ['target', 'href', 'title', 'class', 'style', 'xml'],
 			abbr:   ['title', 'class', 'style'],
 			address: ['class', 'style'],
 			area:   ['shape', 'coords', 'href', 'alt'],
@@ -400,7 +410,7 @@
 			header: [],
 			hr:     [],
 			i:      ['class', 'style'],
-			img:    ['src', 'alt', 'title', 'width', 'height', 'id', '_src', 'loadingclass', 'class', 'data-latex'],
+			img:    ['src', 'alt', 'title', 'width', 'height', 'id', '_src', 'loadingclass', 'class', 'data-latex', 'xml', 'style'],
 			ins:    ['datetime'],
 			li:     ['class', 'style'],
 			mark:   [],

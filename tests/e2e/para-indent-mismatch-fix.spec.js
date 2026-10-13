@@ -21,7 +21,6 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Para设计器 - 缩进不一致P0修复验证', () => {
-
   test.beforeEach(async ({ page }) => {
     // 登录
     await page.goto('http://localhost:3000/user/login')
@@ -106,7 +105,7 @@ test.describe('Para设计器 - 缩进不一致P0修复验证', () => {
         <randomList>
           <listItem>项目1</listItem>
         </randomList>
-    </para>`  // 结束标签缩进是4空格，开始标签是6空格
+    </para>` // 结束标签缩进是4空格，开始标签是6空格
 
     const lineNo = await page.evaluate((xml) => {
       const cm = document.querySelector('.CodeMirror').CodeMirror
@@ -157,7 +156,7 @@ test.describe('Para设计器 - 缩进不一致P0修复验证', () => {
     // 插入结束标签缩进更大的多行para（异常但应该兜底处理）
     const testXml = `    <para id="tc03-right-indent">
       <emphasis>异常缩进场景</emphasis>
-        </para>`  // 结束标签缩进是8空格，开始标签是4空格
+        </para>` // 结束标签缩进是8空格，开始标签是4空格
 
     const lineNo = await page.evaluate((xml) => {
       const cm = document.querySelector('.CodeMirror').CodeMirror

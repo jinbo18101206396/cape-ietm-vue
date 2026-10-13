@@ -14,14 +14,14 @@
  */
 
 // axios 仅在 dmRef/symbol 时触发；mock 防止真实网络调用
+import { para2html, html2para } from '@/views/ietm/ietmdatamodulemanagement/editor/utils/paraConverter'
+
 jest.mock('axios', () => ({
   __esModule: true,
   default: {
     post: jest.fn(() => Promise.resolve({ data: { success: false, result: null } }))
   }
 }))
-
-import { para2html, html2para } from '@/views/ietm/ietmdatamodulemanagement/editor/utils/paraConverter'
 
 // 模拟 parent（仅 formula 路径会用到 cmnodeid/dmCode，本套用例不触发）
 const mockParent = { cmnodeid: 'CM001', dmCode: 'A-B-C-D-E-F-G', newformulaCnt: 0 }

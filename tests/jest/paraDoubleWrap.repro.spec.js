@@ -22,7 +22,7 @@ describe('Para保存双层<para>复现', () => {
     '带换行缩进': '<p>\n          XXX\n        </p>',
     '尾部空p(UEditor常见)': '<p>XXX</p><p></p>',
     '尾部<br>': '<p>XXX<br/></p>',
-    '两个p(段内换行被UEditor拆分)': '<p>XXX</p><p>YYY</p>',
+    '两个p(段内换行被UEditor拆分)': '<p>XXX</p><p>YYY</p>'
   }
 
   for (const [name, html] of Object.entries(candidates)) {

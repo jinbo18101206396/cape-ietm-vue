@@ -6,7 +6,6 @@
 const { test, expect } = require('@playwright/test')
 
 test.describe('Para设计器工具栏验证', () => {
-
   test('应该只显示13个核心按钮', async ({ page }) => {
     // 设置超时时间
     test.setTimeout(120000)

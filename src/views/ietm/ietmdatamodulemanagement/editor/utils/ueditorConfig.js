@@ -32,7 +32,7 @@ export function getUEditorConfig(options = {}) {
       'simpleupload', 'insertimage', 'emotion', 'scrawl', 'insertvideo', 'music', 'attachment', 'map', 'gmap', 'insertframe', 'insertcode', 'webapp', 'pagebreak', 'template', 'background', '|',
       'horizontal', 'date', 'time', 'spechars', 'snapscreen', 'wordimage', '|',
       'inserttable', 'deletetable', 'insertparagraphbeforetable', 'insertrow', 'deleterow', 'insertcol', 'deletecol', 'mergecells', 'mergeright', 'mergedown', 'splittocells', 'splittorows', 'splittocols', 'charts', '|',
-      'print', 'preview', 'searchreplace', 'drafts', 'help', '|',
+      'print', 'preview', 'searchreplace', 'removeformat', 'selectall', 'cleardoc', 'drafts', 'help', '|',
       // 自定义按钮
       'deflist', 'insertnextrow', 'interrefbutton', 'dmrefbutton', 'symbolbutton', '|',
       'kityformula'
@@ -48,8 +48,8 @@ export function getUEditorConfig(options = {}) {
       'bold', 'italic', 'strikethrough', 'superscript', 'subscript', '|',
       'insertorderedlist', 'insertunorderedlist', '|',
       'insertrow', 'deleterow', '|',
-      // S1000D自定义按钮
-      'deflist', 'interrefbutton', 'dmrefbutton', 'symbolbutton', '|',
+      // S1000D自定义按钮（5个）
+      'deflist', 'insertnextrow', 'interrefbutton', 'dmrefbutton', 'symbolbutton', '|',
       // 公式编辑器（对标旧系统完整模式；插件见/static/ueditor/kityformula-plugin）
       'kityformula'
     ]
@@ -108,6 +108,13 @@ export function getUEditorConfig(options = {}) {
     // 内容限制
     maximumWords: 100000000,
 
+    // 🔧 P0修复：保留自定义属性（deflist、caption等）
+    // UEditor通过xssFilterRules启用XSS过滤，会删除非标准属性
+    // 解决方案：禁用XSS过滤以保留S1000D自定义属性
+    xssFilterRules: false,  // 禁用XSS过滤（关键修复）
+    pasteplain: false,  // 禁用粘贴纯文本模式，保留HTML格式
+    filtersEnabled: false,  // 禁用HTML过滤
+
     // Kity Formula插件配置
     kityformulaImagePath: '/static/ueditor/kityformula-plugin',
     kityformulaImageRender: 'latex'
@@ -128,7 +135,7 @@ export function loadUEditor() {
 
     // 动态加载UEditor脚本
     const script = document.createElement('script')
-    script.src = '/static/ueditor/ueditor.all.min.js'
+    script.src = '/static/ueditor/ueditor.all.js'  // 🔧 临时使用未压缩版以便调试
     script.onload = () => {
       // 加载配置文件
       const configScript = document.createElement('script')

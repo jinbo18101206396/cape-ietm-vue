@@ -73,8 +73,11 @@ function _loopNode(domNode, path, pid, nodes) {
 
 /**
  * 从XML字符串计算真实行号（修复版）
- * 通过深度优先遍历XML行，匹配节点顺序
+ * 通过深度优先遍历XML行，按照树节点顺序匹配
  * lineno表示相对于dmodule的行号（dmodule=1）
+ *
+ * 关键修复: 用"出现顺序"而不是"名称精确匹配"来定位节点
+ * 这样避免同名元素漏匹配的问题
  */
 function _calcLinenoFromXml(nodes, xml) {
   const lines = xml.split('\n')
@@ -91,7 +94,8 @@ function _calcLinenoFromXml(nodes, xml) {
   }
 
   let nodeIdx = 0 // 当前要匹配的节点索引
-  const stack = [] // 标签栈，用于跟踪深度
+  const stack = [] // 标签栈，用于跟踪嵌套深度
+  const nodeStack = [] // 节点栈，用于深度对应关系
 
   for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
     const line = lines[lineIdx]
@@ -104,16 +108,27 @@ function _calcLinenoFromXml(nodes, xml) {
     const openMatch = trimmed.match(new RegExp('^<(' + TAG + ')[\\s/>]'))
     if (openMatch) {
       const tagName = openMatch[1]
+      const isSelfClosing = trimmed.endsWith('/>')
 
-      // 检查是否匹配当前节点
+      // 修复: 检查是否匹配当前节点【按顺序而非名称】
+      // 关键: 只要tagName对上，就匹配当前nodeIdx对应的节点
+      // 这防止同名元素时的漏匹配
       if (nodeIdx < nodes.length && nodes[nodeIdx].text === tagName) {
-        // 计算相对于dmodule的行号
-        nodes[nodeIdx].attributes.lineno = lineIdx - dmLineIdx + 1
-        nodeIdx++
+        // 深度检查: 对于【非自闭合标签】，嵌套深度应该对上
+        // 对于【自闭合标签】，深度检查无意义（它不会入栈）
+        const depthMatch = isSelfClosing || (stack.length === nodeStack.length)
+        if (depthMatch) {
+          // 计算相对于dmodule的行号
+          nodes[nodeIdx].attributes.lineno = lineIdx - dmLineIdx + 1
+          if (!isSelfClosing) {
+            nodeStack.push(nodeIdx) // 仅对非自闭合标签追踪嵌套层级
+          }
+          nodeIdx++
+        }
       }
 
       // 如果不是自闭合标签，入栈
-      if (!trimmed.endsWith('/>')) {
+      if (!isSelfClosing) {
         stack.push(tagName)
       }
       continue
@@ -126,6 +141,9 @@ function _calcLinenoFromXml(nodes, xml) {
       // 出栈
       if (stack.length > 0 && stack[stack.length - 1] === tagName) {
         stack.pop()
+        if (nodeStack.length > 0) {
+          nodeStack.pop()
+        }
       }
       continue
     }
@@ -212,9 +230,14 @@ export function getLinenoOffset(cm) {
 /** 从 from 行起找 <elename> 所在行（0-indexed），找不到返回 -1（§50.6） */
 export function findLineno(cm, elename, from = 0) {
   const total = cm.lineCount()
+  // 🔧 P1-2修复: 改用严格正则避免属性名子串误匹配
+  // 原问题: '<' + elename + '>' 会在属性值中误匹配
+  // 例: elename='id', 会匹配到 description="id..." 中的字符串
+  // 修复: 用正则要求标签名后面是空格、>或/（标签终结符）
+  const tagPattern = new RegExp('<' + elename + '[\\s/>]', 'i')
   for (let i = from; i < total; i++) {
     const l = cm.getLine(i) || ''
-    if (l.includes('<' + elename + '>') || l.includes('<' + elename + ' ')) return i
+    if (tagPattern.test(l)) return i
   }
   return -1
 }

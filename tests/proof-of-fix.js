@@ -101,15 +101,15 @@ testCases.forEach((input, i) => {
   if (hasOldBug) oldBugCount++
   if (hasNewBug) newBugCount++
 
-  console.log(`用例${i+1}: ${paraCount}个para`)
+  console.log(`用例${i + 1}: ${paraCount}个para`)
   console.log(`  修复前: ${hasOldBug ? '❌ 有残留' : '✅ 无残留'}`)
   console.log(`  修复后: ${hasNewBug ? '❌ 有残留' : '✅ 无残留'}`)
   console.log('')
 })
 
 console.log('统计结果:')
-console.log(`  修复前BUG数: ${oldBugCount}/${testCases.length} (${(oldBugCount/testCases.length*100).toFixed(1)}%)`)
-console.log(`  修复后BUG数: ${newBugCount}/${testCases.length} (${(newBugCount/testCases.length*100).toFixed(1)}%)`)
+console.log(`  修复前BUG数: ${oldBugCount}/${testCases.length} (${(oldBugCount / testCases.length * 100).toFixed(1)}%)`)
+console.log(`  修复后BUG数: ${newBugCount}/${testCases.length} (${(newBugCount / testCases.length * 100).toFixed(1)}%)`)
 console.log(`  BUG减少数: ${oldBugCount - newBugCount}`)
 
 if (oldBugCount > 0 && newBugCount === 0) {

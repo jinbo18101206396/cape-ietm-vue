@@ -68,18 +68,23 @@ export function expandSelfClosingTag(node, editor, linenoOffset) {
 
   if (!lineText) return false
 
-  const trimmed = lineText.trim()
   const elemName = node.text
 
+  // 🔧 修复: 从原始 lineText 提取缩进（不能从 trim() 后的字符串提取）
+  // 先从原始文本中提取前导空格（缩进）
+  const leadingIndentMatch = lineText.match(/^(\s*)/)
+  const leadingIndent = leadingIndentMatch ? leadingIndentMatch[1] : ''
+
   // 检查是否是自闭合标签 <elemName ... />
-  const selfClosingMatch = trimmed.match(new RegExp(`^(\\s*)<${elemName}([^>]*)\\/>`))
+  // 从 trim 后的文本匹配，但不期望开头的空格
+  const trimmed = lineText.trim()
+  const selfClosingMatch = trimmed.match(new RegExp(`^<${elemName}([^>]*)\\/>$`))
 
   if (selfClosingMatch) {
-    const indent = selfClosingMatch[1]
-    const attrs = selfClosingMatch[2]
+    const attrs = selfClosingMatch[1]
 
-    // 展开为双标签
-    const expanded = `${indent}<${elemName}${attrs}>\n${indent}</${elemName}>`
+    // 展开为双标签（使用正确的缩进）
+    const expanded = `${leadingIndent}<${elemName}${attrs}>\n${leadingIndent}</${elemName}>`
 
     editor.replaceRange(
       expanded,
@@ -118,7 +123,11 @@ export function calculateInsertLine(node, appendType, nodeList, linenoOffset, de
     if (editor) {
       const wasExpanded = expandSelfClosingTag(node, editor, linenoOffset)
       if (wasExpanded) {
-        // 展开后，插入位置在开始标签的下一行（0-based）
+        // 展开后，自闭合标签变成双标签，插入位置在【展开后】的开始标签的下一行（0-based）
+        // 注意：展开后编辑器多了一行，但 displayLine 仍指向原开始标签行
+        // 展开操作是：第i行从"<elem/>"变成"<elem>\n</elem>"
+        // 所以新的开始标签仍在第i行，闭合标签在第i+1行
+        // 我们要在开始标签下一行插入，所以返回 i+1
         return displayLine + 1
       }
     }
@@ -164,7 +173,7 @@ export function findElementEndLine(node, editor, linenoOffset) {
   for (let i = startLine; i < maxSearch; i++) {
     const line = editor.getLine(i) || ''
     // 同名开始标签（非自闭合）depth+1
-    const openRe = new RegExp(`<${elemName}[\\s>]`)
+    const openRe = new RegExp(`<${elemName}[\\s/>]`)
     if (openRe.test(line) && !line.trim().endsWith('/>')) depth++
     if (line.includes(closeTag)) {
       depth--

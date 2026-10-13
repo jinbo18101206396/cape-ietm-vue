@@ -12,7 +12,6 @@ import {
 } from '@/views/ietm/ietmdatamodulemanagement/editor/utils/gutterMarker'
 
 describe('gutterMarker.js 单元测试', () => {
-
   // ==================== 常量测试 ====================
 
   describe('常量定义', () => {
@@ -367,10 +366,10 @@ describe('gutterMarker.js 单元测试', () => {
       }
 
       const testCases = [
-        { lineno: 1, offset: 1, expected: 0 },   // 1 + 1 - 2 = 0
-        { lineno: 5, offset: 3, expected: 6 },   // 5 + 3 - 2 = 6
+        { lineno: 1, offset: 1, expected: 0 }, // 1 + 1 - 2 = 0
+        { lineno: 5, offset: 3, expected: 6 }, // 5 + 3 - 2 = 6
         { lineno: 10, offset: 5, expected: 13 }, // 10 + 5 - 2 = 13
-        { lineno: 1, offset: 10, expected: 9 }   // 1 + 10 - 2 = 9
+        { lineno: 1, offset: 10, expected: 9 } // 1 + 10 - 2 = 9
       ]
 
       testCases.forEach(({ lineno, offset, expected }) => {

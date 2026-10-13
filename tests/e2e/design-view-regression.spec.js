@@ -344,8 +344,8 @@ test.describe('设计视图三大问题修复 - E2E测试', () => {
       })
 
       // 检查缩进（2空格）
-      expect(content).toMatch(/\n  <identAndStatusSection>/)
-      expect(content).toMatch(/\n    <dmAddress>/)
+      expect(content).toMatch(/\n {2}<identAndStatusSection>/)
+      expect(content).toMatch(/\n {4}<dmAddress>/)
     })
 
     test('E2E-10: 撤销/重做功能应正常工作', async () => {

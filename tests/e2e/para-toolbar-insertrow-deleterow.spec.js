@@ -13,7 +13,6 @@
 const { test, expect } = require('@playwright/test')
 
 test.describe('Para设计器 - insertrow/deleterow按钮测试', () => {
-
   test.beforeEach(async ({ page }) => {
     // 登录并打开编辑器
     await page.goto('/login')
@@ -339,7 +338,6 @@ test.describe('Para设计器 - insertrow/deleterow按钮测试', () => {
 })
 
 test.describe('Para设计器 - 对标旧系统回归测试', () => {
-
   test('T09-对标旧系统 - 工具栏完整性', async ({ page }) => {
     // 登录
     await page.goto('/login')

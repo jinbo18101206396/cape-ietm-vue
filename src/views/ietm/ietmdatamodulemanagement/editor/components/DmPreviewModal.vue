@@ -623,6 +623,30 @@ export default {
         console.error('❌ 渲染热点失败:', error)
       }
     }
+  },
+  beforeDestroy() {
+    // 🔧 修复P1-内存泄漏: 组件销毁时清理 blob URL
+    // 问题: URL.createObjectURL() 创建的 blob URL 没有在组件销毁时释放
+    // 根因: 用户打开预览但不关闭对话框直接离开页面时，onClose不会触发
+    // 影响: 长时间使用会累积大量未释放的 blob 对象，导致内存泄漏
+    // 解决: 在 beforeDestroy 中调用 URL.revokeObjectURL() 释放资源
+
+    // 清理主预览的 blob URL
+    if (this.blobUrl) {
+      URL.revokeObjectURL(this.blobUrl)
+      this.blobUrl = ''
+    }
+
+    // 清理多媒体预览的 blob URL（如果是 blob 类型）
+    if (this.multimediaUrl && this.multimediaUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(this.multimediaUrl)
+      this.multimediaUrl = ''
+    }
+
+    // 清理 iframe 引用（防御性编程）
+    if (this.$refs.frame) {
+      this.$refs.frame.src = 'about:blank'
+    }
   }
 }
 </script>

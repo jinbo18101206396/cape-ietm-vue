@@ -181,7 +181,6 @@ test.describe('Para转换对称性 - 旧系统对标验证', () => {
             isSymmetric: isSymmetric,
             passed: isSymmetric
           })
-
         } catch (error) {
           testResults.push({
             id: tc.id,

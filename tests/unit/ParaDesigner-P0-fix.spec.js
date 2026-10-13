@@ -14,9 +14,9 @@ describe('ParaDesigner.vue - P0 Bug修复：保存单行para不丢失下一行',
     // Mock CodeMirror editor
     const lines = [
       '<dmodule>',
-      '<para></para>',           // Line 1 - 空para
+      '<para></para>', // Line 1 - 空para
       '<title>重要标题</title>', // Line 2 - 不应该丢失
-      '<para>正文内容</para>',   // Line 3
+      '<para>正文内容</para>', // Line 3
       '</dmodule>'
     ]
 
@@ -28,9 +28,9 @@ describe('ParaDesigner.vue - P0 Bug修复：保存单行para不丢失下一行',
         console.log('[replaceRange]', { text, from, to })
 
         // 关键断言：to参数不应该延伸到下一行
-        if (from.line === 1) {  // 替换Line 1的para
-          expect(to.line).toBe(1)  // ← 应该是Line 1，不是Line 2
-          expect(to.ch).toBe(lines[1].length)  // ← 应该是当前行长度
+        if (from.line === 1) { // 替换Line 1的para
+          expect(to.line).toBe(1) // ← 应该是Line 1，不是Line 2
+          expect(to.ch).toBe(lines[1].length) // ← 应该是当前行长度
         }
       }),
       getRange: jest.fn((from, to) => {
@@ -43,7 +43,7 @@ describe('ParaDesigner.vue - P0 Bug修复：保存单行para不丢失下一行',
       getEditor: jest.fn(() => ({
         ready: jest.fn(callback => callback()),
         setContent: jest.fn(),
-        getContent: jest.fn(() => '<p></p>'),  // 空内容
+        getContent: jest.fn(() => '<p></p>'), // 空内容
         setDisabled: jest.fn(),
         destroy: jest.fn(),
         removeListener: jest.fn(),
@@ -54,7 +54,7 @@ describe('ParaDesigner.vue - P0 Bug修复：保存单行para不丢失下一行',
     wrapper = mount(ParaDesigner, {
       localVue,
       propsData: {
-        lineno: 1,  // Line 1的para
+        lineno: 1, // Line 1的para
         editor: mockEditor,
         locale: 'en',
         cmnodeid: 'test',
@@ -62,7 +62,7 @@ describe('ParaDesigner.vue - P0 Bug修复：保存单行para不丢失下一行',
         uniqueid: '00001',
         dmCode: 'DMC-TEST',
         nodeList: [],
-        save: '1'  // 显示保存按钮
+        save: '1' // 显示保存按钮
       },
       mocks: {
         $http: {
@@ -95,8 +95,8 @@ describe('ParaDesigner.vue - P0 Bug修复：保存单行para不丢失下一行',
     const buggyReplaceRange = jest.fn((text, from, to) => {
       // Bug行为：to = {line: 2, ch: 0}
       if (from.line === 1) {
-        expect(to.line).toBe(2)  // ← Bug：延伸到Line 2
-        expect(to.ch).toBe(0)    // ← Bug：删除Line 2开头
+        expect(to.line).toBe(2) // ← Bug：延伸到Line 2
+        expect(to.ch).toBe(0) // ← Bug：删除Line 2开头
       }
     })
 
@@ -118,7 +118,7 @@ describe('ParaDesigner.vue - P0 Bug修复：保存单行para不丢失下一行',
 
   it('修复后：保存单行para只替换当前行，不影响下一行', async () => {
     // 设置endline（在setcontent时计算）
-    wrapper.vm.endline = 1  // 单行para
+    wrapper.vm.endline = 1 // 单行para
 
     // 执行保存
     await wrapper.vm.handleSave()
@@ -129,9 +129,9 @@ describe('ParaDesigner.vue - P0 Bug修复：保存单行para不丢失下一行',
     // 验证替换参数
     const [text, from, to] = mockEditor.replaceRange.mock.calls[0]
 
-    expect(from).toEqual({ line: 1, ch: 0 })  // 从Line 1开头
-    expect(to.line).toBe(1)  // ← 修复：只替换Line 1
-    expect(to.ch).toBe('<para></para>'.length)  // ← 修复：到当前行末尾
+    expect(from).toEqual({ line: 1, ch: 0 }) // 从Line 1开头
+    expect(to.line).toBe(1) // ← 修复：只替换Line 1
+    expect(to.ch).toBe('<para></para>'.length) // ← 修复：到当前行末尾
 
     // 验证不会延伸到Line 2
     expect(to.line).not.toBe(2)
@@ -157,11 +157,11 @@ describe('ParaDesigner.vue - P0 Bug修复：保存单行para不丢失下一行',
       getLine: jest.fn((lineNo) => {
         const lines = [
           '<dmodule>',
-          '<para>',              // Line 1 - para开始
-          '  <randomList>',      // Line 2
-          '    <listItem>项目</listItem>',  // Line 3
-          '  </randomList>',     // Line 4
-          '</para>',             // Line 5 - para结束
+          '<para>', // Line 1 - para开始
+          '  <randomList>', // Line 2
+          '    <listItem>项目</listItem>', // Line 3
+          '  </randomList>', // Line 4
+          '</para>', // Line 5 - para结束
           '<title>标题</title>', // Line 6 - 不应该丢失
           '</dmodule>'
         ]
@@ -174,7 +174,7 @@ describe('ParaDesigner.vue - P0 Bug修复：保存单行para不丢失下一行',
       lineno: 1,
       editor: multilineEditor
     })
-    wrapper.vm.endline = 5  // 多行para
+    wrapper.vm.endline = 5 // 多行para
 
     await wrapper.vm.handleSave()
 
@@ -182,8 +182,8 @@ describe('ParaDesigner.vue - P0 Bug修复：保存单行para不丢失下一行',
 
     // 多行para：替换到结束行的末尾
     expect(from).toEqual({ line: 1, ch: 0 })
-    expect(to.line).toBe(5)  // 到Line 5
-    expect(to.ch).toBe('</para>'.length)  // 到Line 5末尾
+    expect(to.line).toBe(5) // 到Line 5
+    expect(to.ch).toBe('</para>'.length) // 到Line 5末尾
 
     // 不应该延伸到Line 6
     expect(to).not.toEqual({ line: 6, ch: 0 })
@@ -192,9 +192,9 @@ describe('ParaDesigner.vue - P0 Bug修复：保存单行para不丢失下一行',
   it('边界情况3：连续两个单行para都能正确保存', async () => {
     const consecutiveLines = [
       '<dmodule>',
-      '<para>段落1</para>',  // Line 1
-      '<para>段落2</para>',  // Line 2 - 保存Line 1后不应该丢失
-      '<para>段落3</para>',  // Line 3
+      '<para>段落1</para>', // Line 1
+      '<para>段落2</para>', // Line 2 - 保存Line 1后不应该丢失
+      '<para>段落3</para>', // Line 3
       '</dmodule>'
     ]
 
@@ -235,14 +235,14 @@ describe('ParaDesigner.vue - P0 Bug修复集成测试', () => {
     })
 
     // 记录原始内容
-    const originalLine2 = cm.getLine(2)  // '<title>重要标题</title>'
+    const originalLine2 = cm.getLine(2) // '<title>重要标题</title>'
 
     // 模拟保存操作
     const newPara = '<para id="para001"></para>'
     cm.replaceRange(
       newPara,
       { line: 1, ch: 0 },
-      { line: 1, ch: cm.getLine(1).length }  // ← 修复后的参数
+      { line: 1, ch: cm.getLine(1).length } // ← 修复后的参数
     )
 
     // 验证Line 2没有丢失

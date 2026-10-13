@@ -14,7 +14,6 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Para设计器P0修复 - 冒烟测试', () => {
-
   let page
 
   test.beforeAll(async ({ browser }) => {
@@ -190,7 +189,7 @@ test.describe('Para设计器P0修复 - 冒烟测试', () => {
     // 插入左对齐的para（结束标签缩进小于开始标签）
     const testXml = `      <para id="smoke-test-3">
         <emphasis>左对齐格式化风格</emphasis>
-    </para>`  // 开始标签6空格，结束标签4空格
+    </para>` // 开始标签6空格，结束标签4空格
 
     const lineNo = await page.evaluate((xml) => {
       const cm = document.querySelector('.CodeMirror').CodeMirror

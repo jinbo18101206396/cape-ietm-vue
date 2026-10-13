@@ -150,7 +150,6 @@ test.describe('Para转换对称性 - 真实UI集成测试', () => {
             isSymmetric: isSymmetric,
             passed: isSymmetric
           })
-
         } catch (error) {
           testResults.push({
             id: tc.id,

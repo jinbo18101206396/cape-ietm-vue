@@ -1,22 +1,18 @@
-const { defineConfig, devices } = require('@playwright/test')
-
-module.exports = defineConfig({
-  testDir: './tests',
+module.exports = {
+  testDir: './',
+  testMatch: '**/*.spec.js',
   timeout: 60000,
-  fullyParallel: false,
-  forbidOnly: !!process.env.CI,
-  retries: 0,
-  workers: 1,
-  reporter: 'html',
   use: {
     baseURL: 'http://localhost:3000',
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure'
+    headless: false,
+    viewport: { width: 1920, height: 1080 },
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
   },
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] }
-    }
-  ]
-})
+      use: { browserName: 'chromium' },
+    },
+  ],
+};

@@ -95,7 +95,7 @@ test('T1.1: 有效dmCode应正常处理', async () => {
 test('T1.2: dmCode格式错误应抛出异常', async () => {
   const parent = {
     cmnodeid: 'test',
-    dmCode: 'DMC-A-B'  // 只有3段
+    dmCode: 'DMC-A-B' // 只有3段
   }
   const html = '<p><img class="kfformula" src="data:image/png;base64,abc"/></p>'
 
@@ -146,7 +146,7 @@ test('T2.1: uniqueid充足时应正常分配', async () => {
 test('T2.2: uniqueid不足时应抛出异常并记录日志', async () => {
   const parent = validParent
   const html = '<p><img class="kfformula" src="data:image/png;base64,abc"/></p>'
-  const uniqueids = []  // 空数组
+  const uniqueids = [] // 空数组
 
   try {
     await html2para(parent, html, validProjectParams, uniqueids)

@@ -3,7 +3,20 @@
  * 实现XML↔HTML双向转换，覆盖9类元素
  */
 
-import axios from 'axios'
+import { axios } from '@/utils/request'
+import { getDmcByText } from './refsBuilder'  // 🔧 2026-10-10 使用本地DMC解析函数
+
+// ========== 常量定义 ==========
+
+/**
+ * 🔧 2026-10-10 P0-3修复: 使用Unicode私有区字符作为占位符
+ * 这些字符在标准文本中基本不会出现，极大降低冲突风险
+ * - U+E000-U+F8FF: 私有区 (共6400个字符)
+ * - 选用: U+E001 (LF), U+E002 (CR)
+ * 优于__LF__/__CR__文本标记（后者可能与用户输入冲突）
+ */
+const PLACEHOLDER_LF = ''  // 换行符占位符
+const PLACEHOLDER_CR = ''  // 回车符占位符
 
 // ========== XSS防护工具函数 ==========
 
@@ -22,6 +35,8 @@ export function escapeXmlForAttribute(xml) {
     .replace(/"/g, '&quot;')  // 防止属性值闭合
     .replace(/'/g, '&#39;')   // 防止单引号属性值闭合
     .replace(/`/g, '&#96;')   // 防止反引号注入
+    .replace(/\r/g, PLACEHOLDER_CR) // 🔧 2026-10-10 P0-3修复：使用Unicode私有区字符，极大降低冲突风险
+    .replace(/\n/g, PLACEHOLDER_LF) // 🔧 2026-10-10 P0-3修复：使用Unicode私有区字符，极大降低冲突风险
 }
 
 /**
@@ -37,7 +52,9 @@ function unescapeXmlAttribute(escapedXml) {
     .replace(/&quot;/g, '"')
     .replace(/&gt;/g, '>')
     .replace(/&lt;/g, '<')
-    .replace(/&amp;/g, '&')   // & 必须最后替换
+    .replace(new RegExp(PLACEHOLDER_CR, 'g'), '\r')  // 🔧 2026-10-10 P0-3修复：解码回车符
+    .replace(new RegExp(PLACEHOLDER_LF, 'g'), '\n')  // 🔧 2026-10-10 P0-3修复：解码换行符
+    .replace(/&amp;/g, '&')    // & 必须最后替换
 }
 
 // ========== 主转换函数 ==========
@@ -54,7 +71,8 @@ export async function para2html(parent, str) {
   let html = str.trim()
 
   // §8.2.1 definitionList转table
-  const deflists = html.match(/<definitionList.*?<\/definitionList>/g)
+  // 🔧 修复P0-DEFLIST: 使用[\s\S]*?代替.*?以匹配多行XML
+  const deflists = html.match(/<definitionList[\s\S]*?<\/definitionList>/g)
   if (deflists != null) {
     deflists.forEach(m => {
       let html_ = m.replace(/<definitionList>/g, '<table deflist="1">')
@@ -72,7 +90,8 @@ export async function para2html(parent, str) {
   }
 
   // §8.3 captionGroup转table
-  const captions = html.match(/<captionGroup.*?<\/captionGroup>/g)
+  // 🔧 修复P0-CAPTION: 使用[\s\S]*?代替.*?以匹配多行XML
+  const captions = html.match(/<captionGroup[\s\S]*?<\/captionGroup>/g)
   if (captions != null) {
     for (const m of captions) {
       const tableHtml = await convertCaptionGroupToTable(m)
@@ -105,7 +124,8 @@ export async function para2html(parent, str) {
   // §8.2.3 internalRef转<a>标签
   const refs = []
   str2jsons(refs, html, 'internalRef', 'internalRefId,internalRefTargetType')
-  let internalRefs = html.match(/<internalRef.*?>(.*?)<\/internalRef>/g)
+  // 🔧 2026-10-10 修复P0: 使用[\s\S]代替.以匹配多行标签
+  let internalRefs = html.match(/<internalRef[\s\S]*?<\/internalRef>/g)
   if (internalRefs != null) {
     internalRefs.forEach((m, i) => {
       const ref = refs[i]
@@ -117,7 +137,7 @@ export async function para2html(parent, str) {
       html = html.replace(m, `<a href="javascript:void(0);" xml="${ref.xml}">【${safeType}(${safeId})】</a>`)
     })
   } else {
-    internalRefs = html.match(/<internalRef.*?\/>/g)
+    internalRefs = html.match(/<internalRef[\s\S]*?\/>/g)
     if (internalRefs != null) {
       internalRefs.forEach((m, i) => {
         const ref = refs[i]
@@ -135,11 +155,12 @@ export async function para2html(parent, str) {
   html = await getDmrefHtml(parent, html)
 
   // §8.2.5 symbol转<img>标签
-  let symbols = html.match(/<symbol.*?>(.*?)<\/symbol>/g)
+  // 🔧 2026-10-10 修复P0: 使用[\s\S]代替.以匹配多行标签
+  let symbols = html.match(/<symbol[\s\S]*?<\/symbol>/g)
   if (symbols != null) {
     html = await tosymbol(symbols, html)
   } else {
-    symbols = html.match(/<symbol.*?\/>/g)
+    symbols = html.match(/<symbol[\s\S]*?\/>/g)
     if (symbols != null) {
       html = await tosymbol(symbols, html)
     }
@@ -264,7 +285,9 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
   para = para.replace(/<li>([\s\S]*?)<\/li>/g, '<listItem><para>$1</para></listItem>')
 
   // §9.2.3 table转definitionList
-  const deflists = para.match(/<table deflist="1">.*?<\/table>/g)
+  // 🔧 修复P0-DEFLIST: 使用[\s\S]*?代替.*?以匹配多行表格内容
+  // 根因：.*?默认不匹配换行符，导致多行deflist无法识别，被当成普通表格删除
+  const deflists = para.match(/<table deflist="1">[\s\S]*?<\/table>/g)
   if (deflists != null) {
     deflists.forEach(m => {
       let table_ = m.replace(/<table deflist="1">/g, '<definitionList>')
@@ -295,7 +318,8 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
   }
 
   // §9.2.4 table转captionGroup
-  const captions = para.match(/<table caption="1">.*?<\/table>/g)
+  // 🔧 修复P0-CAPTION-REVERSE: 使用[\s\S]*?代替.*?以匹配多行HTML
+  const captions = para.match(/<table caption="1">[\s\S]*?<\/table>/g)
   if (captions != null) {
     captions.forEach(m => {
       para = para.replace(m, convertTableToCaptionGroup(m, parent, depth))
@@ -455,7 +479,8 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
   }
 
   // §9.2.6 <img>标签还原为symbol
-  let imgs = para.match(/<img.*?\/>/g)
+  // 🔧 2026-10-10 修复P0: 使用[\s\S]代替.以匹配多行属性
+  let imgs = para.match(/<img[\s\S]*?\/>/g)
   if (imgs != null) {
     imgs.forEach(m => {
       const match = m.match(/xml="([^"]+)"/)
@@ -468,7 +493,8 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
   }
 
   // §9.2.5 <a>标签还原为internalRef/dmRef
-  let anchors = para.match(/<a href=.*?<\/a>/g)
+  // 🔧 2026-10-10 修复P0: 使用[\s\S]代替.以匹配多行<a>标签
+  let anchors = para.match(/<a[\s\S]*?<\/a>/g)
   if (anchors != null) {
     anchors.forEach(m => {
       const match = m.match(/xml="([^"]+)"/)
@@ -476,6 +502,37 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
         // 🔧 修复P1-6: 使用统一的反转义函数（包含完整的实体解码）
         const anchorxml = unescapeXmlAttribute(match[1])
         para = para.replace(m, anchorxml)
+      } else {
+        // 🔧 修复P0-DATALOSS-1: 处理被手动修改的<a>标签（无xml属性）
+        // 根因：用户在UEditor中手动编辑文本时，xml属性会丢失
+        // 症状：保存后para内容消失
+        // 检测逻辑：如果<a>标签没有xml属性，但文本包含【引用/内部引用等标记，说明被破坏了
+
+        const textMatch = m.match(/>([^<]+)<\/a>/)
+        const linkText = textMatch ? textMatch[1] : ''
+
+        // 识别这是否是被破坏的特殊元素
+        const isDmRef = linkText.includes('引用') && (linkText.includes('DMC') || linkText.includes('DM'))
+        const isInternalRef = linkText.includes('内部引用')
+        const isSymbol = linkText.includes('图符')
+
+        if (isDmRef || isInternalRef || isSymbol) {
+          // 🔧 P0-WARN-1: 输出详细诊断日志，帮助用户定位问题
+          console.error(
+            '[html2para] 🚨 P0-DATALOSS风险：检测到被手动修改的引用元素\n' +
+            `  └─ 链接文本: "${linkText}"\n` +
+            `  └─ 原始HTML: ${m.substring(0, 80)}...\n` +
+            `  └─ 根因: 用户在UEditor中手动修改文本，导致xml属性丢失\n` +
+            `  └─ 后果: 保存后该元素会被当作普通文本处理，原始XML结构丢失\n` +
+            `  └─ 建议: 删除此元素，使用工具栏"DM引用"/"内部引用"/"图符"按钮重新插入`
+          )
+
+          // 降级处理：宁可保留普通<a>标签，也不要让数据完全丢失
+          // 前端会进行额外检查（见下一步的ParaDesigner验证）
+          // 这里只记录错误，让<a>标签保持原样进入XML
+          // para不替换m，相当于保留原HTML（最终会被当作普通链接处理）
+        }
+        // 其他普通<a>标签也保留原样
       }
     })
   }
@@ -586,24 +643,45 @@ async function getCaptionRow(row, colstyles, colnames) {
 
 /**
  * dmRef转换辅助函数
+ * 🔧 2026-10-10 修复P0: 改用本地getDmcByText解析，不依赖后端接口
  */
 export async function getDmrefHtml(parent, html) {
-  const refs = html.match(/<dmRef.*?>(.*?)<\/dmRef>/g)
+  // 🔧 2026-10-10 修复P0: 使用[\s\S]代替.以匹配多行dmRef标签
+  const refs = html.match(/<dmRef[\s\S]*?<\/dmRef>/g)
+
   if (refs != null) {
+
     for (const m of refs) {
       try {
-        const res = await axios.post('/jeecg-boot/ietm/dm-content/getDmcByText', { dmRefXml: m }, {
-          timeout: 30000
-        })
-        if (res.data && res.data.success && res.data.result) {
-          const dmjson = res.data.result
-          // 🔧 修复P1-6: 使用统一的XSS防护函数
-          const escapedXml = escapeXmlForAttribute(dmjson.xml)
+        // 🔧 修复P0: 使用本地getDmcByText函数（refsBuilder.js）代替后端API
+        const dmjson = getDmcByText(m)
+
+        if (dmjson && dmjson.dmc) {
+          // 🔧 2026-10-10 修复：保留原始格式，使用匹配到的原始m而非dmjson.xml
+          // dmjson.xml经过trim()处理，会丢失换行和缩进
+          const originalXml = m  // 保留原始多行格式
+          const escapedXml = escapeXmlForAttribute(originalXml)
           const safeDmc = escapeXmlForAttribute(dmjson.dmc)
-          html = html.replace(m, `<a href="javascript:void(0);" xml="${escapedXml}">【引用${safeDmc}】</a>`)
+          const safeTitle = escapeXmlForAttribute(dmjson.dmtitle || '')
+
+          // 显示格式：【引用DMC: 标题】
+          const displayText = safeTitle ? `${safeDmc}: ${safeTitle}` : safeDmc
+          html = html.replace(m, `<a href="javascript:void(0);" xml="${escapedXml}">【引用${displayText}】</a>`)
+          console.log('[getDmrefHtml] ✅ 转换成功:', displayText)
+        } else {
+          // 解析失败，使用fallback
+          console.warn('[getDmrefHtml] ⚠️ 本地解析失败，使用fallback显示')
+          const fallbackText = extractDmRefTitle(m)
+          const escapedXml = escapeXmlForAttribute(m)
+          html = html.replace(m, `<a href="javascript:void(0);" xml="${escapedXml}" style="color: orange;">【引用DM: ${fallbackText}】</a>`)
         }
       } catch (error) {
-        console.error('转换dmRef失败:', error)
+        console.error('[getDmrefHtml] ❌ 转换dmRef失败:', error)
+
+        // 🔧 失败时使用fallback，避免dmRef标签在UEditor中不可见
+        const fallbackText = extractDmRefTitle(m)
+        const escapedXml = escapeXmlForAttribute(m)
+        html = html.replace(m, `<a href="javascript:void(0);" xml="${escapedXml}" style="color: red;">【引用DM解析失败: ${fallbackText}】</a>`)
       }
     }
   }
@@ -611,52 +689,112 @@ export async function getDmrefHtml(parent, html) {
 }
 
 /**
+ * 从dmRef XML中提取标题作为fallback显示
+ */
+function extractDmRefTitle(dmRefXml) {
+  try {
+    // 尝试提取techName和infoName
+    const techNameMatch = dmRefXml.match(/<techName>(.*?)<\/techName>/)
+    const infoNameMatch = dmRefXml.match(/<infoName>(.*?)<\/infoName>/)
+
+    if (techNameMatch && infoNameMatch) {
+      return `${techNameMatch[1]}-${infoNameMatch[1]}`
+    } else if (techNameMatch) {
+      return techNameMatch[1]
+    } else if (infoNameMatch) {
+      return infoNameMatch[1]
+    }
+
+    // 如果没有标题，提取dmCode作为标识
+    const modelIdentMatch = dmRefXml.match(/modelIdentCode="([^"]+)"/)
+    const systemCodeMatch = dmRefXml.match(/systemCode="([^"]+)"/)
+    const infoCodeMatch = dmRefXml.match(/infoCode="([^"]+)"/)
+
+    if (modelIdentMatch && systemCodeMatch && infoCodeMatch) {
+      return `${modelIdentMatch[1]}-${systemCodeMatch[1]}-${infoCodeMatch[1]}`
+    }
+
+    return 'DM'
+  } catch (e) {
+    return 'DM'
+  }
+}
+
+/**
  * symbol转换辅助函数
  */
 async function tosymbol(symbols, html) {
+  console.log('[tosymbol] 输入symbols数量:', symbols.length)
+
+  // 构建后端 API 基地址
+  const apiBaseUrl = window._CONFIG['domianURL'] || '/jeecg-boot'
+  console.log('[tosymbol] apiBaseUrl:', apiBaseUrl)
+
   // 并行加载所有图符
   const promises = symbols.map(async (m) => {
     try {
       const parser = new DOMParser()
       const doc = parser.parseFromString(m, 'text/xml')
       const icn = doc.querySelector('symbol').getAttribute('infoEntityIdent')
+      console.log('[tosymbol] 处理ICN:', icn)
 
-      const res = await axios.post('/jeecg-boot/ietm/icn/getIcnContent', { icn })
-      if (res.data && res.data.result) {
-        const data = res.data.result
-        if (data.formula) {
-          // 公式类型
-          // 🔧 修复P1-6: 使用统一的XSS防护函数
-          const safeXml = escapeXmlForAttribute(m)
-          return {
-            search: m,
-            replace: data.formula.replace('class="kfformula"', `class="kfformula" xml="${safeXml}"`)
+      // 🔧 2026-10-10 修复：前端路径错误（/ietm/icn-manage → /icnmanage/ietmIcnManage）
+      // 根因：paraConverter.js 使用了错误的API路径，导致一直404
+      // 现已改用正确路径并恢复 queryByIcnCode + viewFile 优化
+      let imgSrc = null
+      try {
+        // 调用后端接口获取 ICN 信息（含 fileKey）
+        const icnInfo = await fetch(`${apiBaseUrl}/icnmanage/ietmIcnManage/queryByIcnCode?icn=${encodeURIComponent(icn)}`, {
+          headers: {
+            'X-Access-Token': localStorage.getItem('pro__Access-Token') ? JSON.parse(localStorage.getItem('pro__Access-Token')).value : ''
           }
+        }).then(r => r.json())
+
+        if (icnInfo.success && icnInfo.result && icnInfo.result.ietmAttachment && icnInfo.result.ietmAttachment.fileKey) {
+          // 使用 viewFile 端点（性能更好）
+          const fileKey = icnInfo.result.ietmAttachment.fileKey
+          imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/viewFile?fileKey=${encodeURIComponent(fileKey)}`
+          console.log('[tosymbol] 通过 fileKey 生成 URL:', imgSrc)
         } else {
-          // 图片类型
-          const imgSrc = `/jeecg-boot/ietm/icn/tmpICN/${data.dto.id}${data.dto.filename.substring(data.dto.filename.lastIndexOf('.')).toLowerCase()}`
-          // 🔧 修复P1-6: 使用统一的XSS防护函数
-          const safeXml = escapeXmlForAttribute(m)
-          return {
-            search: m,
-            replace: `<img src="${imgSrc}" xml="${safeXml}">`
-          }
+          console.warn('[tosymbol] ICN数据不完整，fallback到view:', icnInfo.result ? 'ietmAttachment为null' : 'result为null')
+          throw new Error('ICN附件缺失')
         }
+      } catch (e) {
+        console.warn('[tosymbol] queryByIcnCode失败，fallback到view:', e.message)
+        // Fallback: 直接访问 view/{icnCode}（有占位图逻辑）
+        imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+      }
+      console.log('[tosymbol] 最终URL:', imgSrc)
+
+      console.log('[tosymbol] 最终图片 URL:', imgSrc)
+
+      // 🔧 修复P1-6: 使用统一的XSS防护函数
+      // 🔧 2026-10-10: 添加图片尺寸限制，避免显示过大（300x200）
+      const safeXml = escapeXmlForAttribute(m)
+      const replacement = `<img src="${imgSrc}" xml="${safeXml}" style="max-width: 300px; max-height: 200px; width: auto; height: auto;">`
+      console.log('[tosymbol] 替换内容长度:', replacement.length)
+
+      return {
+        search: m,
+        replace: replacement
       }
     } catch (error) {
-      console.error('加载图符失败:', error)
+      console.error('[tosymbol] 加载图符失败:', error)
       return null
     }
   })
 
   // 等待所有请求完成
   const results = await Promise.all(promises)
+  console.log('[tosymbol] 返回结果数量:', results.filter(Boolean).length)
 
   // 批量替换
   results.filter(Boolean).forEach(({ search, replace }) => {
+    console.log('[tosymbol] 执行替换...')
     html = html.replace(search, replace)
   })
 
+  console.log('[tosymbol] 转换完成，输出 HTML 长度:', html.length)
   return html
 }
 

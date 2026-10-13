@@ -8,12 +8,12 @@
  *  4) 各类块级元素开闭标签配平
  * 覆盖：多段落、深层列表、混合内联、UEditor风格的多<p>输入、空/空白输入。
  */
+import { para2html, html2para } from '@/views/ietm/ietmdatamodulemanagement/editor/utils/paraConverter'
+
 jest.mock('axios', () => ({
   __esModule: true,
   default: { post: jest.fn(() => Promise.resolve({ data: { success: false, result: null } })) }
 }))
-
-import { para2html, html2para } from '@/views/ietm/ietmdatamodulemanagement/editor/utils/paraConverter'
 
 const mockParent = { cmnodeid: 'CM001', dmCode: 'A-B-C-D-E-F-G', newformulaCnt: 0 }
 
@@ -40,13 +40,13 @@ describe('往返后标签配平不变量', () => {
     ['三层列表嵌套', '<para><randomList><listItem><para>L1<sequentialList><listItem><para>L2</para></listItem></sequentialList></para></listItem></randomList></para>'],
     ['混合内联(强调+上下标+内部引用)', '<para>文本<emphasis>强</emphasis>x<superScript>2</superScript><internalRef internalRefId="r1" internalRefTargetType="figure"></internalRef>尾</para>'],
     ['definitionList多行', '<para><definitionList><definitionListItem><listItemTerm>T1</listItemTerm><listItemDefinition><para>D1</para></listItemDefinition></definitionListItem><definitionListItem><listItemTerm>T2</listItemTerm><listItemDefinition><para>D2</para></listItemDefinition></definitionListItem></definitionList></para>'],
-    ['warningAndCautionPara', '<para><warningAndCautionPara>警告</warningAndCautionPara></para>'],
+    ['warningAndCautionPara', '<para><warningAndCautionPara>警告</warningAndCautionPara></para>']
   ]
 
   test.each(xmls)('%s：往返后 <para> 配平且无双层包裹', async (_n, xml) => {
     const out = await roundTrip(xml)
     assertBalanced(out, 'para')
-    expect(out).not.toMatch(/<para>\s*<para>\b/)  // 无 <para><para> 空壳嵌套
+    expect(out).not.toMatch(/<para>\s*<para>\b/) // 无 <para><para> 空壳嵌套
   })
 
   test.each(xmls)('%s：往返后各块级元素配平', async (_n, xml) => {
@@ -65,7 +65,7 @@ describe('UEditor 风格 HTML 输入（保存路径直入 html2para）', () => {
     ['两个p(段落被拆)', '<p>甲</p><p>乙</p>'],
     ['p内br', '<p>甲<br/>乙</p>'],
     ['p含strong', '<p>文本<strong>强调</strong></p>'],
-    ['列表', '<ul><li>项1</li><li>项2</li></ul>'],
+    ['列表', '<ul><li>项1</li><li>项2</li></ul>']
   ]
 
   test.each(htmls)('%s：保存后 <para> 配平', async (_n, html) => {
@@ -80,7 +80,7 @@ describe('空/空白输入健壮性', () => {
     ['纯空白', '   \n  '],
     ['空p', '<p></p>'],
     ['仅nbsp', '<p>&nbsp;</p>'],
-    ['仅br', '<p><br/></p>'],
+    ['仅br', '<p><br/></p>']
   ])('%s：不抛异常且 <para> 配平', async (_n, html) => {
     let out
     await expect((async () => { out = await saveFrom(html) })()).resolves.not.toThrow()
