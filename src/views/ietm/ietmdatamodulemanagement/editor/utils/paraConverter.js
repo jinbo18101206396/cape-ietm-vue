@@ -345,13 +345,16 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
 
   // §9.2.7 公式（kfformula）转symbol
   const formula = para.match(/<img class="kfformula".*?\/>/g)
+  console.log('[html2para] 找到公式数量:', formula ? formula.length : 0)
   if (formula != null) {
     para = para.replace(/<\/para><para><img class="kfformula">/g, '<img class="kfformula">')
     let newformulaCnt = 0
 
     for (const m of formula) {
+      console.log('[html2para] 处理公式:', m.substring(0, 100) + '...')
       // 情况1：已存在的公式（有xml属性）
       if (m.indexOf(' xml="') > 0) {
+        console.log('[html2para] → 已存在的公式，使用xml属性')
         const match = m.match(/xml="([^"]+)"/)
         if (match) {
           // 🔧 修复P1-6: 使用统一的反转义函数
@@ -361,6 +364,7 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
       }
       // 情况2：新公式 → 自动生成ICN
       else {
+        console.log('[html2para] → 新公式，准备保存到数据库')
         try {
           // §13.3 构建ICN元数据
           const json = {
@@ -370,26 +374,46 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
             secretLevel: '1',
             cmnodeid: parent.cmnodeid
           }
+          console.log('[html2para] 步骤1: 构建ICN元数据完成')
 
-          // 🔧 修复P0-01: 从项目参数获取originator和rpc（添加异常处理）
+          // 🔧 修复P0-01: 从项目参数获取originator和rpc（必须获取真实值）
           try {
+            if (!projectParameters || projectParameters.trim() === '') {
+              throw new Error('项目参数为空')
+            }
             const projparam = JSON.parse(projectParameters)
             const ori = projparam.originator
-            if (ori && ori.length > 0) json.originator = ori[0].code
+            if (!ori || ori.length === 0) {
+              throw new Error('项目参数中缺少originator')
+            }
+            json.originator = ori[0].code
+
             const rpc = projparam.rpc
-            if (rpc && rpc.length > 0) json.rpc = rpc[0].code1
+            if (!rpc || rpc.length === 0) {
+              throw new Error('项目参数中缺少rpc')
+            }
+            json.rpc = rpc[0].code1
+            console.log('[html2para] 步骤2: 获取originator/rpc成功:', json.originator, json.rpc)
           } catch (e) {
-            console.error('解析项目参数失败:', e, 'projectParameters:', projectParameters)
-            // 继续执行，使用默认值（已在json对象中设置）
+            console.error('获取项目参数失败，无法生成ICN:', e.message, 'projectParameters:', projectParameters)
+            throw new Error(`公式保存失败：无法从项目参数获取originator和rpc (${e.message})`)
           }
 
-          // 🔧 修复P1-1: 从DM名称解析SNS（添加数组长度验证）
+          // 🔧 2026-10-15 修复P0: 公式ICN格式与图符保持一致
+          // 从DM名称解析SNS（与旧系统IetmEditorDesignerPara.js:259保持一致）
           const nameArr = parent.dmCode.split('-')
           if (nameArr.length < 6) {
             console.error('dmCode格式错误，长度不足:', parent.dmCode, '数组长度:', nameArr.length)
             throw new Error(`dmCode格式错误: ${parent.dmCode}，预期至少6段，实际${nameArr.length}段`)
           }
-          json.sns = nameArr[1] + '-' + nameArr[2] + '-' + nameArr[3] + '-' + nameArr[4] + '-' + nameArr[5]
+
+          // SNS 3段（与旧系统保持一致）
+          // nameArr[3]+nameArr[4]+nameArr[5] 直接拼接（只有[4]和[5]需补零）
+          const sns1 = nameArr[1]  // modelIdentCode
+          const sns2 = nameArr[2]  // systemDiffCode
+          const sns3 = nameArr[3] + nameArr[4].padStart(2, '0') + nameArr[5].padStart(2, '0')  // 直接拼接
+          json.sns = `${sns1}-${sns2}-${sns3}`
+          console.log('[html2para] 步骤3: 解析SNS完成:', json.sns)
 
           // 设置文件内容
           json.filecontent = m
@@ -402,14 +426,21 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
           }
           json.uniqueid = uniqueid_
           json.filename = '公式' + uniqueid_ + '.png'
+          console.log('[html2para] 步骤4: 分配uniqueid完成:', uniqueid_)
 
-          // 拼接ICN编码
-          const icn = `ICN-${json.sns}-${json.rpc}-${json.originator}-${uniqueid_}-A-001-01`
+          // 🔧 2026-10-15 修复P0: 公式ICN格式与旧系统保持一致（10段）
+          // 格式: ICN-{SNS 3段}-{originator}-{rpc}-{uniqueId}-A-001-01
+          // 与旧系统代码保持一致: var icn = 'ICN-'+json.sns+'-'+json.rpc+'-'+json.originator+'-'+uniqueid_+'-A-001-01';
+          // 但实际ICN顺序应该是: originator在rpc前
+          const uniqueidStr = String(uniqueid_).padStart(5, '0')
+          const icn = `ICN-${json.sns}-${json.originator}-${json.rpc}-${uniqueidStr}-A-001-01`
           json.icn = icn
+          console.log('[html2para] 步骤5: 生成ICN完成 (10段):', icn)
 
           // 读取图片尺寸
           const srcMatch = m.match(/src="([^"]+)"/)
           if (srcMatch) {
+            console.log('[html2para] 步骤6: 开始加载图片尺寸...')
             const img = new Image()
             // 🔧 修复P1-3: Image对象内存泄漏（添加事件监听器清理）
             let cleanupHandlers = null
@@ -436,6 +467,7 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
                 img.src = srcMatch[1]
               })
 
+              console.log('[html2para] 步骤7: 图片尺寸加载完成:', img.width, 'x', img.height)
               // 替换为symbol标签
               const symbolXml = `<symbol infoEntityIdent="${icn}" reproductionWidth="${img.width}" reproductionHeight="${img.height}" reproductionScale="100"></symbol>`
               para = para.replace(m, symbolXml)
@@ -455,10 +487,12 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
 
             // 异步保存到ICN库
             try {
-              // 🔧 修复P1-4: axios请求添加超时（10秒）
-              await axios.post('/jeecg-boot/ietm/icn/save-formula', { data: JSON.stringify(json) }, { timeout: 10000 })
+              console.log('[html2para] 步骤8: 开始调用save-formula API...')
+              // 🔧 修复：axios已配置baseURL为/jeecg-boot，这里只需相对路径
+              await axios.post('/ietm/icn/save-formula', { data: JSON.stringify(json) }, { timeout: 10000 })
+              console.log('[html2para] 步骤9: save-formula API调用成功 ✓')
             } catch (err) {
-              console.error('保存公式ICN失败:', err)
+              console.error('[html2para] ❌ 保存公式ICN失败:', err)
               // 超时错误特殊提示
               if (err.code === 'ECONNABORTED') {
                 throw new Error('保存公式ICN超时（10秒），请检查网络连接或联系管理员')
@@ -743,40 +777,99 @@ async function tosymbol(symbols, html) {
       // 现已改用正确路径并恢复 queryByIcnCode + viewFile 优化
       let imgSrc = null
       try {
-        // 调用后端接口获取 ICN 信息（含 fileKey）
+        // 调用后端接口获取 ICN 信息（含 fileKey 和 icnType）
         const icnInfo = await fetch(`${apiBaseUrl}/icnmanage/ietmIcnManage/queryByIcnCode?icn=${encodeURIComponent(icn)}`, {
           headers: {
             'X-Access-Token': localStorage.getItem('pro__Access-Token') ? JSON.parse(localStorage.getItem('pro__Access-Token')).value : ''
           }
         }).then(r => r.json())
 
-        if (icnInfo.success && icnInfo.result && icnInfo.result.ietmAttachment && icnInfo.result.ietmAttachment.fileKey) {
-          // 使用 viewFile 端点（性能更好）
-          const fileKey = icnInfo.result.ietmAttachment.fileKey
-          imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/viewFile?fileKey=${encodeURIComponent(fileKey)}`
-          console.log('[tosymbol] 通过 fileKey 生成 URL:', imgSrc)
+        // 检查是否为公式类型
+        const isFormula = icnInfo.success && icnInfo.result && icnInfo.result.icnType === 'formula'
+        console.log('[tosymbol] 是否为公式:', isFormula)
+
+        // 🔧 2026-10-14 修复P0: 公式图片加载404
+        // 根因：公式的fileKey是虚拟值(formula-xxx)，不能用viewFile端点
+        // 修复：公式需要调用getIcnContent端点获取完整HTML，然后提取base64图片
+        const safeXml = escapeXmlForAttribute(m)
+        let replacement
+
+        if (isFormula) {
+          // 公式：调用getIcnContent获取完整的<img>标签HTML
+          try {
+            const contentResponse = await fetch(`${apiBaseUrl}/ietm/icn/getIcnContent?icn=${encodeURIComponent(icn)}`, {
+              method: 'POST',
+              headers: {
+                'X-Access-Token': localStorage.getItem('pro__Access-Token') ? JSON.parse(localStorage.getItem('pro__Access-Token')).value : '',
+                'Content-Type': 'application/json'
+              }
+            }).then(r => r.json())
+
+            if (contentResponse.success && contentResponse.result && contentResponse.result.formula) {
+              // 🔧 2026-10-14 P0修复: 后端返回的formula是十六进制编码的字符串，需要先解码
+              const hexString = contentResponse.result.formula
+              console.log('[tosymbol] 公式hex原始长度:', hexString.length)
+
+              // 十六进制解码成HTML字符串
+              let formulaHtml = ''
+              for (let i = 0; i < hexString.length; i += 2) {
+                formulaHtml += String.fromCharCode(parseInt(hexString.substr(i, 2), 16))
+              }
+              console.log('[tosymbol] 解码后HTML:', formulaHtml.substring(0, 100), '...')
+
+              // 从解码后的HTML中提取src和data-latex
+              const srcMatch = formulaHtml.match(/src="([^"]*)"/)
+              const latexMatch = formulaHtml.match(/data-latex="([^"]*)"/)
+
+              if (srcMatch) {
+                imgSrc = srcMatch[1]  // base64图片
+                const dataLatex = latexMatch ? ` data-latex="${latexMatch[1]}"` : ''
+                replacement = `<img class="kfformula" src="${imgSrc}"${dataLatex} xml="${safeXml}" style="max-width: 300px; max-height: 200px; width: auto; height: auto;">`
+                console.log('[tosymbol] 公式内容加载成功，src长度:', imgSrc.length)
+              } else {
+                throw new Error('公式HTML中未找到src属性')
+              }
+            } else {
+              throw new Error('getIcnContent返回失败: ' + (contentResponse.message || '未知错误'))
+            }
+          } catch (e) {
+            console.error('[tosymbol] 获取公式内容失败，使用fallback:', e.message)
+            // Fallback: 使用view端点
+            imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+            replacement = `<img class="kfformula" src="${imgSrc}" xml="${safeXml}" style="max-width: 300px; max-height: 200px; width: auto; height: auto;">`
+          }
         } else {
-          console.warn('[tosymbol] ICN数据不完整，fallback到view:', icnInfo.result ? 'ietmAttachment为null' : 'result为null')
-          throw new Error('ICN附件缺失')
+          // 普通图符：使用viewFile或view端点
+          if (icnInfo.success && icnInfo.result && icnInfo.result.ietmAttachment && icnInfo.result.ietmAttachment.fileKey) {
+            // 使用 viewFile 端点（性能更好）
+            const fileKey = icnInfo.result.ietmAttachment.fileKey
+            imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/viewFile?fileKey=${encodeURIComponent(fileKey)}`
+            console.log('[tosymbol] 普通图符，通过 fileKey 生成 URL:', imgSrc)
+          } else {
+            console.warn('[tosymbol] ICN数据不完整，fallback到view:', icnInfo.result ? 'ietmAttachment为null' : 'result为null')
+            // Fallback: 直接访问 view/{icnCode}（有占位图逻辑）
+            imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+          }
+          replacement = `<img src="${imgSrc}" xml="${safeXml}" style="max-width: 300px; max-height: 200px; width: auto; height: auto;">`
+        }
+
+        console.log('[tosymbol] 最终replacement长度:', replacement.length)
+
+        return {
+          search: m,
+          replace: replacement
         }
       } catch (e) {
-        console.warn('[tosymbol] queryByIcnCode失败，fallback到view:', e.message)
+        console.warn('[tosymbol] queryByIcnCode失败，使用fallback:', e.message)
         // Fallback: 直接访问 view/{icnCode}（有占位图逻辑）
         imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
-      }
-      console.log('[tosymbol] 最终URL:', imgSrc)
+        const safeXml = escapeXmlForAttribute(m)
+        const replacement = `<img src="${imgSrc}" xml="${safeXml}" style="max-width: 300px; max-height: 200px; width: auto; height: auto;">`
 
-      console.log('[tosymbol] 最终图片 URL:', imgSrc)
-
-      // 🔧 修复P1-6: 使用统一的XSS防护函数
-      // 🔧 2026-10-10: 添加图片尺寸限制，避免显示过大（300x200）
-      const safeXml = escapeXmlForAttribute(m)
-      const replacement = `<img src="${imgSrc}" xml="${safeXml}" style="max-width: 300px; max-height: 200px; width: auto; height: auto;">`
-      console.log('[tosymbol] 替换内容长度:', replacement.length)
-
-      return {
-        search: m,
-        replace: replacement
+        return {
+          search: m,
+          replace: replacement
+        }
       }
     } catch (error) {
       console.error('[tosymbol] 加载图符失败:', error)

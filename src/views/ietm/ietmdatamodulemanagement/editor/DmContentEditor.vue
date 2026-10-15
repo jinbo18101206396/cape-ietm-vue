@@ -28,6 +28,7 @@
               <div class="design-view-container">
                 <para-designer
                   v-if="paraDesignerVisible"
+                  :key="paraDesignerVisible ? Math.random() : 'hidden'"
                   ref="paraDesigner"
                   :lineno="paraLineno"
                   :editor="$refs.editor ? $refs.editor.getEditor() : null"
@@ -269,6 +270,7 @@ export default {
       // Para设计器相关
       paraDesignerVisible: false,
       paraLineno: 0,
+      paraDesignerKey: 0,  // 用于强制重新渲染ParaDesigner组件
       maxUniqueId: 0
     }
   },
@@ -474,7 +476,15 @@ export default {
       // 统一的Para设计器打开逻辑（供双击树节点和点击gutter图标复用）
       this.viewMode = 'design'
       this.paraLineno = lineno
-      this.paraDesignerVisible = true
+
+      // 🔧 2026-10-15 P0修复：强制销毁旧组件
+      // 方案：先设为false销毁组件及其DOM，再设为true创建新实例
+      // 这样保证每次都是完全干净的新组件
+      this.paraDesignerVisible = false
+
+      this.$nextTick(() => {
+        this.paraDesignerVisible = true
+      })
 
       // 进入设计视图时自动隐藏左侧导航树和属性面板，聚焦内容编辑
       this.treeVisible = false

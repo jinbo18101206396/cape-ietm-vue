@@ -1,0 +1,226 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: tests\formula-insertion.spec.js >> 公式插入功能 - Playwright E2E测试 >> T4: 验证公式编辑按钮存在
+- Location: tests\formula-insertion.spec.js:102:3
+
+# Error details
+
+```
+TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator('table') to be visible
+
+```
+
+# Test source
+
+```ts
+  7   |   test.beforeAll(async ({ browser }) => {
+  8   |     // 创建浏览器上下文
+  9   |     context = await browser.newContext();
+  10  |   });
+  11  | 
+  12  |   test.beforeEach(async ({ browser }) => {
+  13  |     // 每个测试前创建新页面
+  14  |     page = await context.newPage();
+  15  | 
+  16  |     // 设置视口大小
+  17  |     await page.setViewportSize({ width: 1920, height: 1080 });
+  18  | 
+  19  |     // 等待并登录
+  20  |     console.log('🔐 开始登录流程...');
+  21  |     await page.goto('http://localhost:3000', { waitUntil: 'networkidle' });
+  22  | 
+  23  |     // 检查是否需要登录
+  24  |     const loginBtn = await page.$('[placeholder="请输入用户名"]');
+  25  |     if (loginBtn) {
+  26  |       console.log('📝 输入登录信息...');
+  27  |       await page.fill('[placeholder="请输入用户名"]', 'admin');
+  28  |       await page.fill('[placeholder="请输入密码"]', 'admin123');
+  29  |       await page.click('button:has-text("登录")');
+  30  | 
+  31  |       // 等待登录完成
+  32  |       await page.waitForNavigation({ waitUntil: 'networkidle' });
+  33  |       console.log('✅ 登录成功');
+  34  |     }
+  35  | 
+  36  |     // 等待页面稳定
+  37  |     await page.waitForTimeout(1000);
+  38  |   });
+  39  | 
+  40  |   test.afterEach(async () => {
+  41  |     // 截图用于调试
+  42  |     await page.screenshot({ path: `tests/screenshots/formula-test-${Date.now()}.png` });
+  43  |     await page.close();
+  44  |   });
+  45  | 
+  46  |   test.afterAll(async () => {
+  47  |     if (context) await context.close();
+  48  |   });
+  49  | 
+  50  |   // ============ 测试套件 ============
+  51  | 
+  52  |   test('T1: 验证后端API服务可用性', async () => {
+  53  |     console.log('\n🧪 测试T1: 验证后端API服务可用性');
+  54  | 
+  55  |     const response = await page.request.get('http://localhost:9999/jeecg-boot/doc.html');
+  56  |     expect(response.status()).toBe(200);
+  57  |     console.log('✅ 后端服务正常 (HTTP 200)');
+  58  |   });
+  59  | 
+  60  |   test('T2: 导航到Para设计器', async () => {
+  61  |     console.log('\n🧪 测试T2: 导航到Para设计器');
+  62  | 
+  63  |     // 导航到文档管理页面
+  64  |     await page.goto('http://localhost:3000/#/ietm/dm', { waitUntil: 'networkidle' });
+  65  | 
+  66  |     // 等待表格加载
+  67  |     await page.waitForSelector('table', { timeout: 10000 });
+  68  |     console.log('✅ 文档列表页面加载成功');
+  69  | 
+  70  |     // 查找第一个可编辑的DM
+  71  |     const firstEditBtn = await page.$('button:has-text("编辑")');
+  72  |     if (firstEditBtn) {
+  73  |       await firstEditBtn.click();
+  74  |       await page.waitForNavigation({ waitUntil: 'networkidle' });
+  75  |       console.log('✅ 进入编辑页面');
+  76  |     }
+  77  |   });
+  78  | 
+  79  |   test('T3: 打开Para编辑器', async () => {
+  80  |     console.log('\n🧪 测试T3: 打开Para编辑器');
+  81  | 
+  82  |     // 导航到编辑页面
+  83  |     await page.goto('http://localhost:3000/#/ietm/dm', { waitUntil: 'networkidle' });
+  84  |     await page.waitForSelector('table', { timeout: 10000 });
+  85  | 
+  86  |     // 点击第一个编辑按钮
+  87  |     const firstEditBtn = await page.$('button:has-text("编辑")');
+  88  |     if (firstEditBtn) {
+  89  |       await firstEditBtn.click();
+  90  |       await page.waitForNavigation({ waitUntil: 'networkidle' });
+  91  | 
+  92  |       // 查找Para标签
+  93  |       const paraTag = await page.$('[data-type="para"]');
+  94  |       if (paraTag) {
+  95  |         await paraTag.click();
+  96  |         await page.waitForTimeout(500);
+  97  |         console.log('✅ Para标签已选中');
+  98  |       }
+  99  |     }
+  100 |   });
+  101 | 
+  102 |   test('T4: 验证公式编辑按钮存在', async () => {
+  103 |     console.log('\n🧪 测试T4: 验证公式编辑按钮存在');
+  104 | 
+  105 |     // 导航到编辑页面
+  106 |     await page.goto('http://localhost:3000/#/ietm/dm', { waitUntil: 'networkidle' });
+> 107 |     await page.waitForSelector('table', { timeout: 10000 });
+      |                ^ TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+  108 | 
+  109 |     // 打开编辑
+  110 |     const firstEditBtn = await page.$('button:has-text("编辑")');
+  111 |     if (firstEditBtn) {
+  112 |       await firstEditBtn.click();
+  113 |       await page.waitForNavigation({ waitUntil: 'networkidle' });
+  114 | 
+  115 |       // 检查工具栏中的公式按钮
+  116 |       await page.waitForTimeout(1000);
+  117 | 
+  118 |       // 寻找UEditor容器
+  119 |       const ueditFrame = await page.$('iframe.ue_iframe');
+  120 |       if (ueditFrame) {
+  121 |         // UEditor是iframe，需要特殊处理
+  122 |         const frameContent = await ueditFrame.contentFrame();
+  123 |         if (frameContent) {
+  124 |           console.log('✅ UEditor已加载 (iframe detected)');
+  125 |         }
+  126 |       }
+  127 | 
+  128 |       // 检查是否有kityformula相关元素
+  129 |       const formulaBtn = await page.$('[title*="公式"], [title*="formula"]');
+  130 |       if (formulaBtn) {
+  131 |         console.log('✅ 公式按钮已找到');
+  132 |       } else {
+  133 |         console.log('ℹ️  公式按钮可能在UEditor工具栏中（需要手动点击验证）');
+  134 |       }
+  135 |     }
+  136 |   });
+  137 | 
+  138 |   test('T5: 验证FormulaEditorDialog组件加载', async () => {
+  139 |     console.log('\n🧪 测试T5: 验证FormulaEditorDialog组件加载');
+  140 | 
+  141 |     // 导航到编辑页面
+  142 |     await page.goto('http://localhost:3000/#/ietm/dm', { waitUntil: 'networkidle' });
+  143 |     await page.waitForSelector('table', { timeout: 10000 });
+  144 | 
+  145 |     // 打开编辑
+  146 |     const firstEditBtn = await page.$('button:has-text("编辑")');
+  147 |     if (firstEditBtn) {
+  148 |       await firstEditBtn.click();
+  149 |       await page.waitForNavigation({ waitUntil: 'networkidle' });
+  150 | 
+  151 |       // 检查组件是否在DOM中
+  152 |       const formulaDialog = await page.$('[class*="FormulaEditor"], [class*="formula"]');
+  153 |       if (formulaDialog) {
+  154 |         console.log('✅ FormulaEditorDialog组件已加载');
+  155 |       } else {
+  156 |         console.log('ℹ️  FormulaEditorDialog组件（对话框模式）');
+  157 |       }
+  158 |     }
+  159 |   });
+  160 | 
+  161 |   test('T6: 验证formulaConverter工具函数', async () => {
+  162 |     console.log('\n🧪 测试T6: 验证formulaConverter工具函数');
+  163 | 
+  164 |     // 执行JavaScript验证converter存在
+  165 |     const hasConverter = await page.evaluate(() => {
+  166 |       return typeof window.formulaConverter !== 'undefined' ||
+  167 |              typeof window.FormulaConverter !== 'undefined';
+  168 |     });
+  169 | 
+  170 |     if (hasConverter) {
+  171 |       console.log('✅ formulaConverter已注册到全局作用域');
+  172 |     } else {
+  173 |       console.log('ℹ️  formulaConverter以模块方式导出');
+  174 |     }
+  175 |   });
+  176 | 
+  177 |   test('T7: 验证KityFormula编辑器库', async () => {
+  178 |     console.log('\n🧪 测试T7: 验证KityFormula编辑器库');
+  179 | 
+  180 |     // 检查KityFormula库是否加载
+  181 |     const hasKityFormula = await page.evaluate(() => {
+  182 |       return typeof window.KityFormula !== 'undefined' ||
+  183 |              typeof window.kityformula !== 'undefined' ||
+  184 |              document.querySelector('script[src*="kityformula"]') !== null;
+  185 |     });
+  186 | 
+  187 |     if (hasKityFormula) {
+  188 |       console.log('✅ KityFormula库已加载');
+  189 |     } else {
+  190 |       console.log('ℹ️  KityFormula库将在首次使用时加载');
+  191 |     }
+  192 |   });
+  193 | 
+  194 |   test('T8: 完整流程 - 打开编辑器 → 导航到Para → 查看结构', async () => {
+  195 |     console.log('\n🧪 测试T8: 完整流程 - 打开编辑器 → 导航到Para → 查看结构');
+  196 | 
+  197 |     // 第一步：导航到DM列表
+  198 |     await page.goto('http://localhost:3000/#/ietm/dm', { waitUntil: 'networkidle' });
+  199 |     console.log('1️⃣  已导航到DM列表');
+  200 | 
+  201 |     // 第二步：等待表格
+  202 |     await page.waitForSelector('table', { timeout: 10000 });
+  203 |     console.log('2️⃣  表格已加载');
+  204 | 
+  205 |     // 第三步：点击编辑
+  206 |     const firstEditBtn = await page.$('button:has-text("编辑")');
+  207 |     expect(firstEditBtn).toBeTruthy();
+```

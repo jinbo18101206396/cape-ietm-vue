@@ -20,10 +20,12 @@
       <textarea :id="ueditorInstanceId" ref="textarea"></textarea>
     </div>
 
-    <!-- 3个对话框组件（§7，复用现有） -->
+    <!-- 4个对话框组件（§7，复用现有） -->
     <ietm-interref-dialog ref="interrefDialog" :visible.sync="interrefDialogVisible" :node-list="nodeList" @insert="insertInterref"/>
     <ietm-dm-ref-dialog ref="dmrefDialog" :visible.sync="dmrefDialogVisible" @insert="insertDmRef"/>
     <ietm-symbol-dialog ref="symbolDialog" :visible.sync="symbolDialogVisible" @insert="insertSymbol"/>
+
+    <!-- 🔧 2026-10-15: 移除自定义FormulaEditorDialog，使用UEditor自带的kityformula插件 -->
   </div>
 </template>
 
@@ -33,10 +35,17 @@ import { getUEditorConfig, loadUEditor } from '../utils/ueditorConfig'
 import IetmInterrefDialog from './IetmInterrefDialog'
 import IetmDmRefDialog from './IetmDmRefDialog'
 import IetmSymbolDialog from './IetmSymbolDialog'
+// 🔧 2026-10-15: 移除FormulaEditorDialog，使用UEditor自带的kityformula插件
+import * as formulaConverter from '../utils/formulaConverter'  // 新增：公式转换工具
 
 export default {
   name: 'ParaDesigner',
-  components: { IetmInterrefDialog, IetmDmRefDialog, IetmSymbolDialog },
+  components: {
+    IetmInterrefDialog,
+    IetmDmRefDialog,
+    IetmSymbolDialog
+    // 🔧 2026-10-15: 移除FormulaEditorDialog组件注册
+  },
 
   // §4 URL参数 + §12.1 Parent接口
   props: {
@@ -80,6 +89,7 @@ export default {
       interrefDialogVisible: false,
       dmrefDialogVisible: false,
       symbolDialogVisible: false
+      // 🔧 2026-10-15: 移除formulaDialogVisible，使用UEditor自带的kityformula插件
     }
   },
 
@@ -111,10 +121,17 @@ export default {
   },
 
   mounted() {
-    // 🔧 关键修复：先加载UEditor脚本，再初始化编辑器
-    // 原因：首次进入页面时window.UE可能未定义，导致registerCustomButtons()中的UE.registerUI()静默失败
+    // 🔧 2026-10-15 修复P0: 自定义按钮第一次打开时不显示
+    // 根因：registerCustomButtons()必须在UE.getEditor()之前调用（_initToolbars()会读取_customizeUI）
+    // 但registerCustomButtons()的onclick闭包依赖$refs对话框组件，需要$nextTick等待子组件挂载完成
+    // 修复方案：先等待$nextTick让子组件挂载，再注册按钮，最后初始化UEditor
     loadUEditor().then(() => {
       this.$nextTick(() => {
+        // 在子组件（interrefDialog/dmrefDialog/symbolDialog）挂载完成后
+        // 注册按钮（此时$refs已就绪）
+        this.registerCustomButtons()
+
+        // 然后初始化UEditor（_initToolbars会读取已注册的按钮）
         this.initUEditor()
       })
     }).catch((error) => {
@@ -125,9 +142,6 @@ export default {
 
   beforeDestroy() {
     // 关键修复：在组件销毁前同步清理UEditor对父容器的样式污染
-    // 问题根因：UEditor初始化时会修改父容器的height/overflow/width等CSS属性，
-    // 导致切换回源码视图后CodeMirror的gutters布局计算错误（行号列过宽、内容区域空白）。
-    // 必须在this.$el还在DOM树中时同步清理，否则closest()返回null清理失败。
 
     // ① 先清理MutationObserver（修复P0-PERF-1内存泄漏）
     if (this.domObserver) {
@@ -139,7 +153,36 @@ export default {
     this.endline = -1
     this.paraId = ''
 
-    // ③ 同步清理样式污染（此时this.$el仍在DOM中）
+    // ③ 完全销毁UEditor
+    if (this.ueditor) {
+      try {
+        // 1. 移除事件监听
+        this.ueditor.removeListener('contentChange')
+        this.ueditor.removeListener('ready')
+
+        // 2. 销毁编辑器实例
+        this.ueditor.destroy()
+
+        // 3. 清空引用
+        this.ueditor = null
+        this.ueditorReady = false
+
+        // 4. 清理全局实例映射（防止内存泄漏）
+        if (window.$PARA_DESIGNER_INSTANCES) {
+          delete window.$PARA_DESIGNER_INSTANCES[this.ueditorInstanceId]
+        }
+
+        // 5. 清理DOM（UEditor可能残留）
+        const container = document.getElementById(this.ueditorInstanceId)
+        if (container) {
+          container.innerHTML = ''
+        }
+      } catch (error) {
+        // UEditor销毁失败，继续
+      }
+    }
+
+    // ④ 同步清理样式污染（此时this.$el仍在DOM中）
     try {
       const designContainer = this.$el.closest('.design-view-container')
       if (designContainer) {
@@ -226,9 +269,6 @@ export default {
         }
       }
 
-      // §6 注册5个自定义按钮（必须在UE.getEditor之前注册）
-      this.registerCustomButtons()
-
       const config = getUEditorConfig({
         ifedit: this.ifedit,
         simple: this.simple,
@@ -237,57 +277,18 @@ export default {
       })
 
       // §5.3 配置项 - 使用config作为基础，仅覆盖Para设计器特定的参数
+      // 🔧 强制创建新的工具栏数组，避免对象引用共享导致的问题
+      const toolbars = config.toolbars ? config.toolbars.map(row => [...row]) : []
 
       this.ueditor = UE.getEditor(this.ueditorInstanceId, {
         ...config,
+        toolbars: toolbars,  // 使用新创建的工具栏
         initialFrameHeight: 710,  // Para设计器固定高度：35行数据（每行20px）
         autoHeightEnabled: false  // 禁用自动高度，启用滚动条
       })
 
       // §5.4 ready事件
       this.ueditor.ready(() => {
-        // 🔧 关键修复：在ready事件中手动添加自定义按钮并渲染到DOM
-        // 原因：EditorUI创建是异步的，首次进入时_initToolbars()读取_customizeUI时按钮还未注册
-        const toolbar = this.ueditor.ui.toolbars[0]
-        const toolbarContainer = toolbar.getDom()  // 获取工具栏DOM容器
-        const customButtons = ['deflist', 'insertnextrow', 'interrefbutton', 'dmrefbutton', 'symbolbutton']
-
-        customButtons.forEach(btnName => {
-          const btnConfig = window.UE._customizeUI[btnName]
-          if (btnConfig && btnConfig.execFn && typeof btnConfig.execFn === 'function') {
-            // 🔧 关键修复：检查DOM防止重复添加（注：item.uiName总是"button"，不能用于dedup）
-            const existsInDOM = toolbarContainer && toolbarContainer.querySelector(`.edui-for-${btnName}`)
-
-            if (!existsInDOM) {
-              const btnUI = btnConfig.execFn.call(this.ueditor, this.ueditor, btnName)
-              if (btnUI && toolbarContainer) {
-                const index = btnConfig.index !== undefined ? btnConfig.index : toolbar.items.length
-
-                // 1. 添加到items数组
-                toolbar.add(btnUI, index)
-
-                // 2. 手动渲染DOM并插入到工具栏容器
-                const btnHtml = btnUI.renderHtml()
-                const tempDiv = document.createElement('div')
-                tempDiv.innerHTML = btnHtml
-                const btnElement = tempDiv.firstChild
-
-                if (btnElement) {
-                  // 找到插入位置（按index插入）
-                  if (index < toolbarContainer.children.length) {
-                    toolbarContainer.insertBefore(btnElement, toolbarContainer.children[index])
-                  } else {
-                    toolbarContainer.appendChild(btnElement)
-                  }
-
-                  // 3. 调用postRender完成按钮初始化
-                  btnUI.postRender()
-                }
-              }
-            }
-          }
-        })
-
         this.ueditorReady = true  // 标记初始化完成
 
         // 🔧 修复P0-DATALOSS-4: 监听UEditor内容变化，检测引用元素是否被破坏
@@ -465,23 +466,19 @@ export default {
       // 注册当前实例
       window.$PARA_DESIGNER_INSTANCES[this.ueditorInstanceId] = this
 
-      // 如果已经注册过全局按钮，直接返回（不重复注册）
-      if (window.UE._customizeUI && window.UE._customizeUI.interrefbutton) {
-        return
-      }
-      // 🔧 关键修复：清除UEditor的自定义UI缓存
-      // UEditor通过UE._customizeUI存储注册的自定义按钮
-      // 如果之前页面访问时已注册过，需要先清除旧注册
-      const buttonsToRegister = ['deflist', 'insertnextrow', 'interrefbutton', 'dmrefbutton', 'symbolbutton']
-      if (window.UE && window.UE._customizeUI) {
-        buttonsToRegister.forEach(btnName => {
-          if (window.UE._customizeUI[btnName]) {
-            delete window.UE._customizeUI[btnName]
-          }
-        })
-      }
+      // 🔧 2026-10-15 修复P0: 公式按钮第二次打开时丢失
+      // 问题根因：之前尝试跳过registerUI()调用，但这导致第二次打开时
+      // 新UEditor实例找不到按钮工厂函数
+      // 正确修复：registerUI是幂等的（多次调用无害），必须每次都调用
+      // 原因：每个新UEditor实例需要独立的按钮工厂函数闭包
+
+      console.log('[ParaDesigner] registerCustomButtons被调用, instanceId=' + this.ueditorInstanceId)
 
       const ue = this.ueditor
+
+      // 验证kityformula是否在window.UE._customizeUI中
+      const registered = window.UE && window.UE._customizeUI && window.UE._customizeUI['kityformula']
+      console.log('[ParaDesigner] kityformula已注册: ' + !!registered)
 
       // §6.1 deflist按钮（列表定义）
       const deflistFn = (editor, uiName) => {
@@ -572,6 +569,9 @@ export default {
         })
         return btn
       }, 27)
+
+      // §6.6 kityformula按钮已由UEditor插件自动注册
+      // 不在这里重复注册，避免冲突
     },
 
     // §10.1 setcontent函数（加载内容）
@@ -695,28 +695,31 @@ export default {
         const html = this.ueditor.getContent()
 
         // 后端统一分配uniqueid，防止并发冲突
+        // 注意：公式处理由html2para函数统一完成（对标旧系统IetmEditorDesignerPara.js）
         const newFormulas = (html.match(/class="kfformula"/g) || []).length
         let allocatedUniqueids = []
 
         if (newFormulas > 0) {
-          // 调用后端分配ID段
-          const { data } = await this.$http.post('/jeecg-boot/ietm/dm-content/allocate-uniqueids', {
+          // 调用后端分配ID段（注意：端点名为驼峰 allocateUniqueids，不是短横线）
+          // $http响应拦截器已返回response.data，所以这里直接得到{success, result}
+          const response = await this.$http.post('/ietm/dm-content/allocateUniqueids', {
             dmId: this.cmnodeid,
             count: newFormulas
           })
 
-          if (!data.success) {
+          if (!response.success) {
             throw new Error('分配uniqueid失败')
           }
 
           // 生成ID数组
-          const startId = data.result.start
+          const startId = response.result.start
           allocatedUniqueids = Array.from({ length: newFormulas }, (_, i) =>
             String(startId + i).padStart(5, '0')
           )
         }
 
         // 2. 转换HTML→XML（传入分配的uniqueid数组）
+        // html2para函数会处理公式：生成ICN、保存到数据库、转换为symbol标签
         let paraContent = await html2para(this.Parent, html, this.projectParameters, allocatedUniqueids)
 
         // 🔧 修复P0-DATALOSS-2: 保存前验证转换结果
@@ -930,7 +933,14 @@ export default {
       const safeXml = escapeXmlForAttribute(xml)
       const html = `<img src="${imgSrc}" xml="${safeXml}" style="max-width: 300px; max-height: 200px; width: auto; height: auto;">`
       this.ueditor.execCommand('inserthtml', html)
-    }
+    },
+
+    // §7.4 插入公式（新增）
+    // 🔧 2026-10-15: 移除insertFormula、handleFormulaCancel、processFormulasInContent方法
+    // 使用UEditor自带的kityformula插件，不需要自定义处理
+
+    // 🔧 2026-10-15: 移除processFormulasInContent和saveFormulaToBackend方法
+    // 使用UEditor自带的kityformula插件，公式处理由插件负责
   }
 }
 </script>
