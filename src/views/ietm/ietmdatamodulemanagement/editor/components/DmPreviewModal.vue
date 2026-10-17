@@ -193,7 +193,7 @@ export default {
       this.$nextTick(() => {
         const iframe = this.$refs.frame
         if (iframe) {
-          iframe.onload = () => {
+          iframe.onload = async () => {
             try {
               const iframeDoc = iframe.contentDocument || iframe.contentWindow.document
               const iframeWin = iframe.contentWindow
@@ -231,6 +231,139 @@ export default {
 
               // 渲染热点SVG叠加层
               this.renderHotspotOverlays(iframeDoc, iframeWin)
+
+              // 🔧 2026-10-16 修复：区分公式和图符的处理方式
+              // - 公式：需要 fetch 获取 HTML，提取 base64 图片
+              // - 图符：直接设置 img.src，让浏览器自动加载
+              const icnImages = iframeDoc.querySelectorAll('img[data-icn-code]')
+              console.log('🔍 找到', icnImages.length, '个需要加载的ICN')
+
+              const apiBaseUrl = process.env.VUE_APP_API_BASE_URL || 'http://localhost:9999/jeecg-boot'
+
+              const loadPromises = Array.from(icnImages).map(async (img) => {
+                const icnCode = img.getAttribute('data-icn-code')
+                if (!icnCode) return
+
+                try {
+                  // 先尝试判断是公式还是图符
+                  const metadataUrl = `${apiBaseUrl}/ietm/icn/metadata/${icnCode}`
+                  const metaResponse = await fetch(metadataUrl, {
+                    headers: {
+                      'X-Access-Token': this.$store.getters.token
+                    }
+                  })
+
+                  if (metaResponse.ok) {
+                    const metaData = await metaResponse.json()
+                    if (metaData.success && metaData.result && metaData.result.mimeType === 'text/html') {
+                      // 公式：fetch HTML 提取 base64
+                      const viewUrl = `${apiBaseUrl}/ietm/icn/view/${icnCode}`
+                      const response = await fetch(viewUrl, {
+                        headers: {
+                          'X-Access-Token': this.$store.getters.token
+                        }
+                      })
+                      const formulaHtml = await response.text()
+                      const match = formulaHtml.match(/src="(data:image\/png;base64,[^"]+)"/)
+                      if (match && match[1]) {
+                        img.src = match[1]
+                        img.title = '公式: ' + icnCode
+                        console.log('✅ 公式加载成功:', icnCode)
+                      }
+                      return
+                    }
+                  }
+
+                  // 图符：使用 fetch 获取，转换为 base64 data URL（与公式保持一致）
+                  const viewUrl = `${apiBaseUrl}/ietm/icn/view/${icnCode}`
+                  console.log('🔵 开始获取图符:', icnCode, '从', viewUrl)
+
+                  const response = await fetch(viewUrl, {
+                    headers: {
+                      'X-Access-Token': this.$store.getters.token
+                    }
+                  })
+
+                  console.log('📡 响应状态:', response.status, response.statusText)
+
+                  if (response.ok) {
+                    // 尝试以文本形式读取，检查是否已经是base64字符串
+                    const responseText = await response.text()
+                    console.log('📝 响应文本长度:', responseText.length)
+                    console.log('📝 响应文本前12字符:', responseText.substring(0, 12))
+
+                    let imgSrc = ''
+
+                    // 判断是否为已经编码的base64（以/或iVBOR开头，或是完整的data: URL）
+                    if (responseText.startsWith('/9j/') || responseText.startsWith('iVBOR') ||
+                        responseText.startsWith('R0lG') || responseText.startsWith('Qk08') ||
+                        responseText.match(/^[A-Za-z0-9+/=]+$/)) {
+                      // 这是base64字符串，推断MIME类型
+                      let mimeType = 'application/octet-stream'
+                      if (responseText.startsWith('/9j/')) {
+                        mimeType = 'image/jpeg'
+                      } else if (responseText.startsWith('iVBOR')) {
+                        mimeType = 'image/png'
+                      } else if (responseText.startsWith('R0lG')) {
+                        mimeType = 'image/gif'
+                      } else if (responseText.startsWith('Qk08')) {
+                        mimeType = 'image/bmp'
+                      }
+
+                      imgSrc = `data:${mimeType};base64,${responseText}`
+                      console.log('✅ 识别为base64编码的图片，MIME:', mimeType)
+                    } else if (responseText.startsWith('data:')) {
+                      // 已经是完整的data URL
+                      imgSrc = responseText
+                      console.log('✅ 识别为data URL')
+                    } else {
+                      // 尝试作为blob处理
+                      const blob = new Blob([responseText])
+                      const arrayBuffer = await blob.slice(0, 12).arrayBuffer()
+                      const bytes = new Uint8Array(arrayBuffer)
+                      let mimeType = 'image/jpeg'
+
+                      if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+                        mimeType = 'image/jpeg'
+                      } else if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+                        mimeType = 'image/png'
+                      }
+
+                      const reader = new FileReader()
+                      reader.onload = () => {
+                        let base64Data = reader.result
+                        if (base64Data.includes('application/octet-stream')) {
+                          base64Data = base64Data.replace('application/octet-stream', mimeType)
+                        }
+                        img.src = base64Data
+                        img.title = '图符: ' + icnCode
+                        console.log('✅ blob转base64成功:', icnCode)
+                      }
+                      reader.readAsDataURL(blob)
+                      return
+                    }
+
+                    if (imgSrc) {
+                      img.src = imgSrc
+                      img.title = '图符: ' + icnCode
+                      console.log('✅ 图符加载成功:', icnCode)
+                    }
+                  } else {
+                    console.error('❌ fetch失败:', response.status)
+                    throw new Error(`HTTP ${response.status}`)
+                  }
+
+                } catch (err) {
+                  console.error('❌ ICN处理失败:', icnCode, err)
+                  // 降级：直接尝试作为图片加载
+                  const viewUrl = `${apiBaseUrl}/ietm/icn/view/${icnCode}`
+                  img.src = viewUrl
+                }
+              })
+
+              // 等待所有ICN处理完成
+              await Promise.all(loadPromises)
+
 
               // 修复旧服务器相对路径图标（avicit/ietm/viewer/images/）
               // 这些路径来自 multimedia.xsl，在 blob: URL 下无法解析
@@ -294,24 +427,66 @@ export default {
 
         const icnCode = icnIdent.trim()
 
-        // 🔧 2026-09-18 增强：先获取多媒体元数据
+        // 🔧 2026-10-16 修复P0：先获取ICN元数据，判断是否为公式类型
+        let isFormula = false
         try {
-          const res = await this.$http.get(`/ietm/icn/metadata/${icnCode}`)
-          if (res.success) {
-            this.multimediaInfo = res.result
-            console.log('多媒体元数据:', this.multimediaInfo)
+          const metaRes = await this.$http.get(`/ietm/icn/metadata/${icnCode}`)
+          if (metaRes.success) {
+            this.multimediaInfo = metaRes.result
+            isFormula = metaRes.result && metaRes.result.icnType === 'formula'
+            console.log('多媒体元数据:', this.multimediaInfo, '是否公式:', isFormula)
           }
         } catch (err) {
           console.warn('获取元数据失败，使用默认处理:', err)
         }
 
-        // 设置预览URL
-        this.multimediaUrl = `/jeecg-boot/ietm/icn/view/${icnCode}`
-        console.log('加载多媒体:', icnCode, '-> URL:', this.multimediaUrl)
+        // 🔧 2026-10-16 修复P0：公式类型ICN从数据库BLOB加载，而非磁盘文件
+        // 根本原因：公式保存在ietm_icn_manage.filecontent BLOB字段（完整的<img>标签），
+        // 而/ietm/icn/view端点是为普通图符设计的（加载磁盘文件），导致公式预览失败
+        if (isFormula) {
+          const res = await this.$http.post('/ietm/icn/getIcnContent',
+            { icn: icnCode },
+            { params: { icn: icnCode } }
+          )
+
+          if (res.success && res.result && res.result.formula) {
+            // 🔧 2026-10-16 修复：formula字段是十六进制编码的HTML字符串
+            // 需要先解码为HTML，再提取base64图片数据
+            let formulaHtml = res.result.formula
+
+            // 检查是否为十六进制字符串（全是0-9a-fA-F字符）
+            if (/^[0-9a-fA-F]+$/.test(formulaHtml)) {
+              // 十六进制 → 字节数组 → UTF-8字符串
+              const bytes = []
+              for (let i = 0; i < formulaHtml.length; i += 2) {
+                bytes.push(parseInt(formulaHtml.substr(i, 2), 16))
+              }
+              formulaHtml = new TextDecoder('utf-8').decode(new Uint8Array(bytes))
+              console.log('解码后的公式HTML:', formulaHtml.substring(0, 200))
+            }
+
+            // 从完整的<img>标签中提取base64图片数据
+            const match = formulaHtml.match(/src="(data:image\/png;base64,[^"]+)"/)
+
+            if (match && match[1]) {
+              this.multimediaUrl = match[1]  // 设置为base64 data URL
+              console.log('✅ 公式加载成功:', icnCode)
+            } else {
+              throw new Error('公式HTML格式错误，无法提取base64图片')
+            }
+          } else {
+            throw new Error('公式内容为空')
+          }
+        } else {
+          // 普通图符/多媒体：使用绝对URL（iframe blob环境下相对路径无法解析）
+          const apiBaseUrl = process.env.VUE_APP_API_BASE_URL || 'http://localhost:9999/jeecg-boot'
+          this.multimediaUrl = `${apiBaseUrl}/ietm/icn/view/${icnCode}`
+          console.log('加载多媒体:', icnCode, '-> URL:', this.multimediaUrl)
+        }
 
       } catch (error) {
         console.error('获取ICN内容失败:', error)
-        this.$message.error('获取多媒体内容失败')
+        this.$message.error('获取多媒体内容失败: ' + (error.message || '未知错误'))
       } finally {
         this.multimediaLoading = false
       }
