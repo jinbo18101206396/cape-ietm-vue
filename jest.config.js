@@ -5,4 +5,4 @@ module.exports = {
   transform: {},
   verbose: true,
   bail: false
-};
+}

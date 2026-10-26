@@ -45,7 +45,7 @@ describe('集成测试 - XML编辑完整流程', () => {
     const elements = [
       { name: 'dmodule', level: 0 },
       { name: 'content', level: 1 },
-      { name: 'para', level: 2 },
+      { name: 'para', level: 2 }
     ]
 
     // 验证嵌套关系
@@ -71,11 +71,11 @@ describe('集成测试 - XML编辑完整流程', () => {
 
   test('删除元素→更新行号流程', () => {
     const lines = [
-      '<dmodule>',      // 行0
-      '  <content>',    // 行1
-      '    <para/>',    // 行2
-      '  </content>',   // 行3
-      '</dmodule>',     // 行4
+      '<dmodule>', // 行0
+      '  <content>', // 行1
+      '    <para/>', // 行2
+      '  </content>', // 行3
+      '</dmodule>' // 行4
     ]
 
     // 删除para
@@ -130,14 +130,14 @@ describe('边界值测试 - 极限情况', () => {
 
   test('混合自闭合和双标签', () => {
     const xml = '<a><b/><c><d/></c></a>'
-    expect(xml.match(/\/>/g).length).toBe(2)  // b和d
+    expect(xml.match(/\/>/g).length).toBe(2) // b和d
     expect(xml.match(/<c>/g).length).toBe(1)
     expect(xml.match(/<\/c>/g).length).toBe(1)
   })
 
   test('重复的相同元素', () => {
     const elements = ['para', 'para', 'para', 'para', 'para']
-    expect(new Set(elements).size).toBe(1)  // 只有1种唯一元素
+    expect(new Set(elements).size).toBe(1) // 只有1种唯一元素
     expect(elements.length).toBe(5)
   })
 
@@ -152,7 +152,7 @@ describe('边界值测试 - 极限情况', () => {
     for (let i = 0; i < 1000; i++) {
       content += `line${i}\n`
     }
-    expect(content.split('\n').length).toBe(1001)  // 1000行 + 最后的空行
+    expect(content.split('\n').length).toBe(1001) // 1000行 + 最后的空行
   })
 })
 
@@ -176,29 +176,29 @@ describe('异常处理测试', () => {
   test('重复的ID检测', () => {
     const nodes = [
       { id: 1, name: 'node1' },
-      { id: 1, name: 'node2' },  // 重复ID
-      { id: 3, name: 'node3' },
+      { id: 1, name: 'node2' }, // 重复ID
+      { id: 3, name: 'node3' }
     ]
 
     const idSet = new Set(nodes.map(n => n.id))
-    expect(idSet.size).toBeLessThan(nodes.length)  // 有重复
+    expect(idSet.size).toBeLessThan(nodes.length) // 有重复
   })
 
   test('无效的属性值', () => {
     const attrs = {
-      id: null,        // 无效
-      name: '',        // 有效（空字符串）
-      value: undefined, // 无效
+      id: null, // 无效
+      name: '', // 有效（空字符串）
+      value: undefined // 无效
     }
 
     const validAttrs = Object.values(attrs).filter(v => v !== null && v !== undefined)
-    expect(validAttrs.length).toBe(1)  // 只有name有效
+    expect(validAttrs.length).toBe(1) // 只有name有效
   })
 
   test('环形引用检测', () => {
     const node1 = { id: 1, parent: null }
     const node2 = { id: 2, parent: node1 }
-    node1.parent = node2  // 创建环
+    node1.parent = node2 // 创建环
 
     let current = node1
     let depth = 0
@@ -207,7 +207,7 @@ describe('异常处理测试', () => {
       depth++
     }
 
-    expect(depth).toBe(10)  // 应该达到深度限制
+    expect(depth).toBe(10) // 应该达到深度限制
   })
 
   test('过大的深度限制', () => {
@@ -218,7 +218,7 @@ describe('异常处理测试', () => {
       depth++
     }
 
-    expect(depth).toBe(50)  // 应该在50处停止
+    expect(depth).toBe(50) // 应该在50处停止
   })
 })
 

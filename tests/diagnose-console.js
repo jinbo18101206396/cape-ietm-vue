@@ -32,7 +32,7 @@ if (!cm) {
       const lh = parseFloat(computed.lineHeight)
       const fs = parseFloat(computed.fontSize)
       if (!isNaN(lh) && !isNaN(fs)) {
-        console.log(`  实际行高: ${lh}px (font-size: ${fs}px, 比例: ${(lh/fs).toFixed(2)})`)
+        console.log(`  实际行高: ${lh}px (font-size: ${fs}px, 比例: ${(lh / fs).toFixed(2)})`)
       }
     }
   }

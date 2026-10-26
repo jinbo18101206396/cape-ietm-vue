@@ -14,12 +14,12 @@ describe('P0-2: formateDM容错处理', () => {
     mockComponent = {
       cm: {
         getValue: jest.fn(),
-        setValue: jest.fn(),
+        setValue: jest.fn()
       },
       nodeList: [],
       linenoOffset: 1,
       $message: {
-        error: jest.fn(),
+        error: jest.fn()
       },
       $emit: jest.fn(),
       refreshGutterMarkers: jest.fn(),
@@ -46,7 +46,7 @@ describe('P0-2: formateDM容错处理', () => {
           throw new Error('格式化崩溃')
         }
         return xml.split('\n').join('\n') // 简化版格式化
-      },
+      }
     }
   })
 
@@ -94,8 +94,8 @@ describe('P0-3: 换行符安全编码解码', () => {
   // 这避免了用户输入的__LF__/__CR__文本冲突
 
   const ESCAPE_MAP = {
-    '\n': 'h10A',  // \n = 0x0A
-    '\r': 'h0D',   // \r = 0x0D
+    '\n': 'h10A', // \n = 0x0A
+    '\r': 'h0D' // \r = 0x0D
   }
 
   function escapeXmlForAttribute(xml) {
@@ -107,8 +107,8 @@ describe('P0-3: 换行符安全编码解码', () => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
       .replace(/`/g, '&#96;')
-      .replace(/\r/g, ESCAPE_MAP['\r'])  // CR先替换
-      .replace(/\n/g, ESCAPE_MAP['\n'])  // LF后替换
+      .replace(/\r/g, ESCAPE_MAP['\r']) // CR先替换
+      .replace(/\n/g, ESCAPE_MAP['\n']) // LF后替换
   }
 
   function unescapeXmlAttribute(escapedXml) {
@@ -119,8 +119,8 @@ describe('P0-3: 换行符安全编码解码', () => {
       .replace(/&quot;/g, '"')
       .replace(/&gt;/g, '>')
       .replace(/&lt;/g, '<')
-      .replace(/h0D/g, '\r')  // CR先解码
-      .replace(/h10A/g, '\n')  // LF后解码
+      .replace(/h0D/g, '\r') // CR先解码
+      .replace(/h10A/g, '\n') // LF后解码
       .replace(/&amp;/g, '&')
   }
 
@@ -147,7 +147,7 @@ describe('P0-3: 换行符安全编码解码', () => {
 
   test('用户输入包含h0A不冲突', () => {
     // 16进制编码方案：用户输入的h0A/h10A/h0D是文本，与实际编码无关
-    const text = 'user h0A text'  // 用户可能输入的字符串
+    const text = 'user h0A text' // 用户可能输入的字符串
     const encoded = escapeXmlForAttribute(text)
     const decoded = unescapeXmlAttribute(encoded)
     expect(decoded).toBe(text)
@@ -174,7 +174,7 @@ describe('P1-2: findLineno严格正则匹配', () => {
     const lines = [
       '<dmodule>',
       '  <content/>',
-      '</dmodule>',
+      '</dmodule>'
     ]
     expect(findLineno(lines, 'content')).toBe(1)
   })
@@ -183,18 +183,18 @@ describe('P1-2: findLineno严格正则匹配', () => {
     const lines = [
       '<dmodule id="id123"/>',
       '<description status="id"/>',
-      '<id value="123"/>',
+      '<id value="123"/>'
     ]
     // 寻找元素id，不应误匹配属性id="..."
     const result = findLineno(lines, 'id')
-    expect(result).toBe(2)  // 只匹配<id标签
+    expect(result).toBe(2) // 只匹配<id标签
   })
 
   test('带属性的标签匹配', () => {
     const lines = [
       '<para type="step">',
       '  content',
-      '</para>',
+      '</para>'
     ]
     expect(findLineno(lines, 'para')).toBe(0)
   })
@@ -202,7 +202,7 @@ describe('P1-2: findLineno严格正则匹配', () => {
   test('自闭合标签匹配', () => {
     const lines = [
       '<symbol/>',
-      '<graphic/>',
+      '<graphic/>'
     ]
     expect(findLineno(lines, 'symbol')).toBe(0)
     expect(findLineno(lines, 'graphic')).toBe(1)
@@ -217,7 +217,7 @@ describe('P1-2: findLineno严格正则匹配', () => {
     const lines = [
       '<para>1</para>',
       '<para>2</para>',
-      '<para>3</para>',
+      '<para>3</para>'
     ]
     expect(findLineno(lines, 'para', 0)).toBe(0)
     expect(findLineno(lines, 'para', 1)).toBe(1)
@@ -234,7 +234,7 @@ describe('P1-4: setNodeList与linenoOffset同步', () => {
     mockSourceView = {
       cm: {
         lineCount: jest.fn(() => 10),
-        getLine: jest.fn((i) => `<line${i}>`),
+        getLine: jest.fn((i) => `<line${i}>`)
       },
       nodeList: [],
       linenoOffset: 1,
@@ -249,13 +249,13 @@ describe('P1-4: setNodeList与linenoOffset同步', () => {
         // 简化版getLinenoOffset实现
         const firstLine = this.cm.getLine(0) || ''
         return firstLine.includes('dmodule') ? 1 : 0
-      },
+      }
     }
   })
 
   test('setNodeList时同步更新linenoOffset', () => {
     const nodes = [
-      { text: 'para', attributes: { lineno: 5 } },
+      { text: 'para', attributes: { lineno: 5 } }
     ]
 
     mockSourceView.setNodeList(nodes)
@@ -291,19 +291,19 @@ describe('P0/P1修复集成验证', () => {
       cm: {
         getValue: jest.fn(() => '<dmodule><content/></dmodule>'),
         setValue: jest.fn(),
-        lineCount: jest.fn(() => 3),
+        lineCount: jest.fn(() => 3)
       },
       nodeList: [],
       linenoOffset: 1,
       $message: { error: jest.fn() },
       $emit: jest.fn(),
-      refreshGutterMarkers: jest.fn(),
+      refreshGutterMarkers: jest.fn()
     }
 
     // 模拟格式化→更新树的流程
     const newNodes = [
       { text: 'dmodule', attributes: { lineno: 0 } },
-      { text: 'content', attributes: { lineno: 1 } },
+      { text: 'content', attributes: { lineno: 1 } }
     ]
 
     // 先格式化

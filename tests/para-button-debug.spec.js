@@ -187,7 +187,6 @@ test('Para按钮调试-捕获console日志', async ({ browser }) => {
         paraDesignerLogs.forEach(l => console.log(`     ${l}`))
       }
     }
-
   } catch (error) {
     console.log('\n❌ 异常:', error.message)
   } finally {

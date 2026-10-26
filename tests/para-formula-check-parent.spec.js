@@ -153,7 +153,6 @@ test('读取parent对象的dmCode属性', async ({ browser }) => {
     } else {
       console.log('❌ parent.dmCode为空或未定义')
     }
-
   } catch (error) {
     console.log('\n❌ 异常:', error.message)
   } finally {

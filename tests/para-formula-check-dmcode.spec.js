@@ -127,7 +127,6 @@ test('读取当前DM的完整dmCode', async ({ browser }) => {
       console.log('   assyCode应为60101，实际为', dmInfo.assyCode)
       console.log('   disassyCode应为30101，实际为', dmInfo.disassyCode)
     }
-
   } catch (error) {
     console.log('\n❌ 异常:', error.message)
   } finally {

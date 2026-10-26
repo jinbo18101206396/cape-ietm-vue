@@ -85,12 +85,12 @@ describe('xmlTree.js - 栈操作对称性验证', () => {
       '  <content>',
       '    <para/>',
       '  </content>',
-      '</dmodule>',
+      '</dmodule>'
     ]
 
     const { stack, operations } = simulateStackOperations(xml)
-    expect(stack.length).toBe(0)  // 栈应该为空
-    expect(operations.length).toBe(4)  // 2 push + 2 pop
+    expect(stack.length).toBe(0) // 栈应该为空
+    expect(operations.length).toBe(4) // 2 push + 2 pop
   })
 
   test('多重嵌套栈操作', () => {
@@ -101,7 +101,7 @@ describe('xmlTree.js - 栈操作对称性验证', () => {
       '      <symbol/>',
       '    </para>',
       '  </content>',
-      '</dmodule>',
+      '</dmodule>'
     ]
 
     const { stack, operations } = simulateStackOperations(xml)
@@ -117,7 +117,7 @@ describe('xmlTree.js - 栈操作对称性验证', () => {
       '<dmodule>',
       '  <symbol/>',
       '  <graphic/>',
-      '</dmodule>',
+      '</dmodule>'
     ]
 
     const { stack, operations } = simulateStackOperations(xml)
@@ -131,12 +131,12 @@ describe('xmlTree.js - 栈操作对称性验证', () => {
     const xml = [
       '<dmodule>',
       '  <content>',
-      '  </para>',  // 错误的闭合标签
-      '</dmodule>',
+      '  </para>', // 错误的闭合标签
+      '</dmodule>'
     ]
 
     const { stack, operations } = simulateStackOperations(xml)
-    expect(stack.length).toBe(1)  // content还在栈中
+    expect(stack.length).toBe(1) // content还在栈中
   })
 
   test('同名嵌套元素', () => {
@@ -145,7 +145,7 @@ describe('xmlTree.js - 栈操作对称性验证', () => {
       '  <content>',
       '    <para/>',
       '  </content>',
-      '</content>',
+      '</content>'
     ]
 
     const { stack, operations } = simulateStackOperations(xml)
@@ -213,7 +213,7 @@ describe('xmlTree.js - 行号计算深度检查', () => {
     const nodes = [
       { text: 'dmodule', attributes: { lineno: 0 } },
       { text: 'symbol', attributes: { lineno: 0 } },
-      { text: 'graphic', attributes: { lineno: 0 } },
+      { text: 'graphic', attributes: { lineno: 0 } }
     ]
 
     const xml = `<dmodule>
@@ -233,7 +233,7 @@ describe('xmlTree.js - 行号计算深度检查', () => {
       { text: 'root', attributes: { lineno: 0 } },
       { text: 'parent', attributes: { lineno: 0 } },
       { text: 'child', attributes: { lineno: 0 } },
-      { text: 'leaf', attributes: { lineno: 0 } },
+      { text: 'leaf', attributes: { lineno: 0 } }
     ]
 
     const xml = `<root>
@@ -257,7 +257,7 @@ describe('xmlTree.js - 行号计算深度检查', () => {
       { text: 'root', attributes: { lineno: 0 } },
       { text: 'elem1', attributes: { lineno: 0 } },
       { text: 'symbol', attributes: { lineno: 0 } },
-      { text: 'elem2', attributes: { lineno: 0 } },
+      { text: 'elem2', attributes: { lineno: 0 } }
     ]
 
     const xml = `<root>
@@ -269,10 +269,10 @@ describe('xmlTree.js - 行号计算深度检查', () => {
 
     calculateLinenoWithDepthCheck(nodes, xml)
 
-    expect(nodes[0].attributes.lineno).toBe(1)  // root
-    expect(nodes[1].attributes.lineno).toBe(2)  // elem1
-    expect(nodes[2].attributes.lineno).toBe(3)  // symbol (自闭合)
-    expect(nodes[3].attributes.lineno).toBe(5)  // elem2 (自闭合)
+    expect(nodes[0].attributes.lineno).toBe(1) // root
+    expect(nodes[1].attributes.lineno).toBe(2) // elem1
+    expect(nodes[2].attributes.lineno).toBe(3) // symbol (自闭合)
+    expect(nodes[3].attributes.lineno).toBe(5) // elem2 (自闭合)
   })
 })
 
@@ -293,7 +293,7 @@ describe('xmlTree.js - 边界值测试', () => {
     let maxDepth = 0
 
     for (let i = 0; i < 100; i++) {
-      if (i < 60) {  // 创建60层嵌套
+      if (i < 60) { // 创建60层嵌套
         depth++
         maxDepth = Math.max(maxDepth, depth)
       }
@@ -327,7 +327,7 @@ describe('xmlTree.js - 异常处理', () => {
     const lines = [
       '<root>',
       '  <content>',
-      '    <para>',
+      '    <para>'
     ]
 
     let unclosedTags = 0
@@ -344,7 +344,7 @@ describe('xmlTree.js - 异常处理', () => {
     }
 
     unclosedTags = stack.length
-    expect(unclosedTags).toBe(3)  // 3个未闭合的标签
+    expect(unclosedTags).toBe(3) // 3个未闭合的标签
   })
 
   test('嵌套顺序错误', () => {
@@ -352,8 +352,8 @@ describe('xmlTree.js - 异常处理', () => {
       '<root>',
       '  <a>',
       '    <b>',
-      '  </a>',  // 错误: b还没闭合
-      '  </b>',
+      '  </a>', // 错误: b还没闭合
+      '  </b>'
     ]
 
     const TAG = '[A-Za-z_一-鿿][\\w.\\-一-鿿]*'
@@ -377,7 +377,7 @@ describe('xmlTree.js - 异常处理', () => {
       }
     }
 
-    expect(errors).toBe(1)  // 发现1个错误
+    expect(errors).toBe(1) // 发现1个错误
   })
 
   test('重复的同名标签', () => {

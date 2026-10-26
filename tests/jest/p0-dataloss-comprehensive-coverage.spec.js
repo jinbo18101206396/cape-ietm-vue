@@ -36,7 +36,7 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
         '<': '&lt;',
         '>': '&gt;',
         '"': '&quot;',
-        "'": '&#39;',
+        "'": '&#39;'
       }
 
       Object.entries(chars).forEach(([char, expected]) => {
@@ -57,9 +57,9 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
 
     it('应该按正确顺序转义（&必须最先）', () => {
       // 如果&不是最先转义，会导致二次转义
-      const input = '&lt;'  // 原始输入已经是&lt;
+      const input = '&lt;' // 原始输入已经是&lt;
       const result = escapeXmlForAttribute(input)
-      expect(result).toBe('&amp;lt;')  // &被转义为&amp;
+      expect(result).toBe('&amp;lt;') // &被转义为&amp;
     })
 
     it('应该反转义所有5种字符', () => {
@@ -135,10 +135,10 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
       const testCases = [
         { text: '【引用DMC-ZB1】', expected: true },
         { text: '【引用DM-ZB1】', expected: true },
-        { text: '【引用ZB1】', expected: false },  // 缺DMC/DM
-        { text: '【DMC-ZB1】', expected: false },  // 缺引用
-        { text: '【DM】', expected: false },       // 都缺
-        { text: 'DMC-ZB1', expected: false },      // 缺【】
+        { text: '【引用ZB1】', expected: false }, // 缺DMC/DM
+        { text: '【DMC-ZB1】', expected: false }, // 缺引用
+        { text: '【DM】', expected: false }, // 都缺
+        { text: 'DMC-ZB1', expected: false } // 缺【】
       ]
 
       testCases.forEach(({ text, expected }) => {
@@ -153,7 +153,7 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
         { text: '【内部引用】', expected: true },
         { text: '内部引用', expected: true },
         { text: '【引用(ID001)】', expected: false },
-        { text: '【ID001】', expected: false },
+        { text: '【ID001】', expected: false }
       ]
 
       testCases.forEach(({ text, expected }) => {
@@ -167,22 +167,22 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
         {
           xmlHas: 'dmRef',
           textHas: ['引用', 'DMC'],
-          shouldWarn: false  // 匹配
+          shouldWarn: false // 匹配
         },
         {
           xmlHas: 'dmRef',
           textHas: ['我改了这个'],
-          shouldWarn: true   // 不匹配
+          shouldWarn: true // 不匹配
         },
         {
           xmlHas: 'internalRef',
           textHas: ['内部引用'],
-          shouldWarn: false  // 匹配
+          shouldWarn: false // 匹配
         },
         {
           xmlHas: 'internalRef',
           textHas: ['我改了'],
-          shouldWarn: true   // 不匹配
+          shouldWarn: true // 不匹配
         }
       ]
 
@@ -192,21 +192,21 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
         const mismatch = isDmRefXml && !isDmRefText
 
         if (shouldWarn) {
-          expect(mismatch || true).toBe(true)  // 至少一种方式能检测到
+          expect(mismatch || true).toBe(true) // 至少一种方式能检测到
         }
       })
     })
 
     it('应该处理极端文本内容', () => {
       const extremeCases = [
-        '',                    // 空
-        '   ',                 // 只有空格
-        '\n\t\r',             // 只有空白符
-        '【】',               // 只有括号
-        '111222333',          // 纯数字
-        '!!!###$$$',          // 特殊符号
-        '🎉🎊✨',             // emoji
-        'a'.repeat(1000),     // 超长文本
+        '', // 空
+        '   ', // 只有空格
+        '\n\t\r', // 只有空白符
+        '【】', // 只有括号
+        '111222333', // 纯数字
+        '!!!###$$$', // 特殊符号
+        '🎉🎊✨', // emoji
+        'a'.repeat(1000) // 超长文本
       ]
 
       extremeCases.forEach(text => {
@@ -242,7 +242,7 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
         '<a xml="...">text</a>',
         '<a href="x" xml="...">text</a>',
         '<a xml="..." href="x">text</a>',
-        '<a href="x" xml="..." class="y">text</a>',
+        '<a href="x" xml="..." class="y">text</a>'
       ]
 
       testCases.forEach(html => {
@@ -310,23 +310,23 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
         {
           html: '<p>【引用DMC】</p>',
           xml: '<para></para>',
-          shouldFail: true   // 数据丢失
+          shouldFail: true // 数据丢失
         },
         {
           html: '<p>【引用DMC】</p>',
           xml: '<para><dmRef>...</dmRef></para>',
-          shouldFail: false  // 转换成功
+          shouldFail: false // 转换成功
         },
         {
           html: '<p>普通文本</p>',
           xml: '<para></para>',
-          shouldFail: false  // 都是空，正常
+          shouldFail: false // 都是空，正常
         },
         {
           html: '<p>【内部引用】</p>',
           xml: '<para></para>',
-          shouldFail: true   // internalRef丢失
-        },
+          shouldFail: true // internalRef丢失
+        }
       ]
 
       testCases.forEach(({ html, xml, shouldFail }) => {
@@ -334,7 +334,7 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
         const hasDmRefInXml = xml.includes('dmRef') || xml.includes('internalRef')
 
         if (hasRefInHtml && !hasDmRefInXml) {
-          expect(true).toBe(shouldFail)  // 应该报错
+          expect(true).toBe(shouldFail) // 应该报错
         }
       })
     })
@@ -349,7 +349,7 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
         {
           inputHtml: '<p>   </p>',
           outputXml: '<para></para>',
-          shouldFail: false  // 输入就是空，正常
+          shouldFail: false // 输入就是空，正常
         },
         {
           inputHtml: '<p></p>',
@@ -360,7 +360,7 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
           inputHtml: '<p>正常文本</p>',
           outputXml: '<para>正常文本</para>',
           shouldFail: false
-        },
+        }
       ]
 
       testCases.forEach(({ inputHtml, outputXml, shouldFail }) => {
@@ -379,12 +379,12 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
     it('应该区分文本内容的不同类型', () => {
       const testCases = [
         { content: '真实文本内容', isEmpty: false },
-        { content: '   ', isEmpty: true },        // 只有空格
-        { content: '\n\t', isEmpty: true },       // 只有空白符
-        { content: '0', isEmpty: false },         // 数字零
-        { content: '&nbsp;', isEmpty: true },     // HTML实体空格
-        { content: '<p></p>', isEmpty: true },    // 只有标签
-        { content: '', isEmpty: true },           // 空字符串
+        { content: '   ', isEmpty: true }, // 只有空格
+        { content: '\n\t', isEmpty: true }, // 只有空白符
+        { content: '0', isEmpty: false }, // 数字零
+        { content: '&nbsp;', isEmpty: true }, // HTML实体空格
+        { content: '<p></p>', isEmpty: true }, // 只有标签
+        { content: '', isEmpty: true } // 空字符串
       ]
 
       testCases.forEach(({ content, isEmpty }) => {
@@ -402,7 +402,7 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
         { pattern: '<br>', should: 'remove' },
         { pattern: '</br>', should: 'remove' },
         { pattern: '<br/>', should: 'remove' },
-        { pattern: '<span>text</span>', should: 'keep_text' },
+        { pattern: '<span>text</span>', should: 'keep_text' }
       ]
 
       const html = '&nbsp;<br></br>text<br/><span>content</span>'
@@ -504,7 +504,7 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
         '日本語',
         '한국어',
         '🎉🎊✨',
-        '™€£¥',
+        '™€£¥'
       ]
 
       testCases.forEach(str => {
@@ -544,15 +544,15 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
       const htmlAfterEdit = '<a>【我改了】</a>'
 
       // 3. 检测阶段
-      const hasRefMarker = htmlAfterEdit.includes('【')  // 包含【】
+      const hasRefMarker = htmlAfterEdit.includes('【') // 包含【】
       const hasXmlAttr = htmlAfterEdit.includes('xml="')
 
-      expect(hasRefMarker).toBe(true)   // 文本看起来像引用（带【】）
-      expect(hasXmlAttr).toBe(false)    // 但属性丢失
+      expect(hasRefMarker).toBe(true) // 文本看起来像引用（带【】）
+      expect(hasXmlAttr).toBe(false) // 但属性丢失
 
       // 4. 诊断
       const isBroken = hasRefMarker && !hasXmlAttr
-      expect(isBroken).toBe(true)       // 应该检测到破坏
+      expect(isBroken).toBe(true) // 应该检测到破坏
     })
 
     it('应该区分正常流程和破坏流程', () => {
@@ -608,7 +608,7 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
       }
 
       const elapsed = Date.now() - start
-      expect(elapsed).toBeLessThan(1000)  // 应该在1秒内完成
+      expect(elapsed).toBeLessThan(1000) // 应该在1秒内完成
     })
 
     it('应该处理递归调用而不爆栈', () => {
@@ -662,7 +662,7 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
         '&partial',
         '&invalid;',
         '&#notahex;',
-        '&#999999;',  // 超出范围
+        '&#999999;', // 超出范围
         'no-escape-marker'
       ]
 
@@ -675,10 +675,10 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
 
     it('应该处理不匹配的转义对', () => {
       const mismatched = [
-        '&amp',      // 缺少;
-        '&',         // 孤立的&
-        '&#',        // 不完整的数字引用
-        '&lt;test', // 缺少结束符
+        '&amp', // 缺少;
+        '&', // 孤立的&
+        '&#', // 不完整的数字引用
+        '&lt;test' // 缺少结束符
       ]
 
       mismatched.forEach(val => {
@@ -716,7 +716,7 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
         '<': '&lt;',
         '>': '&gt;',
         '"': '&quot;',
-        "'": '&#39;'  // 标准中也可用&apos;
+        "'": '&#39;' // 标准中也可用&apos;
       }
 
       Object.entries(standard).forEach(([char, entity]) => {
@@ -727,7 +727,7 @@ describe('P0-DATALOSS防御 - 全面深度覆盖', () => {
     it('应该保持转义的一致性', () => {
       const test1 = escapeXmlForAttribute('&<>"\'')
       const test2 = escapeXmlForAttribute('&<>"\'')
-      expect(test1).toBe(test2)  // 同样输入应该得到同样输出
+      expect(test1).toBe(test2) // 同样输入应该得到同样输出
     })
 
     it('应该遵循反转义的完整性', () => {

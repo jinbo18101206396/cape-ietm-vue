@@ -166,8 +166,8 @@ test.describe('公式预览修复验证', () => {
     // 验证src是合法的ICN URL或base64图片
     const isValidSrc =
       imageSrc.startsWith('data:image/png;base64,') || // base64图片
-      imageSrc.includes('/ietm/icn/view/ICN-') ||      // ICN URL
-      imageSrc.startsWith('http')                       // 完整URL
+      imageSrc.includes('/ietm/icn/view/ICN-') || // ICN URL
+      imageSrc.startsWith('http') // 完整URL
 
     expect(isValidSrc).toBeTruthy()
 

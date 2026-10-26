@@ -93,7 +93,6 @@ test('Para公式ICN格式验证-简化版', async ({ browser }) => {
     } else {
       console.log('⚠️ 未找到任何symbol标签进行验证')
     }
-
   } catch (error) {
     console.log('\n❌ 异常:', error.message)
   } finally {

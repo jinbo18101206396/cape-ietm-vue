@@ -259,6 +259,8 @@ export function formatXml(xml, baseIndent = 0) {
     const hasInlineClose = /<\//.test(line)
     const isOpen = /^<[^/!?]/.test(line) && !isSelf && !isClose && !hasInlineClose
     if (isClose && depth > 0) depth--
+    // 🔧 修复Table缩进：当baseIndent > 0时（如从table设计视图返回源码视图），
+    // 确保table及其子元素都应用正确的缩进。table虽无子元素也需应用baseSpace。
     out += baseSpace + stepSpace.repeat(depth) + line + '\n'
     if (isOpen) depth++
   }

@@ -248,7 +248,7 @@ test.describe('公式ICN预览修复 - 核心验证', () => {
       })
 
       const passCount = checks.filter(c => c.pass).length
-      console.log(`\n通过率: ${passCount}/${checks.length} (${Math.round(passCount/checks.length*100)}%)`)
+      console.log(`\n通过率: ${passCount}/${checks.length} (${Math.round(passCount / checks.length * 100)}%)`)
 
       if (passCount >= 3) {
         console.log('\n🎉 测试通过：公式ICN预览修复验证成功！')
@@ -263,7 +263,6 @@ test.describe('公式ICN预览修复 - 核心验证', () => {
       // 断言（至少要满足核心修复逻辑）
       expect(metadataCall || getIcnContentCall,
         '至少应该调用metadata或getIcnContent端点之一').toBeTruthy()
-
     } catch (error) {
       console.error('\n❌ 测试执行出错:', error.message)
       throw error

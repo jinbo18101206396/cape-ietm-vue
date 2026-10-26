@@ -232,7 +232,7 @@ describe('paraConverter - 往返对称性（Round-trip）', () => {
       '\r',
       '\r\n',
       '&lt;',
-      'h10A',  // 用户输入的编码标记
+      'h10A' // 用户输入的编码标记
     ]
 
     for (const test of testCases) {
@@ -257,7 +257,7 @@ describe('paraConverter - 往返对称性（Round-trip）', () => {
       '&#39;&#39;',
       '&#96;&#96;',
       'h10Ah10A',
-      'h0Dh0D',
+      'h0Dh0D'
     ]
 
     for (const seq of sequences) {

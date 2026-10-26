@@ -73,7 +73,7 @@ test('验证Para设计视图-公式按钮第一次和第二次打开的一致性
       console.log('❌ 未找到铅笔图标，尝试查找所有gutter按钮...')
       const allGutterBtns = await page.locator('.CodeMirror-linenumber + *').all()
       console.log(`   找到 ${allGutterBtns.length} 个可能的按钮`)
-      
+
       // 截图查看gutter区域
       await lineNumber.screenshot({ path: 'gutter-area-first.png' })
       return
@@ -131,7 +131,7 @@ test('验证Para设计视图-公式按钮第一次和第二次打开的一致性
 
     // 第二次点击铅笔打开设计视图
     console.log('\n🔵 步骤10: 第二次点击铅笔图标打开设计视图...')
-    
+
     // 重新点击行号激活gutter
     await lineNumber.click()
     await page.waitForTimeout(500)
@@ -197,7 +197,6 @@ test('验证Para设计视图-公式按钮第一次和第二次打开的一致性
     } else {
       console.log('\n❌❌❌ 验证失败：公式按钮出现不一致！')
     }
-
   } catch (error) {
     console.log('\n❌ 测试异常:', error.message)
     await page.screenshot({ path: 'test-error.png', fullPage: false })

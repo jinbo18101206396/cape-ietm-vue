@@ -22,10 +22,11 @@
           <!-- 中区底部页签（§4 tabPosition:'bottom'）：设计视图在左，源码视图在右·默认选中 -->
           <a-tabs class="view-tabs" :active-key="viewMode" tab-position="bottom"
             :animated="false" size="small" @change="onViewTabChange">
-            <!-- 页签1：设计视图（DOM先声明→按钮在左），Para设计器 -->
+            <!-- 页签1：设计视图（DOM先声明→按钮在左），Para/Figure/Table设计器 -->
             <a-tab-pane key="design" :disabled="viewMode === 'source'">
               <span slot="tab"><a-icon type="edit"/> 设计视图</span>
               <div class="design-view-container">
+                <!-- Para设计器 -->
                 <para-designer
                   v-if="paraDesignerVisible"
                   :key="paraDesignerVisible ? Math.random() : 'hidden'"
@@ -39,14 +40,46 @@
                   :dm-code="dmc"
                   :node-list="nodeList"
                   :ifedit="readonly ? '0' : '1'"
+                  :formate-xml="formateXml"
                   simple="0"
                   @save="onParaSave"
                   @refresh="onParaRefresh"
                   @refreshLayout="onParaRefreshLayout"
                 />
+                <!-- Figure设计器 -->
+                <figure-designer
+                  v-else-if="figureDesignerVisible"
+                  :key="figureDesignerVisible ? Math.random() : 'hidden'"
+                  ref="figureDesigner"
+                  :lineno="figureLineno"
+                  :editor="$refs.editor ? $refs.editor.getEditor() : null"
+                  :locale="locale"
+                  :cmnodeid="id"
+                  :ifedit="readonly ? '0' : '1'"
+                  :formate-xml="formateXml"
+                  @save="onFigureSave"
+                />
+                <!-- Table设计器 -->
+                <table-designer
+                  v-else-if="tableDesignerVisible"
+                  :key="tableDesignerVisible ? Math.random() : 'hidden'"
+                  ref="tableDesigner"
+                  :lineno="tableLineno"
+                  :editor="$refs.editor ? $refs.editor.getEditor() : null"
+                  :locale="locale"
+                  :cmnodeid="id"
+                  :project-parameters="JSON.stringify(designerSett)"
+                  :uniqueid="String(maxUniqueId || 0)"
+                  :dm-code="dmc"
+                  :node-list="nodeList"
+                  :ifedit="readonly ? '0' : '1'"
+                  :formate-xml="formateXml"
+                  @save="onTableSave"
+                />
+                <!-- 空状态提示 -->
                 <div v-else class="design-placeholder">
                   <a-icon type="file-text" class="dp-icon"/>
-                  <span>请双击左侧树中的para节点打开Para设计器</span>
+                  <span>请双击左侧树中的para/figure/table节点或点击铅笔图标打开设计器</span>
                 </div>
               </div>
             </a-tab-pane>
@@ -206,6 +239,8 @@ import DmIdListModal      from './components/DmIdListModal'
 import IcnSuffixModal     from './components/IcnSuffixModal'
 import WorkflowInfoPanel  from '../components/WorkflowInfoPanel'
 import ParaDesigner       from './components/ParaDesigner'
+import FigureDesigner     from './components/FigureDesigner'
+import TableDesigner      from './components/TableDesigner'
 import { getTreeNodesfromXml, buildCnNodeList, extractRootContent, getnodeBylineno, formatXml } from './utils/xmlTree'
 import { toEnXml, toCnXml } from './utils/enCnConvert'
 import { getDmcByLineno } from './utils/refsBuilder'
@@ -227,7 +262,9 @@ export default {
     DmIdListModal,
     IcnSuffixModal,
     WorkflowInfoPanel,
-    ParaDesigner
+    ParaDesigner,
+    FigureDesigner,
+    TableDesigner
   },
   data() {
     return {
@@ -271,7 +308,13 @@ export default {
       paraDesignerVisible: false,
       paraLineno: 0,
       paraDesignerKey: 0,  // 用于强制重新渲染ParaDesigner组件
-      maxUniqueId: 0
+      maxUniqueId: 0,
+      // Figure设计器相关
+      figureDesignerVisible: false,
+      figureLineno: 0,
+      // Table设计器相关
+      tableDesignerVisible: false,
+      tableLineno: 0
     }
   },
   computed: {
@@ -339,6 +382,10 @@ export default {
     })
   },
   methods: {
+    // ── 格式化 ────────────────────────────────────────────────────────────────
+    formateXml(xml, indent = 0) {
+      return formatXml(xml, indent)
+    },
     // ── 加载 ──────────────────────────────────────────────────────────────────
     loadData() {
       // 防御性检查：页面正在关闭或ID无效时，不发起请求
@@ -433,7 +480,7 @@ export default {
       this.$refs.editor.locateNode(node)
     },
     onTreeDblClick(node) {
-      // 双击para节点，打开Para设计器
+      // 双击para/figure/table节点，打开对应的设计器
       if (!node) return
 
       const elemName = this.locale === 'cn' ? this.cn2enElem[node.text] || node.text : node.text
@@ -445,8 +492,16 @@ export default {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
         this._openParaDesigner(editorLine)
+      } else if (elemName === 'figure') {
+        const linenoOffset = this.$refs.editor.getLinenoOffset()
+        const editorLine = node.attributes.lineno + linenoOffset - 2
+        this._openFigureDesigner(editorLine)
+      } else if (elemName === 'table') {
+        const linenoOffset = this.$refs.editor.getLinenoOffset()
+        const editorLine = node.attributes.lineno + linenoOffset - 2
+        this._openTableDesigner(editorLine)
       } else {
-        this.$message.info('仅支持para元素的设计视图编辑')
+        this.$message.info(`暂不支持 ${elemName} 元素的设计视图编辑`)
       }
     },
     onGutterClick({ line, node, elemName }) {
@@ -467,9 +522,13 @@ export default {
         //   旧代码回退到line+1，比<para>开始标签行多1行→落到内容行→保存时开始标签未被替换而重复。
         //   gutterClick发出的line已是0-based的<para>开始标签行，直接用line即可。
         this._openParaDesigner(line)
+      } else if (enElemName === 'figure') {
+        this._openFigureDesigner(line)
+      } else if (enElemName === 'table') {
+        this._openTableDesigner(line)
       } else {
-        // 一期仅支持para，二期扩展其他元素
-        this.$message.info('仅支持para元素的设计视图编辑')
+        // 其他元素暂不支持设计视图
+        this.$message.info(`暂不支持 ${enElemName} 元素的设计视图编辑`)
       }
     },
     _openParaDesigner(lineno) {
@@ -505,6 +564,66 @@ export default {
               this.$refs.paraDesigner.setcontent()
             } else {
               // 每50ms检查一次，最多等待5秒
+              setTimeout(checkReady, 50)
+            }
+          }
+          checkReady()
+        }
+      })
+    },
+    _openFigureDesigner(lineno) {
+      // 统一的Figure设计器打开逻辑（供双击树节点和点击gutter图标复用）
+      this.viewMode = 'design'
+      this.figureLineno = lineno
+
+      // 关闭其他设计器
+      this.paraDesignerVisible = false
+      this.tableDesignerVisible = false
+
+      // 强制销毁旧组件，创建新实例
+      this.figureDesignerVisible = false
+
+      this.$nextTick(() => {
+        this.figureDesignerVisible = true
+      })
+
+      // 进入设计视图时自动隐藏左侧导航树和属性面板
+      this.treeVisible = false
+      this.attrVisible = false
+    },
+    _openTableDesigner(lineno) {
+      // 统一的Table设计器打开逻辑（供双击树节点和点击gutter图标复用）
+      this.viewMode = 'design'
+      this.tableLineno = lineno
+
+      // 关闭其他设计器
+      this.paraDesignerVisible = false
+      this.figureDesignerVisible = false
+
+      // 强制销毁旧组件，创建新实例
+      this.tableDesignerVisible = false
+
+      this.$nextTick(() => {
+        this.tableDesignerVisible = true
+      })
+
+      // 进入设计视图时自动隐藏左侧导航树和属性面板
+      this.treeVisible = false
+      this.attrVisible = false
+
+      // 等待TableDesigner组件挂载并初始化UEditor
+      this.$nextTick(() => {
+        if (this.$refs.tableDesigner) {
+          // 轮询等待UEditor初始化完成
+          const checkReady = () => {
+            if (!this.$refs.tableDesigner) {
+              console.warn('[DmContentEditor] TableDesigner组件已销毁，停止轮询')
+              return
+            }
+
+            if (this.$refs.tableDesigner.ueditorReady) {
+              this.$refs.tableDesigner.setcontent()
+            } else {
               setTimeout(checkReady, 50)
             }
           }
@@ -589,6 +708,75 @@ export default {
               console.warn('[DmContentEditor] ⚠️ editor ref不存在或方法未定义')
             }
           }, 200)  // 延长到200ms，确保DOM完全稳定
+        })
+      })
+    },
+    // Figure设计器保存事件
+    async onFigureSave(payload) {
+      // payload包含: { lineno, endline, figureXml }
+      // figureXml已经过格式化处理
+      if (payload && payload.figureXml && this.$refs.editor) {
+        const editor = this.$refs.editor.getEditor()
+        if (editor) {
+          // 更新编辑器中的figure内容（已格式化）
+          editor.replaceRange(
+            payload.figureXml,
+            { line: payload.lineno, ch: 0 },
+            { line: payload.endline, ch: editor.getLine(payload.endline).length }
+          )
+
+          console.log('[DmContentEditor] 已更新编辑器中的figure内容（格式化后）')
+        }
+      }
+
+      this.dirty = true
+      await this.doSave()
+
+      // 保存成功后，自动切换回源码视图
+      this.viewMode = 'source'
+      this.figureDesignerVisible = false
+      this.treeVisible = true
+      if (!this.readonly) {
+        this.attrVisible = true
+      }
+
+      // 刷新树（格式化后行号可能变化）
+      this.$nextTick(() => {
+        this.refreshTree()
+      })
+    },
+    // Table设计器保存事件
+    async onTableSave() {
+      this.dirty = true
+      await this.doSave()
+
+      // 保存成功后，自动切换回源码视图
+      this.viewMode = 'source'
+      this.tableDesignerVisible = false
+      this.treeVisible = true
+      if (!this.readonly) {
+        this.attrVisible = true
+      }
+
+      // 修复：从Table设计视图切换回源码视图时的布局处理
+      console.log('[DmContentEditor] 🔄 开始从Table设计器切换回源码视图')
+
+      this.$nextTick(() => {
+        // 清理可能残留的样式污染
+        const designContainer = document.querySelector('.design-view-container')
+        if (designContainer) {
+          const savedClass = designContainer.className
+          designContainer.style.cssText = ''
+          designContainer.className = savedClass
+        }
+
+        // 等待DOM完全稳定后，调用DmSourceView的布局修复
+        this.$nextTick(() => {
+          setTimeout(() => {
+            if (this.$refs.editor && this.$refs.editor.forceFixGuttersLayout) {
+              this.$refs.editor.forceFixGuttersLayout()
+            }
+          }, 200)
         })
       })
     },

@@ -226,7 +226,6 @@ test('验证Para设计视图按钮一致性', async ({ browser }) => {
     } else {
       console.log('❌ 无法对比：至少一次未找到按钮')
     }
-
   } catch (error) {
     console.log('\n❌ 异常:', error.message)
   } finally {

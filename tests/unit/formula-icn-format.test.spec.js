@@ -13,9 +13,9 @@ describe('公式ICN格式测试', () => {
       }
 
       // SNS 3段（与旧系统保持一致）
-      const sns1 = parts[1]  // modelIdentCode
-      const sns2 = parts[2]  // systemDiffCode
-      const sns3 = parts[3] + parts[4].padStart(2, '0') + parts[5].padStart(2, '0')  // 直接拼接
+      const sns1 = parts[1] // modelIdentCode
+      const sns2 = parts[2] // systemDiffCode
+      const sns3 = parts[3] + parts[4].padStart(2, '0') + parts[5].padStart(2, '0') // 直接拼接
 
       // 格式化uniqueId为5位数字
       const uniqueIdStr = String(uniqueId).padStart(5, '0')
@@ -39,19 +39,19 @@ describe('公式ICN格式测试', () => {
 
     // 验证格式
     const parts = result.split('-')
-    expect(parts.length).toBe(10)  // 应该是10段
+    expect(parts.length).toBe(10) // 应该是10段
 
     // 验证每一段
     expect(parts[0]).toBe('ICN')
-    expect(parts[1]).toBe('ZBBM02')  // modelIdentCode
-    expect(parts[2]).toBe('A')       // systemDiffCode
-    expect(parts[3]).toBe('A11000')  // sys+subsys+subsubsys直接拼接
-    expect(parts[4]).toBe('C')       // originator
-    expect(parts[5]).toBe('JB301')   // rpc
-    expect(parts[6]).toBe('00004')   // uniqueId (5位补零)
-    expect(parts[7]).toBe('A')       // 固定
-    expect(parts[8]).toBe('001')     // 固定
-    expect(parts[9]).toBe('01')      // 固定
+    expect(parts[1]).toBe('ZBBM02') // modelIdentCode
+    expect(parts[2]).toBe('A') // systemDiffCode
+    expect(parts[3]).toBe('A11000') // sys+subsys+subsubsys直接拼接
+    expect(parts[4]).toBe('C') // originator
+    expect(parts[5]).toBe('JB301') // rpc
+    expect(parts[6]).toBe('00004') // uniqueId (5位补零)
+    expect(parts[7]).toBe('A') // 固定
+    expect(parts[8]).toBe('001') // 固定
+    expect(parts[9]).toBe('01') // 固定
 
     // 完整格式验证
     expect(result).toBe('ICN-ZBBM02-A-A11000-C-JB301-00004-A-001-01')
@@ -72,7 +72,7 @@ describe('公式ICN格式测试', () => {
     const dmCode = 'DMC-ZBBM02-A-A-11-000-C-JB301-A_001-01_zh-CN'
     const rpc = 'JB301'
     const originator = 'C'
-    const uniqueId = 5  // 不同的uniqueId
+    const uniqueId = 5 // 不同的uniqueId
 
     const formulaIcn = generateIcnCode(dmCode, rpc, originator, uniqueId)
     const formulaParts = formulaIcn.split('-')
@@ -82,21 +82,21 @@ describe('公式ICN格式测试', () => {
     expect(formulaParts.length).toBe(10)
 
     // 前5段应该相同（SNS+originator+rpc）
-    expect(formulaParts[0]).toBe(symbolParts[0])  // ICN
-    expect(formulaParts[1]).toBe(symbolParts[1])  // modelIdentCode (ZBBM02)
-    expect(formulaParts[2]).toBe(symbolParts[2])  // systemDiffCode (A)
-    expect(formulaParts[3]).toBe(symbolParts[3])  // sys+subsys+subsubsys (A11000)
-    expect(formulaParts[4]).toBe(symbolParts[4])  // originator (C)
-    expect(formulaParts[5]).toBe(symbolParts[5])  // rpc (JB301)
+    expect(formulaParts[0]).toBe(symbolParts[0]) // ICN
+    expect(formulaParts[1]).toBe(symbolParts[1]) // modelIdentCode (ZBBM02)
+    expect(formulaParts[2]).toBe(symbolParts[2]) // systemDiffCode (A)
+    expect(formulaParts[3]).toBe(symbolParts[3]) // sys+subsys+subsubsys (A11000)
+    expect(formulaParts[4]).toBe(symbolParts[4]) // originator (C)
+    expect(formulaParts[5]).toBe(symbolParts[5]) // rpc (JB301)
 
     // 第6段不同（uniqueId不同）
     expect(formulaParts[6]).not.toBe(symbolParts[6])
-    expect(formulaParts[6]).toBe('00005')  // 新的uniqueId
+    expect(formulaParts[6]).toBe('00005') // 新的uniqueId
 
     // 第7-10段相同（固定值）
-    expect(formulaParts[7]).toBe(symbolParts[7])  // A
-    expect(formulaParts[8]).toBe(symbolParts[8])  // 001
-    expect(formulaParts[9]).toBe(symbolParts[9])  // 01
+    expect(formulaParts[7]).toBe(symbolParts[7]) // A
+    expect(formulaParts[8]).toBe(symbolParts[8]) // 001
+    expect(formulaParts[9]).toBe(symbolParts[9]) // 01
 
     console.log('图符ICN:', symbolIcn, '段数:', symbolParts.length)
     console.log('公式ICN:', formulaIcn, '段数:', formulaParts.length)

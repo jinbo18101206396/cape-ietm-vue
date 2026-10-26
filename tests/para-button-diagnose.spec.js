@@ -67,7 +67,7 @@ test('诊断ParaDesigner实例注册时机', async ({ browser }) => {
     const pencil1 = await page.locator('[class*="pencil"]').first()
     if (await pencil1.isVisible()) {
       await pencil1.click()
-      await page.waitForTimeout(2000)  // 等待ParaDesigner完全初始化
+      await page.waitForTimeout(2000) // 等待ParaDesigner完全初始化
     }
 
     // 检查实例映射（打开后）
@@ -144,7 +144,7 @@ test('诊断ParaDesigner实例注册时机', async ({ browser }) => {
         const pencils = document.querySelectorAll('[class*="pencil"]')
         if (pencils.length > 0) pencils[0].click()
       })
-      await page.waitForTimeout(2000)  // 等待ParaDesigner完全初始化
+      await page.waitForTimeout(2000) // 等待ParaDesigner完全初始化
     }
 
     // 检查实例映射（第二次打开后）
@@ -191,7 +191,6 @@ test('诊断ParaDesigner实例注册时机', async ({ browser }) => {
     } else if (buttons1.interrefButton && buttons2.interrefButton) {
       console.log('\n✅ 两次都正常显示，问题已修复')
     }
-
   } catch (error) {
     console.log('\n❌ 异常:', error.message)
   } finally {

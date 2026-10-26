@@ -238,7 +238,6 @@ test('验证Para设计视图-公式按钮第一次和第二次打开的一致性
       if (!formulaBtn2Info.exists) console.log('   - 第二次打开时公式按钮不存在')
       if (!posMatch) console.log('   - 按钮位置不一致')
     }
-
   } catch (error) {
     console.log('\n❌ 测试出错:', error.message)
   } finally {

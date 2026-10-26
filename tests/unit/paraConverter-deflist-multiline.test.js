@@ -8,7 +8,6 @@ const { html2para } = require('../src/views/ietm/ietmdatamodulemanagement/editor
 
 // 关键正则表达式对比测试
 describe('DefList多行修复 - 正则表达式验证', () => {
-
   test('.*? 无法匹配多行内容（问题演示）', () => {
     const brokenRegex = /<table deflist="1">.*?<\/table>/g
     const multilineHtml = `<table deflist="1">
@@ -83,7 +82,6 @@ const testCases = [
  * 关键正则表达式对比测试
  */
 describe('DefList多行修复 - 正则表达式验证', () => {
-
   test('.*? 无法匹配多行内容（问题演示）', () => {
     const brokenRegex = /<table deflist="1">.*?<\/table>/g
     const multilineHtml = `<table deflist="1">
@@ -118,7 +116,6 @@ describe('DefList多行修复 - 正则表达式验证', () => {
  * 注：这里需要实际导入paraConverter.js的html2para函数
  */
 describe('DefList转换流程（集成测试）', () => {
-
   test('多行deflist应正确转换，不应删除', async () => {
     // 模拟UEditor生成的多行deflist HTML
     const html = `<p><table deflist="1">
@@ -174,7 +171,6 @@ describe('DefList转换流程（集成测试）', () => {
  * 边界情况测试
  */
 describe('DefList边界情况', () => {
-
   test('deflist中包含多个<p>标签应保留', async () => {
     const html = `<table deflist="1">
 <tr>
@@ -216,7 +212,6 @@ describe('DefList边界情况', () => {
  * 回归测试：确保修复后不会破坏其他功能
  */
 describe('DefList修复 - 回归测试', () => {
-
   test('普通table仍应被删除（对标旧系统）', async () => {
     // 不含deflist="1"的普通HTML table应继续被删除
     const html = `<table>
@@ -252,7 +247,6 @@ describe('DefList修复 - 回归测试', () => {
  * 性能测试
  */
 describe('DefList修复 - 性能验证', () => {
-
   test('大型多行deflist应在100ms内完成', () => {
     // 构造1000行的大型deflist
     let rows = ''

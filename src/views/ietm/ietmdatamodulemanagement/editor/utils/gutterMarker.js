@@ -103,8 +103,8 @@ export function canShowDesignMarker(elemName, node, nodeList = []) {
     return false
   }
 
-  // 2. 一期仅支持para元素（二期再扩展其他元素）
-  if (elemName !== 'para') {
+  // 2. 支持para、table和figure元素（其他元素二期再扩展）
+  if (!['para', 'table', 'figure'].includes(elemName)) {
     return false
   }
 
@@ -112,6 +112,10 @@ export function canShowDesignMarker(elemName, node, nodeList = []) {
   if (node && node.pid && nodeList.length > 0) {
     const parent = nodeList.find(n => n.id === node.pid)
     if (parent && NO_DESIGN_PARENT.includes(parent.text)) {
+      return false
+    }
+    // 4. para在table内部不显示铅笔图标
+    if (elemName === 'para' && parent && parent.text === 'table') {
       return false
     }
   }

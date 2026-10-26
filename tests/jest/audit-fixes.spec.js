@@ -25,10 +25,10 @@ describe('P1-B: findElementEndLine正则边界', () => {
   test('精确匹配content而不误匹配contentArea', () => {
     const editor = [
       '<content>',
-      '  <contentArea>',  // 应该单独计数，不影响外层content
+      '  <contentArea>', // 应该单独计数，不影响外层content
       '    <para/>',
       '  </contentArea>',
-      '</content>',
+      '</content>'
     ]
 
     const endLine = findElementEndLine('content', editor)
@@ -39,10 +39,10 @@ describe('P1-B: findElementEndLine正则边界', () => {
   test('正确处理多重嵌套同类名前缀', () => {
     const editor = [
       '<description>',
-      '  <desc>',  // desc是description的前缀
+      '  <desc>', // desc是description的前缀
       '    <para/>',
       '  </desc>',
-      '</description>',
+      '</description>'
     ]
 
     const endLine = findElementEndLine('description', editor)
@@ -52,9 +52,9 @@ describe('P1-B: findElementEndLine正则边界', () => {
   test('自闭合标签不增加深度', () => {
     const editor = [
       '<content>',
-      '  <symbol/>',  // 自闭合不增加depth
+      '  <symbol/>', // 自闭合不增加depth
       '  <para/>',
-      '</content>',
+      '</content>'
     ]
 
     const endLine = findElementEndLine('content', editor)
@@ -64,11 +64,11 @@ describe('P1-B: findElementEndLine正则边界', () => {
   test('深度计数正确（嵌套元素）', () => {
     const editor = [
       '<content>',
-      '  <content>',      // 同名开始标签，depth=1
+      '  <content>', // 同名开始标签，depth=1
       '    <para/>',
-      '  </content>',     // 同名闭合标签，depth=0
+      '  </content>', // 同名闭合标签，depth=0
       '  <para/>',
-      '</content>',       // 外层闭合标签
+      '</content>' // 外层闭合标签
     ]
 
     const endLine = findElementEndLine('content', editor)
@@ -81,7 +81,7 @@ describe('P2-A: locateByLineno数据验证', () => {
   function locateByLineno(lineno, mockCursor) {
     // 修复: 添加lineno有效性检查
     if (!lineno || lineno <= 0) {
-      return false  // 无效输入
+      return false // 无效输入
     }
     const line = Math.max(0, lineno - 1)
     mockCursor.position = line
@@ -112,7 +112,7 @@ describe('P2-A: locateByLineno数据验证', () => {
     const cursor = {}
     const result = locateByLineno(5, cursor)
     expect(result).toBe(true)
-    expect(cursor.position).toBe(4)  // 5-1=4 (0-based)
+    expect(cursor.position).toBe(4) // 5-1=4 (0-based)
   })
 
   test('lineno=1定位到第0行', () => {
@@ -147,7 +147,7 @@ describe('回归测试: 原始功能仍然工作', () => {
       '  <content>',
       '    <para>文本</para>',
       '  </content>',
-      '</dmodule>',
+      '</dmodule>'
     ]
 
     expect(findElementEndLine('content', xml)).toBe(3)
@@ -185,7 +185,7 @@ describe('回归测试: 原始功能仍然工作', () => {
     // 双标签
     const xml = [
       '<content>',
-      '</content>',
+      '</content>'
     ]
     expect(findElementEndLine('content', xml)).toBe(1)
   })

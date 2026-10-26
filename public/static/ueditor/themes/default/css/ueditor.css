@@ -771,6 +771,14 @@ div.edui-box {
     background-position: -660px -20px;
 }
 
+.edui-default  .edui-for-setheadrow .edui-icon {
+    background-position: -680px -20px;
+}
+
+.edui-default  .edui-for-setfootrow .edui-icon {
+    background-position: -700px -20px;
+}
+
 .edui-default  .edui-for-deletecol .edui-icon {
     background-position: -640px -20px;
 }

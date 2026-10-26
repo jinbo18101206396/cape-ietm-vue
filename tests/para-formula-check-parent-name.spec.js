@@ -127,7 +127,6 @@ test('对比parent.name和parent.dmCode', async ({ browser }) => {
     console.log('旧系统使用 parent.name 而非 parent.dmCode')
     console.log('新系统需要检查：parent 对象中是否有 name 属性？')
     console.log('如果有，应该使用 parent.name 来保持兼容性')
-
   } catch (error) {
     console.log('\n❌ 异常:', error.message)
   } finally {

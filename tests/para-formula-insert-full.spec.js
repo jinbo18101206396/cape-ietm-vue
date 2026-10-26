@@ -105,7 +105,6 @@ test('Para公式插入完整验证', async ({ browser }) => {
     console.log('\n🔵 步骤8: 保存Para设计视图...')
     const saveBtn = await page.locator('button:has-text("保存")').first()
     if (await saveBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-
       // 监听控制台日志
       page.on('console', msg => {
         const text = msg.text()
@@ -170,8 +169,8 @@ test('Para公式插入完整验证', async ({ browser }) => {
     const isCorrectFormat = symbolData.parts.length === 10
     const hasCorrectStructure =
       symbolData.parts[0] === 'ICN' &&
-      symbolData.parts[3].length === 6 &&  // SNS第3段应为6位（合并后）
-      symbolData.parts[6].length === 5 &&  // uniqueId应为5位
+      symbolData.parts[3].length === 6 && // SNS第3段应为6位（合并后）
+      symbolData.parts[6].length === 5 && // uniqueId应为5位
       symbolData.parts[8] === '001' &&
       symbolData.parts[9] === '01'
 
@@ -201,7 +200,6 @@ test('Para公式插入完整验证', async ({ browser }) => {
         console.log(`     第7段长度: ${symbolData.parts[6].length} (应为5)`)
       }
     }
-
   } catch (error) {
     console.log('\n❌ 测试异常:', error.message)
   } finally {

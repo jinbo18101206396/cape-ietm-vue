@@ -189,7 +189,6 @@ test('Para公式按钮修复验证-完整流程', async ({ browser }) => {
         console.log(`❌ 无法对比：第一次=${btn1Data ? '✅' : '❌'}, 第二次=${btn2Data ? '✅' : '❌'}`)
       }
     }
-
   } catch (error) {
     console.log('\n❌ 异常:', error.message)
   } finally {

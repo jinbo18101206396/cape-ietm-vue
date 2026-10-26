@@ -152,7 +152,6 @@ test.describe('Para设计视图-公式按钮显示问题', () => {
           }
         }
       }
-
     } catch (error) {
       console.error('❌ 测试出错:', error.message)
       // 保存错误截图

@@ -108,7 +108,7 @@ test('诊断parent.dmCode的实际值', async ({ browser }) => {
     const saveBtn = await page.locator('button:has-text("保存")').first()
     if (await saveBtn.isVisible()) {
       await saveBtn.click()
-      await page.waitForTimeout(4000)  // 等待保存完成
+      await page.waitForTimeout(4000) // 等待保存完成
     }
 
     // 提取日志
@@ -187,7 +187,6 @@ test('诊断parent.dmCode的实际值', async ({ browser }) => {
         console.log(`    第${i + 1}段: ${part}`)
       })
     })
-
   } catch (error) {
     console.log('\n❌ 异常:', error.message)
   } finally {

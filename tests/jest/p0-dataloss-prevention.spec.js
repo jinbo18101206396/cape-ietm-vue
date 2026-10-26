@@ -105,7 +105,7 @@ describe('P0-DATALOSS防御 - paraConverter.js修改验证', () => {
     it('应该检测输入输出内容类型不匹配', () => {
       // 场景：输入HTML包含【引用】但转换后的XML没有dmRef标签
       const inputHtml = '<p><a>【引用DMC-ZB1】</a></p>'
-      const outputXml = '<para></para>'  // 空的para
+      const outputXml = '<para></para>' // 空的para
 
       const hasRefInHtml = inputHtml.includes('【引用')
       const hasDmRefInXml = outputXml.includes('dmRef') || outputXml.includes('internalRef')
@@ -113,7 +113,7 @@ describe('P0-DATALOSS防御 - paraConverter.js修改验证', () => {
       // 验证不匹配
       if (hasRefInHtml && !hasDmRefInXml) {
         console.log('🚨 检测到数据丢失风险：输入有引用但输出没有dmRef标签')
-        expect(true).toBe(true)  // 应该抛出错误并阻止保存
+        expect(true).toBe(true) // 应该抛出错误并阻止保存
       }
 
       console.log('✅ 输入输出匹配检测通过')
@@ -121,14 +121,14 @@ describe('P0-DATALOSS防御 - paraConverter.js修改验证', () => {
 
     it('应该验证para内容不被意外清空', () => {
       const inputHtml = '<p>这是段落内容 <a>【引用】</a> 更多内容</p>'
-      const outputXml = '<para></para>'  // 被意外清空
+      const outputXml = '<para></para>' // 被意外清空
 
       const htmlHasContent = inputHtml.replace(/<[^>]+>/g, '').trim().length > 0
       const xmlIsEmpty = outputXml.replace(/<[^>]+>/g, '').trim().length === 0
 
       if (htmlHasContent && xmlIsEmpty) {
         console.log('🚨 检测到内容丢失：输入有文本但输出为空')
-        expect(true).toBe(true)  // 应该抛出错误
+        expect(true).toBe(true) // 应该抛出错误
       }
 
       console.log('✅ 空内容检测通过')
@@ -176,7 +176,7 @@ describe('P0-DATALOSS防御 - paraConverter.js修改验证', () => {
       const brokenXml = '<dmRef>'.includes('dmRef')
       const brokenText = '我改了文本'.includes('引用') && '我改了文本'.includes('DMC')
 
-      expect(brokenXml && !brokenText).toBe(true)  // XML说是dmRef，但文本不符合
+      expect(brokenXml && !brokenText).toBe(true) // XML说是dmRef，但文本不符合
 
       console.log('✅ 文本XML匹配验证通过')
     })
@@ -228,4 +228,3 @@ describe('P0-DATALOSS防御 - paraConverter.js修改验证', () => {
     })
   })
 })
-

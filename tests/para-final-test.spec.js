@@ -269,7 +269,6 @@ test('验证Para设计视图-公式按钮第一次和第二次打开的一致性
         }
       }
     }
-
   } catch (error) {
     console.error('\n❌ 测试出错:', error.message)
     console.error(error.stack)

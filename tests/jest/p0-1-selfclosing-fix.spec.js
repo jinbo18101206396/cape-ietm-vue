@@ -14,7 +14,7 @@ describe('P0-1修复: 自闭合标签深度检查', () => {
     let nodeIdx = 0
     let stack = []
     let nodeStack = []
-    const dmLineIdx = 0  // 假设dmodule在第0行
+    const dmLineIdx = 0 // 假设dmodule在第0行
 
     for (let lineIdx = 0; lineIdx < xmlLines.length; lineIdx++) {
       const trimmed = xmlLines[lineIdx].trim()
@@ -63,18 +63,18 @@ describe('P0-1修复: 自闭合标签深度检查', () => {
   test('自闭合标签应该被识别', () => {
     const nodes = [
       { text: 'dmodule', attributes: { lineno: 0 } },
-      { text: 'description', attributes: { lineno: 0 } },  // 自闭合标签
+      { text: 'description', attributes: { lineno: 0 } } // 自闭合标签
     ]
     const xml = [
       '<dmodule>',
       '  <description/>',
-      '</dmodule>',
+      '</dmodule>'
     ]
 
     calculateLineno(nodes, xml)
 
-    expect(nodes[0].attributes.lineno).toBe(1)  // dmodule
-    expect(nodes[1].attributes.lineno).toBe(2)  // description (自闭合)
+    expect(nodes[0].attributes.lineno).toBe(1) // dmodule
+    expect(nodes[1].attributes.lineno).toBe(2) // description (自闭合)
   })
 
   test('混合自闭合和非自闭合标签', () => {
@@ -82,7 +82,7 @@ describe('P0-1修复: 自闭合标签深度检查', () => {
       { text: 'dmodule', attributes: { lineno: 0 } },
       { text: 'content', attributes: { lineno: 0 } },
       { text: 'refs', attributes: { lineno: 0 } },
-      { text: 'description', attributes: { lineno: 0 } },
+      { text: 'description', attributes: { lineno: 0 } }
     ]
     const xml = [
       '<dmodule>',
@@ -90,15 +90,15 @@ describe('P0-1修复: 自闭合标签深度检查', () => {
       '    <refs/>',
       '  </content>',
       '  <description/>',
-      '</dmodule>',
+      '</dmodule>'
     ]
 
     calculateLineno(nodes, xml)
 
-    expect(nodes[0].attributes.lineno).toBe(1)  // dmodule
-    expect(nodes[1].attributes.lineno).toBe(2)  // content
-    expect(nodes[2].attributes.lineno).toBe(3)  // refs (自闭合)
-    expect(nodes[3].attributes.lineno).toBe(5)  // description (自闭合)
+    expect(nodes[0].attributes.lineno).toBe(1) // dmodule
+    expect(nodes[1].attributes.lineno).toBe(2) // content
+    expect(nodes[2].attributes.lineno).toBe(3) // refs (自闭合)
+    expect(nodes[3].attributes.lineno).toBe(5) // description (自闭合)
   })
 
   test('连续自闭合标签', () => {
@@ -106,22 +106,22 @@ describe('P0-1修复: 自闭合标签深度检查', () => {
       { text: 'dmodule', attributes: { lineno: 0 } },
       { text: 'symbol', attributes: { lineno: 0 } },
       { text: 'graphic', attributes: { lineno: 0 } },
-      { text: 'para', attributes: { lineno: 0 } },
+      { text: 'para', attributes: { lineno: 0 } }
     ]
     const xml = [
       '<dmodule>',
       '  <symbol/>',
       '  <graphic/>',
       '  <para/>',
-      '</dmodule>',
+      '</dmodule>'
     ]
 
     calculateLineno(nodes, xml)
 
     expect(nodes[0].attributes.lineno).toBe(1)
-    expect(nodes[1].attributes.lineno).toBe(2)  // symbol
-    expect(nodes[2].attributes.lineno).toBe(3)  // graphic
-    expect(nodes[3].attributes.lineno).toBe(4)  // para
+    expect(nodes[1].attributes.lineno).toBe(2) // symbol
+    expect(nodes[2].attributes.lineno).toBe(3) // graphic
+    expect(nodes[3].attributes.lineno).toBe(4) // para
   })
 
   test('深度嵌套中的自闭合标签', () => {
@@ -130,26 +130,26 @@ describe('P0-1修复: 自闭合标签深度检查', () => {
       { text: 'content', attributes: { lineno: 0 } },
       { text: 'para', attributes: { lineno: 0 } },
       { text: 'symbol', attributes: { lineno: 0 } },
-      { text: 'description', attributes: { lineno: 0 } },
+      { text: 'description', attributes: { lineno: 0 } }
     ]
     const xml = [
       '<dmodule>',
       '  <content>',
       '    <para>',
-      '      <symbol/>',  // 深度2的自闭合标签
+      '      <symbol/>', // 深度2的自闭合标签
       '    </para>',
-      '    <description/>',  // 深度1的自闭合标签
+      '    <description/>', // 深度1的自闭合标签
       '  </content>',
-      '</dmodule>',
+      '</dmodule>'
     ]
 
     calculateLineno(nodes, xml)
 
-    expect(nodes[0].attributes.lineno).toBe(1)  // dmodule
-    expect(nodes[1].attributes.lineno).toBe(2)  // content
-    expect(nodes[2].attributes.lineno).toBe(3)  // para
-    expect(nodes[3].attributes.lineno).toBe(4)  // symbol (深度2自闭合)
-    expect(nodes[4].attributes.lineno).toBe(6)  // description (深度1自闭合)
+    expect(nodes[0].attributes.lineno).toBe(1) // dmodule
+    expect(nodes[1].attributes.lineno).toBe(2) // content
+    expect(nodes[2].attributes.lineno).toBe(3) // para
+    expect(nodes[3].attributes.lineno).toBe(4) // symbol (深度2自闭合)
+    expect(nodes[4].attributes.lineno).toBe(6) // description (深度1自闭合)
   })
 
   test('所有节点都应该有行号（非零）', () => {
@@ -157,7 +157,7 @@ describe('P0-1修复: 自闭合标签深度检查', () => {
       { text: 'dmodule', attributes: { lineno: 0 } },
       { text: 'content', attributes: { lineno: 0 } },
       { text: 'description', attributes: { lineno: 0 } },
-      { text: 'refs', attributes: { lineno: 0 } },
+      { text: 'refs', attributes: { lineno: 0 } }
     ]
     const xml = [
       '<dmodule>',
@@ -165,7 +165,7 @@ describe('P0-1修复: 自闭合标签深度检查', () => {
       '    <description/>',
       '    <refs/>',
       '  </content>',
-      '</dmodule>',
+      '</dmodule>'
     ]
 
     calculateLineno(nodes, xml)
