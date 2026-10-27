@@ -59,6 +59,19 @@
                   :formate-xml="formateXml"
                   @save="onFigureSave"
                 />
+                <!-- Multimedia设计器 -->
+                <multimedia-designer
+                  v-else-if="multimediaDesignerVisible"
+                  :key="multimediaDesignerVisible ? Math.random() : 'hidden'"
+                  ref="multimediaDesigner"
+                  :lineno="multimediaLineno"
+                  :editor="$refs.editor ? $refs.editor.getEditor() : null"
+                  :locale="locale"
+                  :cmnodeid="id"
+                  :ifedit="readonly ? '0' : '1'"
+                  :formate-xml="formateXml"
+                  @save="onMultimediaSave"
+                />
                 <!-- Table设计器 -->
                 <table-designer
                   v-else-if="tableDesignerVisible"
@@ -240,6 +253,7 @@ import IcnSuffixModal     from './components/IcnSuffixModal'
 import WorkflowInfoPanel  from '../components/WorkflowInfoPanel'
 import ParaDesigner       from './components/ParaDesigner'
 import FigureDesigner     from './components/FigureDesigner'
+import MultimediaDesigner from './components/MultimediaDesigner'
 import TableDesigner      from './components/TableDesigner'
 import { getTreeNodesfromXml, buildCnNodeList, extractRootContent, getnodeBylineno, formatXml } from './utils/xmlTree'
 import { toEnXml, toCnXml } from './utils/enCnConvert'
@@ -264,6 +278,7 @@ export default {
     WorkflowInfoPanel,
     ParaDesigner,
     FigureDesigner,
+    MultimediaDesigner,
     TableDesigner
   },
   data() {
@@ -312,6 +327,9 @@ export default {
       // Figure设计器相关
       figureDesignerVisible: false,
       figureLineno: 0,
+      // Multimedia设计器相关
+      multimediaDesignerVisible: false,
+      multimediaLineno: 0,
       // Table设计器相关
       tableDesignerVisible: false,
       tableLineno: 0
@@ -496,6 +514,10 @@ export default {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
         this._openFigureDesigner(editorLine)
+      } else if (elemName === 'multimedia') {
+        const linenoOffset = this.$refs.editor.getLinenoOffset()
+        const editorLine = node.attributes.lineno + linenoOffset - 2
+        this._openMultimediaDesigner(editorLine)
       } else if (elemName === 'table') {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
@@ -524,6 +546,8 @@ export default {
         this._openParaDesigner(line)
       } else if (enElemName === 'figure') {
         this._openFigureDesigner(line)
+      } else if (enElemName === 'multimedia') {
+        this._openMultimediaDesigner(line)
       } else if (enElemName === 'table') {
         this._openTableDesigner(line)
       } else {
@@ -578,6 +602,9 @@ export default {
 
       // 关闭其他设计器
       this.paraDesignerVisible = false
+      this.figureDesignerVisible = false
+      this.multimediaDesignerVisible = false
+      this.multimediaDesignerVisible = false
       this.tableDesignerVisible = false
 
       // 强制销毁旧组件，创建新实例
@@ -585,6 +612,28 @@ export default {
 
       this.$nextTick(() => {
         this.figureDesignerVisible = true
+      })
+
+      // 进入设计视图时自动隐藏左侧导航树和属性面板
+      this.treeVisible = false
+      this.attrVisible = false
+    },
+    _openMultimediaDesigner(lineno) {
+      // 统一的Multimedia设计器打开逻辑（供双击树节点和点击gutter图标复用）
+      this.viewMode = 'design'
+      this.multimediaLineno = lineno
+
+      // 关闭其他设计器
+      this.paraDesignerVisible = false
+      this.figureDesignerVisible = false
+      this.multimediaDesignerVisible = false
+      this.tableDesignerVisible = false
+
+      // 强制销毁旧组件，创建新实例
+      this.multimediaDesignerVisible = false
+
+      this.$nextTick(() => {
+        this.multimediaDesignerVisible = true
       })
 
       // 进入设计视图时自动隐藏左侧导航树和属性面板
@@ -599,6 +648,7 @@ export default {
       // 关闭其他设计器
       this.paraDesignerVisible = false
       this.figureDesignerVisible = false
+      this.multimediaDesignerVisible = false
 
       // 强制销毁旧组件，创建新实例
       this.tableDesignerVisible = false
@@ -735,6 +785,40 @@ export default {
       // 保存成功后，自动切换回源码视图
       this.viewMode = 'source'
       this.figureDesignerVisible = false
+      this.treeVisible = true
+      if (!this.readonly) {
+        this.attrVisible = true
+      }
+
+      // 刷新树（格式化后行号可能变化）
+      this.$nextTick(() => {
+        this.refreshTree()
+      })
+    },
+    // Multimedia设计器保存事件
+    async onMultimediaSave(payload) {
+      // payload包含: { lineno, endline, multimediaXml }
+      // multimediaXml已经过格式化处理
+      if (payload && payload.multimediaXml && this.$refs.editor) {
+        const editor = this.$refs.editor.getEditor()
+        if (editor) {
+          // 更新编辑器中的multimedia内容（已格式化）
+          editor.replaceRange(
+            payload.multimediaXml,
+            { line: payload.lineno, ch: 0 },
+            { line: payload.endline, ch: editor.getLine(payload.endline).length }
+          )
+
+          console.log('[DmContentEditor] 已更新编辑器中的multimedia内容（格式化后）')
+        }
+      }
+
+      this.dirty = true
+      await this.doSave()
+
+      // 保存成功后，自动切换回源码视图
+      this.viewMode = 'source'
+      this.multimediaDesignerVisible = false
       this.treeVisible = true
       if (!this.readonly) {
         this.attrVisible = true

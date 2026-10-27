@@ -103,8 +103,8 @@ export function canShowDesignMarker(elemName, node, nodeList = []) {
     return false
   }
 
-  // 2. 支持para、table和figure元素（其他元素二期再扩展）
-  if (!['para', 'table', 'figure'].includes(elemName)) {
+  // 2. 支持para、table、figure和multimedia元素（其他元素二期再扩展）
+  if (!['para', 'table', 'figure', 'multimedia'].includes(elemName)) {
     return false
   }
 
