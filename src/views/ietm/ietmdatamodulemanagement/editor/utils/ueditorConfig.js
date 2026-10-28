@@ -13,7 +13,7 @@
  * @returns {Object} - UEditor配置对象
  */
 export function getUEditorConfig(options = {}) {
-  const { ifedit = '1', simple = '0', locale = 'en', readonly = false } = options
+  const { ifedit = '1', simple = '0', locale = 'en', readonly = false, toolbars = null } = options
 
   // §5.2.1 完整工具栏（编辑模式）
   const fullToolbar = [
@@ -59,19 +59,22 @@ export function getUEditorConfig(options = {}) {
   const readonlyToolbar = [[]]
 
   // 根据模式选择工具栏
-  let toolbars
-  if (readonly || ifedit === '0') {
-    toolbars = readonlyToolbar
+  let finalToolbars
+  if (toolbars) {
+    // 如果传入了自定义工具栏，直接使用
+    finalToolbars = toolbars
+  } else if (readonly || ifedit === '0') {
+    finalToolbars = readonlyToolbar
   } else if (simple === '1') {
-    toolbars = simpleToolbar
+    finalToolbars = simpleToolbar
   } else {
-    toolbars = fullToolbar
+    finalToolbars = fullToolbar
   }
 
   // 返回配置对象
   return {
     // 工具栏配置
-    toolbars,
+    toolbars: finalToolbars,
 
     // 国际化与通用配置
     lang: locale === 'cn' ? 'zh-cn' : 'en',

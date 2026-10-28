@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试嵌套 LevelledPara 解析</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    #output {
+      background: white;
+      padding: 20px;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      white-space: pre-wrap;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .success { color: #52c41a; font-weight: bold; }
+    .error { color: #f5222d; font-weight: bold; }
+    .info { color: #1890ff; }
+    .section { margin-top: 20px; border-top: 1px solid #d9d9d9; padding-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>测试嵌套 LevelledPara 解析</h1>
+  <div id="output">正在加载...</div>
+
+  <script type="module">
+    import { parseXmlToTree } from './src/views/ietm/ietmdatamodulemanagement/editor/utils/levelledParaConverter.js'
+
+    const output = document.getElementById('output')
+    let log = ''
+
+    function print(text, className = '') {
+      log += `<span class="${className}">${text}</span>\n`
+      output.innerHTML = log
+    }
+
+    // 测试用例：嵌套的 para 结构
+    const nestedXml = `
+<levelledPara>
+  <para>
+    <title>第一层段落</title>
+    这是第一层的内容
+    <para>
+      <title>第二层段落</title>
+      这是第二层的内容
+      <para>
+        <title>第三层段落</title>
+        这是第三层的内容
+      </para>
+    </para>
+    <para>
+      <title>第二层段落2</title>
+      这是第二层的另一个内容
+    </para>
+  </para>
+  <warning>
+    <warningAndCautionPara>
+      <title>警告节点</title>
+    </warningAndCautionPara>
+  </warning>
+</levelledPara>
+    `
+
+    print('===== 测试嵌套 levelledPara 解析 =====', 'info')
+    print('')
+
+    try {
+      const tree = parseXmlToTree(nestedXml)
+
+      print('✓ 解析成功', 'success')
+      print('')
+
+      // 验证根节点
+      print('根节点检查:')
+      const root = tree[0]
+      print(`  ID: ${root.id} (预期: 0)`)
+      print(`  子节点数量: ${root.children.length} (预期: 2)`)
+      print('')
+
+      // 验证第一层
+      if (root.children.length >= 1) {
+        const level1_1 = root.children[0]
+        print('第一层节点 [0]:')
+        print(`  ID: ${level1_1.id} (预期: 0.1) ${level1_1.id === '0.1' ? '✓' : '✗'}`, level1_1.id === '0.1' ? 'success' : 'error')
+        print(`  类型: ${level1_1.type} (预期: para)`)
+        print(`  标题: ${level1_1.title}`)
+        print(`  子节点数量: ${level1_1.children ? level1_1.children.length : 0} (预期: 2) ${level1_1.children && level1_1.children.length === 2 ? '✓' : '✗'}`, level1_1.children && level1_1.children.length === 2 ? 'success' : 'error')
+        print('')
+
+        // 验证第二层
+        if (level1_1.children && level1_1.children.length >= 1) {
+          const level2_1 = level1_1.children[0]
+          print('第二层节点 [0][0]:')
+          print(`  ID: ${level2_1.id} (预期: 0.1.1) ${level2_1.id === '0.1.1' ? '✓' : '✗'}`, level2_1.id === '0.1.1' ? 'success' : 'error')
+          print(`  类型: ${level2_1.type}`)
+          print(`  标题: ${level2_1.title}`)
+          print(`  子节点数量: ${level2_1.children ? level2_1.children.length : 0} (预期: 1) ${level2_1.children && level2_1.children.length === 1 ? '✓' : '✗'}`, level2_1.children && level2_1.children.length === 1 ? 'success' : 'error')
+          print('')
+
+          // 验证第三层
+          if (level2_1.children && level2_1.children.length >= 1) {
+            const level3_1 = level2_1.children[0]
+            print('第三层节点 [0][0][0]:')
+            print(`  ID: ${level3_1.id} (预期: 0.1.1.1) ${level3_1.id === '0.1.1.1' ? '✓' : '✗'}`, level3_1.id === '0.1.1.1' ? 'success' : 'error')
+            print(`  类型: ${level3_1.type}`)
+            print(`  标题: ${level3_1.title}`)
+            print(`  子节点数量: ${level3_1.children ? level3_1.children.length : 0} (预期: 0)`)
+            print('')
+          } else {
+            print('✗ 第三层节点不存在或为空', 'error')
+            print('')
+          }
+
+          // 验证第二层的第二个节点
+          if (level1_1.children.length >= 2) {
+            const level2_2 = level1_1.children[1]
+            print('第二层节点 [0][1]:')
+            print(`  ID: ${level2_2.id} (预期: 0.1.2) ${level2_2.id === '0.1.2' ? '✓' : '✗'}`, level2_2.id === '0.1.2' ? 'success' : 'error')
+            print(`  类型: ${level2_2.type}`)
+            print(`  标题: ${level2_2.title}`)
+            print(`  子节点数量: ${level2_2.children ? level2_2.children.length : 0} (预期: 0)`)
+            print('')
+          } else {
+            print('✗ 第二层第二个节点不存在', 'error')
+            print('')
+          }
+        } else {
+          print('✗ 第二层节点不存在或为空', 'error')
+          print('')
+        }
+      }
+
+      // 验证 warning 节点
+      if (root.children.length >= 2) {
+        const level1_2 = root.children[1]
+        print('第一层节点 [1]:')
+        print(`  ID: ${level1_2.id} (预期: 0.2) ${level1_2.id === '0.2' ? '✓' : '✗'}`, level1_2.id === '0.2' ? 'success' : 'error')
+        print(`  类型: ${level1_2.type} (预期: warning)`)
+        print(`  标题: ${level1_2.title}`)
+        print(`  子节点数量: ${level1_2.children ? level1_2.children.length : 0} (预期: 0)`)
+        print('')
+      }
+
+      // 总结
+      print('<span class="section">===== 测试结果汇总 =====</span>', '')
+      const expectedStructure = {
+        '0.1': true,
+        '0.1.1': true,
+        '0.1.1.1': true,
+        '0.1.2': true,
+        '0.2': true
+      }
+
+      const actualIds = []
+      function collectIds(nodes) {
+        nodes.forEach(node => {
+          actualIds.push(node.id)
+          if (node.children && node.children.length > 0) {
+            collectIds(node.children)
+          }
+        })
+      }
+      collectIds(root.children)
+
+      print(`预期 ID: ${Object.keys(expectedStructure).join(', ')}`)
+      print(`实际 ID: ${actualIds.join(', ')}`)
+      print('')
+
+      const allMatch = Object.keys(expectedStructure).every(id => actualIds.includes(id))
+      if (allMatch && actualIds.length === Object.keys(expectedStructure).length) {
+        print('✅ 所有节点 ID 正确，嵌套结构解析成功！', 'success')
+        print('')
+        print('层级显示预览:', 'info')
+        print('  层级1 (ID: 0.1)')
+        print('    层级1.1 (ID: 0.1.1)')
+        print('      层级1.1.1 (ID: 0.1.1.1)')
+        print('    层级1.2 (ID: 0.1.2)')
+        print('  层级2 (ID: 0.2)')
+      } else {
+        print('✗ 节点 ID 不匹配，嵌套结构解析失败', 'error')
+        print('')
+        print('问题分析:')
+        const missing = Object.keys(expectedStructure).filter(id => !actualIds.includes(id))
+        const extra = actualIds.filter(id => !expectedStructure[id])
+        if (missing.length > 0) {
+          print(`  缺少的 ID: ${missing.join(', ')}`, 'error')
+        }
+        if (extra.length > 0) {
+          print(`  多余的 ID: ${extra.join(', ')}`, 'error')
+        }
+      }
+
+    } catch (error) {
+      print('✗ 解析失败: ' + error.message, 'error')
+      print(error.stack)
+    }
+  </script>
+</body>
+</html>

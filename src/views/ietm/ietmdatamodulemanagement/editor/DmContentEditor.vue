@@ -27,7 +27,7 @@
               <span slot="tab"><a-icon type="edit"/> 设计视图</span>
               <div class="design-view-container">
                 <!-- Para设计器 -->
-                <para-designer
+                <ParaDesigner
                   v-if="paraDesignerVisible"
                   :key="paraDesignerVisible ? Math.random() : 'hidden'"
                   ref="paraDesigner"
@@ -47,7 +47,7 @@
                   @refreshLayout="onParaRefreshLayout"
                 />
                 <!-- Figure设计器 -->
-                <figure-designer
+                <FigureDesigner
                   v-else-if="figureDesignerVisible"
                   :key="figureDesignerVisible ? Math.random() : 'hidden'"
                   ref="figureDesigner"
@@ -60,7 +60,7 @@
                   @save="onFigureSave"
                 />
                 <!-- Multimedia设计器 -->
-                <multimedia-designer
+                <MultimediaDesigner
                   v-else-if="multimediaDesignerVisible"
                   :key="multimediaDesignerVisible ? Math.random() : 'hidden'"
                   ref="multimediaDesigner"
@@ -73,7 +73,7 @@
                   @save="onMultimediaSave"
                 />
                 <!-- Table设计器 -->
-                <table-designer
+                <TableDesigner
                   v-else-if="tableDesignerVisible"
                   :key="tableDesignerVisible ? Math.random() : 'hidden'"
                   ref="tableDesigner"
@@ -89,10 +89,23 @@
                   :formate-xml="formateXml"
                   @save="onTableSave"
                 />
+                <!-- LevelledPara设计器 -->
+                <LevelledParaDesigner
+                  v-else-if="levelledParaDesignerVisible"
+                  :key="levelledParaDesignerVisible ? Math.random() : 'hidden'"
+                  ref="levelledParaDesigner"
+                  :lineno="levelledParaLineno"
+                  :editor="$refs.editor ? $refs.editor.getEditor() : null"
+                  :locale="locale"
+                  :cmnodeid="id"
+                  :ifedit="readonly ? '0' : '1'"
+                  :save="'1'"
+                  @save="onLevelledParaSave"
+                />
                 <!-- 空状态提示 -->
                 <div v-else class="design-placeholder">
                   <a-icon type="file-text" class="dp-icon"/>
-                  <span>请双击左侧树中的para/figure/table节点或点击铅笔图标打开设计器</span>
+                  <span>请双击左侧树中的para/levelledPara/figure/table节点或点击铅笔图标打开设计器</span>
                 </div>
               </div>
             </a-tab-pane>
@@ -255,6 +268,7 @@ import ParaDesigner       from './components/ParaDesigner'
 import FigureDesigner     from './components/FigureDesigner'
 import MultimediaDesigner from './components/MultimediaDesigner'
 import TableDesigner      from './components/TableDesigner'
+import LevelledParaDesigner from './components/LevelledParaDesigner'
 import { getTreeNodesfromXml, buildCnNodeList, extractRootContent, getnodeBylineno, formatXml } from './utils/xmlTree'
 import { toEnXml, toCnXml } from './utils/enCnConvert'
 import { getDmcByLineno } from './utils/refsBuilder'
@@ -279,7 +293,8 @@ export default {
     ParaDesigner,
     FigureDesigner,
     MultimediaDesigner,
-    TableDesigner
+    TableDesigner,
+    LevelledParaDesigner
   },
   data() {
     return {
@@ -332,7 +347,10 @@ export default {
       multimediaLineno: 0,
       // Table设计器相关
       tableDesignerVisible: false,
-      tableLineno: 0
+      tableLineno: 0,
+      // LevelledPara设计器相关
+      levelledParaDesignerVisible: false,
+      levelledParaLineno: 0
     }
   },
   computed: {
@@ -510,6 +528,10 @@ export default {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
         this._openParaDesigner(editorLine)
+      } else if (elemName === 'levelledPara') {
+        const linenoOffset = this.$refs.editor.getLinenoOffset()
+        const editorLine = node.attributes.lineno + linenoOffset - 2
+        this._openLevelledParaDesigner(editorLine)
       } else if (elemName === 'figure') {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
@@ -544,6 +566,8 @@ export default {
         //   旧代码回退到line+1，比<para>开始标签行多1行→落到内容行→保存时开始标签未被替换而重复。
         //   gutterClick发出的line已是0-based的<para>开始标签行，直接用line即可。
         this._openParaDesigner(line)
+      } else if (enElemName === 'levelledPara') {
+        this._openLevelledParaDesigner(line)
       } else if (enElemName === 'figure') {
         this._openFigureDesigner(line)
       } else if (enElemName === 'multimedia') {
@@ -680,6 +704,27 @@ export default {
           checkReady()
         }
       })
+    },
+    _openLevelledParaDesigner(lineno) {
+      // 统一的LevelledPara设计器打开逻辑
+      this.viewMode = 'design'
+      this.levelledParaLineno = lineno
+
+      // 关闭其他设计器
+      this.paraDesignerVisible = false
+      this.figureDesignerVisible = false
+      this.multimediaDesignerVisible = false
+      this.tableDesignerVisible = false
+      this.levelledParaDesignerVisible = false
+
+      // 强制销毁旧组件，创建新实例
+      this.$nextTick(() => {
+        this.levelledParaDesignerVisible = true
+      })
+
+      // 进入设计视图时自动隐藏左侧导航树和属性面板
+      this.treeVisible = false
+      this.attrVisible = false
     },
     onContentChange(val) {
       this.content = val
@@ -862,6 +907,24 @@ export default {
             }
           }, 200)
         })
+      })
+    },
+    // LevelledPara设计器保存事件
+    async onLevelledParaSave() {
+      this.dirty = true
+      await this.doSave()
+
+      // 保存成功后，自动切换回源码视图
+      this.viewMode = 'source'
+      this.levelledParaDesignerVisible = false
+      this.treeVisible = true
+      if (!this.readonly) {
+        this.attrVisible = true
+      }
+
+      // 刷新树（数据可能变化）
+      this.$nextTick(() => {
+        this.refreshTree()
       })
     },
     // Para设计器刷新事件
