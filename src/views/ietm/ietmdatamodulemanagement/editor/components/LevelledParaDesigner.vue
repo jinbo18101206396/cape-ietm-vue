@@ -94,7 +94,14 @@
                   :row-selection="getRowSelection('warning')"
                   size="small"
                   bordered
-                />
+                >
+                  <!-- 🔧 修复DMREF-DISPLAY: 支持 dmRef/internalRef/symbol 的正确显示 -->
+                  <template slot="content" slot-scope="text, record">
+                    <ConvertedContent v-if="text && (text.includes('<dmRef') || text.includes('<internalRef'))" :content="text" :parent="Parent" />
+                    <div v-else-if="text && text.includes('<symbol')" v-html="convertSymbolsToHtml(text)" style="max-width: 800px; overflow: auto;"></div>
+                    <div v-else v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
+                  </template>
+                </a-table>
               </div>
             </a-tab-pane>
 
@@ -116,7 +123,13 @@
                   :row-selection="getRowSelection('caution')"
                   size="small"
                   bordered
-                />
+                >
+                  <template slot="content" slot-scope="text, record">
+                    <ConvertedContent v-if="text && (text.includes('<dmRef') || text.includes('<internalRef'))" :content="text" :parent="Parent" />
+                    <div v-else-if="text && text.includes('<symbol')" v-html="convertSymbolsToHtml(text)" style="max-width: 800px; overflow: auto;"></div>
+                    <div v-else v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
+                  </template>
+                </a-table>
               </div>
             </a-tab-pane>
 
@@ -139,7 +152,13 @@
                   :row-selection="getRowSelection('para')"
                   size="small"
                   bordered
-                />
+                >
+                  <template slot="content" slot-scope="text, record">
+                    <ConvertedContent v-if="text && (text.includes('<dmRef') || text.includes('<internalRef'))" :content="text" :parent="Parent" />
+                    <div v-else-if="text && text.includes('<symbol')" v-html="convertSymbolsToHtml(text)" style="max-width: 800px; overflow: auto;"></div>
+                    <div v-else v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
+                  </template>
+                </a-table>
               </div>
             </a-tab-pane>
 
@@ -161,7 +180,13 @@
                   :row-selection="getRowSelection('note')"
                   size="small"
                   bordered
-                />
+                >
+                  <template slot="content" slot-scope="text, record">
+                    <ConvertedContent v-if="text && (text.includes('<dmRef') || text.includes('<internalRef'))" :content="text" :parent="Parent" />
+                    <div v-else-if="text && text.includes('<symbol')" v-html="convertSymbolsToHtml(text)" style="max-width: 800px; overflow: auto;"></div>
+                    <div v-else v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
+                  </template>
+                </a-table>
               </div>
             </a-tab-pane>
 
@@ -182,7 +207,13 @@
                   :row-selection="getRowSelection('figure')"
                   size="small"
                   bordered
-                />
+                >
+                  <template slot="content" slot-scope="text, record">
+                    <ConvertedContent v-if="text && (text.includes('<dmRef') || text.includes('<internalRef'))" :content="text" :parent="Parent" />
+                    <div v-else-if="text && text.includes('<symbol')" v-html="convertSymbolsToHtml(text)" style="max-width: 800px; overflow: auto;"></div>
+                    <div v-else v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
+                  </template>
+                </a-table>
               </div>
             </a-tab-pane>
 
@@ -203,7 +234,13 @@
                   :row-selection="getRowSelection('multimedia')"
                   size="small"
                   bordered
-                />
+                >
+                  <template slot="content" slot-scope="text, record">
+                    <ConvertedContent v-if="text && (text.includes('<dmRef') || text.includes('<internalRef'))" :content="text" :parent="Parent" />
+                    <div v-else-if="text && text.includes('<symbol')" v-html="convertSymbolsToHtml(text)" style="max-width: 800px; overflow: auto;"></div>
+                    <div v-else v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
+                  </template>
+                </a-table>
               </div>
             </a-tab-pane>
 
@@ -224,7 +261,13 @@
                   :row-selection="getRowSelection('table')"
                   size="small"
                   bordered
-                />
+                >
+                  <template slot="content" slot-scope="text, record">
+                    <ConvertedContent v-if="text && (text.includes('<dmRef') || text.includes('<internalRef'))" :content="text" :parent="Parent" />
+                    <div v-else-if="text && text.includes('<symbol')" v-html="convertSymbolsToHtml(text)" style="max-width: 800px; overflow: auto;"></div>
+                    <div v-else v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
+                  </template>
+                </a-table>
               </div>
             </a-tab-pane>
 
@@ -245,7 +288,13 @@
                   :row-selection="getRowSelection('foldout')"
                   size="small"
                   bordered
-                />
+                >
+                  <template slot="content" slot-scope="text, record">
+                    <ConvertedContent v-if="text && (text.includes('<dmRef') || text.includes('<internalRef'))" :content="text" :parent="Parent" />
+                    <div v-else-if="text && text.includes('<symbol')" v-html="convertSymbolsToHtml(text)" style="max-width: 800px; overflow: auto;"></div>
+                    <div v-else v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
+                  </template>
+                </a-table>
               </div>
             </a-tab-pane>
 
@@ -266,7 +315,13 @@
                   :row-selection="getRowSelection('caption')"
                   size="small"
                   bordered
-                />
+                >
+                  <template slot="content" slot-scope="text, record">
+                    <ConvertedContent v-if="text && (text.includes('<dmRef') || text.includes('<internalRef'))" :content="text" :parent="Parent" />
+                    <div v-else-if="text && text.includes('<symbol')" v-html="convertSymbolsToHtml(text)" style="max-width: 800px; overflow: auto;"></div>
+                    <div v-else v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
+                  </template>
+                </a-table>
               </div>
             </a-tab-pane>
           </a-tabs>
@@ -318,10 +373,68 @@
 </template>
 
 <script>
+// 异步内容转换组件 - 用于将 dmRef/internalRef XML 转换为可读格式
+const ConvertedContent = {
+  props: ['content', 'parent'],
+  data() {
+    return {
+      convertedHtml: '加载中...',
+      loading: true
+    }
+  },
+  async mounted() {
+    await this.convert()
+  },
+  watch: {
+    content: {
+      handler() {
+        this.convert()
+      }
+    }
+  },
+  methods: {
+    async convert() {
+      if (!this.content) {
+        this.convertedHtml = ''
+        this.loading = false
+        return
+      }
+
+      try {
+        this.loading = true
+        const { para2html } = await import('../utils/paraConverter')
+
+        // 包装在 para 标签中以便转换
+        const wrapped = `<para>${this.content}</para>`
+        const html = await para2html(this.parent, wrapped)
+
+        // 移除外层 para 标签
+        this.convertedHtml = html.replace(/<\/?para>/g, '')
+        this.loading = false
+      } catch (e) {
+        console.error('[ConvertedContent] 转换失败:', e)
+        this.convertedHtml = this.content
+        this.loading = false
+      }
+    }
+  },
+  // 🔑 P0修复：使用 render 函数替代 template 字符串（避免 runtime-only 错误）
+  render(h) {
+    if (this.loading) {
+      return h('div', { style: 'color: #999; font-size: 12px;' }, '加载中...')
+    }
+    return h('div', {
+      style: 'max-width: 800px; word-break: break-all; text-align: left;',
+      domProps: { innerHTML: this.convertedHtml }
+    })
+  }
+}
+
 // 第3阶段修复：使用新的完整转换器
 import { parseXmlToTree, treeToXml, createEmptyNode, getRowhtml, createEmptyHtmlContent, validateTree } from '../utils/levelledParaConverterV2'
 // 从旧转换器导入 ID 重生成工具函数（独立功能）
 import { regenerateIds } from '../utils/levelledParaConverter'
+import { escapeXmlForAttribute, html2para, para2html } from '../utils/paraConverter'
 import { getUEditorConfig, loadUEditor } from '../utils/ueditorConfig'
 import IetmInterrefDialog from './IetmInterrefDialog'
 import IetmDmRefDialog from './IetmDmRefDialog'
@@ -330,6 +443,7 @@ import IetmSymbolDialog from './IetmSymbolDialog'
 export default {
   name: 'LevelledParaDesigner',
   components: {
+    ConvertedContent,
     IetmInterrefDialog,
     IetmDmRefDialog,
     IetmSymbolDialog
@@ -341,7 +455,11 @@ export default {
     locale: { type: String, default: 'en' },
     cmnodeid: { type: String, required: true },
     ifedit: { type: String, default: '1' },
-    save: { type: String, default: '1' }
+    save: { type: String, default: '1' },
+    projectParameters: { type: String, required: true },
+    uniqueid: { type: String, required: true },
+    dmCode: { type: String, required: true },
+    nodeList: { type: Array, default: () => [] }
   },
 
   inject: {
@@ -380,7 +498,6 @@ export default {
       interrefDialogVisible: false,
       dmrefDialogVisible: false,
       symbolDialogVisible: false,
-      nodeList: [],
 
       endline: -1,
       saving: false
@@ -389,7 +506,22 @@ export default {
 
   computed: {
     readonly() { return this.ifedit === '0' },
-    showSaveBtn() { return this.save === '1' }
+    showSaveBtn() { return this.save === '1' },
+
+    // Parent接口对象（供html2para使用）
+    Parent() {
+      return {
+        editor: this.editor,
+        locale: this.locale,
+        dmCode: this.dmCode,
+        nodeList: this.nodeList,
+        cmnodeid: this.cmnodeid,
+        getLocaleName: this.getLocaleName,
+        toEnXml: this.toEnXml,
+        toCnXml: this.toCnXml,
+        formateXml: this.formateXml
+      }
+    }
   },
 
   mounted() {
@@ -628,16 +760,136 @@ export default {
           title: label,
           dataIndex: 'content',
           key: 'content',
-          align: 'center'
+          align: 'center',
+          scopedSlots: { customRender: 'content' }  // 🔧 修复SYMBOL-DISPLAY: 启用自定义slot渲染
         },
         {
           title: 'ID',
           dataIndex: 'id',
           key: 'id',
-          width: 150,
+          width: 250,
           align: 'center'
         }
       ]
+    },
+
+    // 🔧 修复SYMBOL-DISPLAY: 将XML中的<symbol>转换为<img>用于显示
+    convertSymbolsToHtml(content) {
+      if (!content) {
+        return content
+      }
+
+      let result = content
+
+      // 🔑 先处理 <symbol> 标签
+      if (result.includes('<symbol')) {
+        const self = this
+
+        // 提取所有 <symbol> 标签并替换为 <img>
+        const symbolRegex = /<symbol\s+([^>]*?)\s*\/>/g
+        let match
+
+        while ((match = symbolRegex.exec(content)) !== null) {
+          const symbolTag = match[0]
+          const attributesStr = match[1]
+
+          // 提取ICN编码
+          const icnMatch = attributesStr.match(/infoEntityIdent="([^"]+)"/)
+          if (!icnMatch || !icnMatch[1]) continue
+
+          const icn = icnMatch[1]
+
+          // 先使用占位符 src（会异步加载真实图片）
+          const placeholderSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%23f0f0f0'/%3E%3Ctext x='6' y='24' font-size='12' fill='%23999'%3E加载中...</text%3E%3C/svg%3E"
+          const safeXml = escapeXmlForAttribute(symbolTag)
+          const imgTag = `<img src="${placeholderSrc}" data-icn="${icn}" data-xml="${safeXml}" style="max-width: 300px; max-height: 200px; width: auto; height: auto; cursor: pointer; border: 1px solid #ddd; padding: 2px;"/>`
+
+          result = result.replace(symbolTag, imgTag)
+
+          // 异步获取真实图片URL
+          this._loadSymbolImageUrl(icn)
+        }
+      }
+
+      // 🔑 然后处理 <img class="kfformula"> 标签（如果存在，说明没被转换为 symbol）
+      if (result.includes('class="kfformula"')) {
+        // 保留原样（因为公式的 src 已经是 base64 data URL）
+        // 这是一个备用方案，理想情况下公式应该已被转换为 <symbol>
+        console.warn('[convertSymbolsToHtml] 发现未被转换的公式 <img class="kfformula">，这表示 html2para 可能没有正确处理公式')
+      }
+
+      return result
+    },
+
+    // 🔧 修复SYMBOL-DISPLAY: 异步加载图片URL并更新所有相关的img标签
+    async _loadSymbolImageUrl(icn) {
+      try {
+        const apiBaseUrl = window._CONFIG['domianURL'] || '/jeecg-boot'
+        const token = localStorage.getItem('pro__Access-Token') ? JSON.parse(localStorage.getItem('pro__Access-Token')).value : ''
+
+        const icnInfo = await fetch(`${apiBaseUrl}/icnmanage/ietmIcnManage/queryByIcnCode?icn=${encodeURIComponent(icn)}`, {
+          headers: { 'X-Access-Token': token }
+        }).then(r => r.json())
+
+        let imgSrc = null
+        if (icnInfo.success && icnInfo.result) {
+          const fileKey = icnInfo.result.ietmAttachment?.fileKey
+          const icnType = icnInfo.result.icnType
+
+          // 🔑 关键修复：公式使用特殊的处理逻辑
+          if (icnType === 'formula' && fileKey && fileKey.startsWith('formula-')) {
+            // 公式：从 fileContent 中提取 base64 图片
+            try {
+              const fileContentBase64 = icnInfo.result.filecontent
+              if (fileContentBase64) {
+                // 🔧 修复：filecontent 是 base64(HEX(HTML))，需要双重解码
+                // 步骤1: Base64 解码 → HEX 字符串
+                const hexString = atob(fileContentBase64)
+
+                // 步骤2: HEX 解码 → HTML
+                let formulaHtml = ''
+                for (let i = 0; i < hexString.length; i += 2) {
+                  const hexByte = hexString.substr(i, 2)
+                  formulaHtml += String.fromCharCode(parseInt(hexByte, 16))
+                }
+
+                console.log('[_loadSymbolImageUrl] 公式HTML长度:', formulaHtml.length)
+
+                // 从 HTML 中提取 base64 图片
+                const imgMatch = formulaHtml.match(/src="(data:image\/png;base64,[^"]+)"/)
+                if (imgMatch && imgMatch[1]) {
+                  imgSrc = imgMatch[1]
+                  console.log('[_loadSymbolImageUrl] 成功提取公式图片，长度:', imgSrc.length)
+                } else {
+                  console.warn('[_loadSymbolImageUrl] 公式HTML中未找到图片数据，HTML预览:', formulaHtml.substring(0, 200))
+                  imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+                }
+              }
+            } catch (e) {
+              console.warn('[_loadSymbolImageUrl] 解析公式数据失败:', e)
+              imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+            }
+          } else if (fileKey) {
+            // 普通图片：使用 viewFile 路径
+            imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/viewFile?fileKey=${encodeURIComponent(fileKey)}`
+          } else {
+            // Fallback
+            imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+          }
+        } else {
+          imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+        }
+
+        // 更新所有具有该 ICN 的 img 标签
+        const allImgs = document.querySelectorAll(`img[data-icn="${icn}"]`)
+        allImgs.forEach(img => {
+          if (img.src.includes('data:image')) {
+            img.src = imgSrc
+          }
+        })
+      } catch (e) {
+        console.warn('[_loadSymbolImageUrl] 加载图片失败:', e.message)
+      }
     },
 
     getContentData(type) {
@@ -666,7 +918,16 @@ export default {
                 const element = doc.documentElement
                 // 对于文本类型，显示内部内容（去掉外层标签）
                 if (!isStructured) {
-                  displayContent = element.innerHTML || element.textContent || displayContent
+                  // 🔧 修复：XML DOM 不支持 innerHTML，需要手动序列化子节点
+                  const serializer = new XMLSerializer()
+                  let innerContent = ''
+                  for (let i = 0; i < element.childNodes.length; i++) {
+                    innerContent += serializer.serializeToString(element.childNodes[i])
+                  }
+                  displayContent = innerContent || element.textContent || displayContent
+
+                  // 🔑 新增修复：将 <symbol> 标签转换为 <img> 标签以便显示
+                  displayContent = this._convertSymbolToImg(displayContent)
                 }
                 // 对于结构化类型，保持原样（XML）
               }
@@ -685,6 +946,43 @@ export default {
         console.error(`getContentData(${type}) 错误:`, error)
         return []
       }
+    },
+
+    /**
+     * 将 XML 中的 <symbol> 标签转换为可显示的 <img> 标签
+     * @param {string} content - 可能包含 <symbol> 标签的内容
+     * @returns {string} 转换后的内容
+     */
+    _convertSymbolToImg(content) {
+      if (!content || typeof content !== 'string') return content
+
+      // 匹配 <symbol infoEntityIdent="..." reproductionWidth="..." reproductionHeight="..." reproductionScale="..."></symbol>
+      const symbolRegex = /<symbol\s+([^>]*)><\/symbol>/gi
+
+      return content.replace(symbolRegex, (match, attrs) => {
+        try {
+          // 提取属性
+          const icnMatch = attrs.match(/infoEntityIdent="([^"]+)"/)
+          const widthMatch = attrs.match(/reproductionWidth="([^"]+)"/)
+          const heightMatch = attrs.match(/reproductionHeight="([^"]+)"/)
+
+          if (!icnMatch) return match // 如果没有 ICN，保持原样
+
+          const icn = icnMatch[1]
+          const width = widthMatch ? widthMatch[1] : 'auto'
+          const height = heightMatch ? heightMatch[1] : 'auto'
+
+          // 生成图片 URL
+          const apiBaseUrl = process.env.VUE_APP_API_BASE_URL || window._CONFIG?.domianURL || ''
+          const imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+
+          // 生成 <img> 标签
+          return `<img src="${imgSrc}" data-icn="${icn}" style="max-width: 300px; max-height: 200px; width: auto; height: auto;" />`
+        } catch (e) {
+          console.warn('[_convertSymbolToImg] 转换失败:', e)
+          return match
+        }
+      })
     },
 
     getRowSelection(type) {
@@ -845,8 +1143,21 @@ export default {
         if (!doc1.querySelector('parsererror') && !doc2.querySelector('parsererror')) {
           const elem1 = doc1.documentElement
           const elem2 = doc2.documentElement
-          const text1 = elem1.innerHTML || elem1.textContent || ''
-          const text2 = elem2.innerHTML || elem2.textContent || ''
+
+          // 🔑 使用 XMLSerializer 代替 innerHTML（XML DOM 不支持 innerHTML）
+          const serializer = new XMLSerializer()
+          let innerContent1 = ''
+          let innerContent2 = ''
+
+          for (let i = 0; i < elem1.childNodes.length; i++) {
+            innerContent1 += serializer.serializeToString(elem1.childNodes[i])
+          }
+          for (let i = 0; i < elem2.childNodes.length; i++) {
+            innerContent2 += serializer.serializeToString(elem2.childNodes[i])
+          }
+
+          const text1 = innerContent1 || elem1.textContent || ''
+          const text2 = innerContent2 || elem2.textContent || ''
           const mergedText = text1 + text2
 
           // 重新包装为完整 XML
@@ -1028,12 +1339,27 @@ export default {
         const type = this.contentEditorType
         const index = this.contentEditorIndex
 
-        // 修复问题1：剥离 UEditor 返回的 HTML 标签
-        // UEditor 会将纯文本包裹成 <p>111</p>，需要移除外层 <p> 标签
-        content = this.stripOuterParagraphTag(content)
+        console.log('===== saveContentEditor DEBUG START =====')
+        console.log('[1] UEditor原始内容:', content)
+
+        // 🔑 修复问题1：清理 UEditor 插入的 HTML 实体（如 &nbsp;）
+        content = this.normalizeWhitespace(content)
+        console.log('[1.5] normalizeWhitespace后:', content)
+
+        // 🔑 关键修复：对于非标题项，不要剥离外层 <p> 标签，直接传递给 html2para
+        // 因为 html2para 期望接收完整的 HTML（包含 <p> 标签）
+        let processedContent = content
+        if (type !== 'title') {
+          // 不剥离，直接使用原始内容
+          console.log('[2] 保留完整的 HTML 结构，直接传递给 html2para')
+        } else {
+          // 标题项时才剥离
+          processedContent = this.stripOuterParagraphTag(content)
+          console.log('[2] stripOuterParagraphTag后:', processedContent)
+        }
 
         if (type === 'title') {
-          this.currentTitle = content
+          this.currentTitle = processedContent
           this.handleTitleChange()
         } else {
           if (!this.selectedNode.html) {
@@ -1062,11 +1388,81 @@ export default {
 
             if (isStructured) {
               // 结构化类型，保持原样（可能是 XML）
-              originalItem.xml = content
+              originalItem.xml = processedContent
             } else {
               // 文本类型，需要包装成完整 XML
-              // 🔑 关键修复：对可能的特殊字符进行 XML 转义
-              const escapedContent = this.escapeXmlContent(content)
+              // 🔧 修复SYMBOL-INCONSISTENCY: 检测 <img> 或 &lt;img（HTML转义）并转换为 <symbol>
+              let finalContent = processedContent
+              // 🔑 改进的检测逻辑：明确区分符号图片和公式图片
+              const hasSymbolImage = processedContent && (processedContent.includes('data-icn=') || processedContent.includes('&lt;symbol'))
+              const hasFormula = processedContent && (processedContent.includes('class="kfformula"') || processedContent.includes('class=&quot;kfformula&quot;') || processedContent.includes('data-latex='))
+              const hasImage = hasSymbolImage || hasFormula || (processedContent && (processedContent.includes('<img') || processedContent.includes('&lt;img')))
+
+              // 🔧 修复P0-DMREF: 检测 DM 引用和内部引用
+              // 问题根因：saveContentEditor 只在有图片时调用 html2para()，导致 <a> 标签（包装的 dmRef/internalRef）无法转换
+              // 修复：检测 <a xml="..."> 或显示文本标记，任一条件满足都调用 html2para()
+              const hasDmOrInternalRef = processedContent && (
+                processedContent.includes('【引用') ||        // DM引用的显示文本
+                processedContent.includes('【内部引用') ||    // 内部引用的显示文本
+                (processedContent.includes('<a') && processedContent.includes('xml='))  // <a> 标签结构标记
+              )
+
+              console.log('[编辑项] 原始content:', processedContent)
+              console.log('[编辑项] hasSymbolImage:', hasSymbolImage, ' hasFormula:', hasFormula, ' hasImage:', hasImage)
+              console.log('[编辑项] hasDmOrInternalRef:', hasDmOrInternalRef)
+
+              // 🔑 关键修复：预分配 uniqueid（对标 ParaDesigner.vue）
+              const newFormulas = (processedContent.match(/class="kfformula"/g) || []).length
+              let allocatedUniqueids = []
+
+              if (newFormulas > 0) {
+                try {
+                  console.log('[编辑项] 检测到公式数量:', newFormulas, '，开始分配 uniqueid')
+                  const response = await this.$http.post('/ietm/dm-content/allocateUniqueids', {
+                    dmId: this.cmnodeid,
+                    count: newFormulas
+                  })
+
+                  if (!response.success) {
+                    throw new Error('分配uniqueid失败')
+                  }
+
+                  const startId = response.result.start
+                  allocatedUniqueids = Array.from({ length: newFormulas }, (_, i) =>
+                    String(startId + i).padStart(5, '0')
+                  )
+                  console.log('[编辑项] uniqueid 分配成功:', allocatedUniqueids)
+                } catch (err) {
+                  console.error('[编辑项] 分配 uniqueid 失败:', err)
+                  throw new Error('分配 uniqueid 失败: ' + err.message)
+                }
+              }
+
+              if (hasImage || hasDmOrInternalRef) {
+                // 异步调用 html2para 进行转换
+                // 处理：图片→symbol、公式→symbol、<a>标签→dmRef/internalRef
+                try {
+                  console.log('[编辑项] 直接传递给 html2para:', processedContent)
+
+                  // 🔑 关键修复：传递分配的 uniqueid 数组
+                  finalContent = await html2para(this.Parent, processedContent, this.projectParameters, allocatedUniqueids)
+
+                  console.log('[编辑项] html2para返回结果:', finalContent)
+                  console.log('[编辑项] html2para返回结果长度:', finalContent ? finalContent.length : 0)
+                } catch (e) {
+                  console.error('[编辑项] html2para转换失败:', e.message, e.stack)
+                  throw new Error('内容转换失败，请重试。如问题持续，请联系管理员。')
+                }
+              }
+
+              // 🔑 P0修复：html2para 返回的内容已经是有效的 XML，不应再转义
+              // 只对未经过 html2para 转换的纯文本内容进行转义
+              const escapedContent = (hasImage || hasDmOrInternalRef)
+                ? finalContent  // html2para 的输出是 XML，直接使用
+                : this.escapeXmlContent(finalContent)  // 纯文本需要转义
+
+              console.log('[编辑项] escapedContent:', escapedContent)
+              console.log('[编辑项] 最终content字段:', `<${type} id="${itemId}">${escapedContent}</${type}>`)
               originalItem.content = `<${type} id="${itemId}">${escapedContent}</${type}>`
             }
           } else {
@@ -1077,10 +1473,77 @@ export default {
             }
 
             if (isStructured) {
-              newItem.xml = content
+              newItem.xml = processedContent
             } else {
-              // 🔑 关键修复：对特殊字符进行 XML 转义
-              const escapedContent = this.escapeXmlContent(content)
+              // 🔧 修复SYMBOL-INCONSISTENCY: 检测 <img> 或 &lt;img（HTML转义）并转换为 <symbol>
+              let finalContent = processedContent
+              // 🔑 改进的检测逻辑：明确区分符号图片和公式图片
+              const hasSymbolImage = processedContent && (processedContent.includes('data-icn=') || processedContent.includes('&lt;symbol'))
+              const hasFormula = processedContent && (processedContent.includes('class="kfformula"') || processedContent.includes('class=&quot;kfformula&quot;') || processedContent.includes('data-latex='))
+              const hasImage = hasSymbolImage || hasFormula || (processedContent && (processedContent.includes('<img') || processedContent.includes('&lt;img')))
+
+              // 🔧 修复P0-DMREF: 检测 DM 引用和内部引用
+              const hasDmOrInternalRef = processedContent && (
+                processedContent.includes('【引用') ||        // DM引用的显示文本
+                processedContent.includes('【内部引用') ||    // 内部引用的显示文本
+                (processedContent.includes('<a') && processedContent.includes('xml='))  // <a> 标签结构标记
+              )
+
+              console.log('[添加项] 原始content:', processedContent)
+              console.log('[添加项] hasSymbolImage:', hasSymbolImage, ' hasFormula:', hasFormula, ' hasImage:', hasImage)
+              console.log('[添加项] hasDmOrInternalRef:', hasDmOrInternalRef)
+
+              // 🔑 关键修复：预分配 uniqueid（对标 ParaDesigner.vue）
+              const newFormulas = (processedContent.match(/class="kfformula"/g) || []).length
+              let allocatedUniqueids = []
+
+              if (newFormulas > 0) {
+                try {
+                  console.log('[添加项] 检测到公式数量:', newFormulas, '，开始分配 uniqueid')
+                  const response = await this.$http.post('/ietm/dm-content/allocateUniqueids', {
+                    dmId: this.cmnodeid,
+                    count: newFormulas
+                  })
+
+                  if (!response.success) {
+                    throw new Error('分配uniqueid失败')
+                  }
+
+                  const startId = response.result.start
+                  allocatedUniqueids = Array.from({ length: newFormulas }, (_, i) =>
+                    String(startId + i).padStart(5, '0')
+                  )
+                  console.log('[添加项] uniqueid 分配成功:', allocatedUniqueids)
+                } catch (err) {
+                  console.error('[添加项] 分配 uniqueid 失败:', err)
+                  throw new Error('分配 uniqueid 失败: ' + err.message)
+                }
+              }
+
+              if (hasImage || hasDmOrInternalRef) {
+                // 异步调用 html2para 进行转换
+                try {
+                  console.log('[添加项] 直接传递给 html2para:', processedContent)
+
+                  // 🔑 关键修复：传递分配的 uniqueid 数组
+                  finalContent = await html2para(this.Parent, processedContent, this.projectParameters, allocatedUniqueids)
+
+                  console.log('[添加项] html2para返回结果:', finalContent)
+                  console.log('[添加项] html2para返回结果长度:', finalContent ? finalContent.length : 0)
+                } catch (e) {
+                  console.error('[添加项] html2para转换失败:', e.message, e.stack)
+                  throw new Error('内容转换失败，请重试。如问题持续，请联系管理员。')
+                }
+              }
+
+              // 🔑 P0修复：html2para 返回的内容已经是有效的 XML，不应再转义
+              // 只对未经过 html2para 转换的纯文本内容进行转义
+              const escapedContent = (hasImage || hasDmOrInternalRef)
+                ? finalContent  // html2para 的输出是 XML，直接使用
+                : this.escapeXmlContent(finalContent)  // 纯文本需要转义
+
+              console.log('[添加项] escapedContent:', escapedContent)
+              console.log('[添加项] 最终content字段:', `<${type} id="${newId}">${escapedContent}</${type}>`)
               newItem.content = `<${type} id="${newId}">${escapedContent}</${type}>`
             }
 
@@ -1131,10 +1594,53 @@ export default {
       this.contentEditor.execCommand('inserthtml', html)
     },
 
-    insertSymbol(xml) {
+    async insertSymbol(xml) {
       if (!this.contentEditor) return
-      // 图符作为 img 标签插入
-      const html = `<img src="data:image/svg+xml;utf8,<svg></svg>" xml="${xml.replace(/"/g, '&quot;')}" />`
+
+      // 🔧 修复SYMBOL-DISPLAY: 从 symbol 标签中提取 ICN 编码，获取真实图片 URL
+      const apiBaseUrl = window._CONFIG['domianURL'] || '/jeecg-boot'
+
+      // 🔑 关键修复：xml 属性中的内容已经被 HTML 转义，需要先解码
+      let decodedXml = xml
+      if (xml.includes('&lt;')) {
+        const tempDiv = document.createElement('div')
+        tempDiv.innerHTML = xml
+        decodedXml = tempDiv.textContent
+      }
+
+      const icnMatch = decodedXml.match(/infoEntityIdent="([^"]+)"/)
+
+      if (!icnMatch || !icnMatch[1]) {
+        console.error('[insertSymbol] 无法从symbol标签中提取ICN编码', { xml, decodedXml })
+        return
+      }
+
+      const icn = icnMatch[1]
+      let imgSrc = null
+
+      try {
+        // 优先使用 viewFile API 获取图片
+        const token = localStorage.getItem('pro__Access-Token') ? JSON.parse(localStorage.getItem('pro__Access-Token')).value : ''
+        const icnInfo = await fetch(`${apiBaseUrl}/icnmanage/ietmIcnManage/queryByIcnCode?icn=${encodeURIComponent(icn)}`, {
+          headers: { 'X-Access-Token': token }
+        }).then(r => r.json())
+
+        if (icnInfo.success && icnInfo.result && icnInfo.result.ietmAttachment && icnInfo.result.ietmAttachment.fileKey) {
+          const fileKey = icnInfo.result.ietmAttachment.fileKey
+          imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/viewFile?fileKey=${encodeURIComponent(fileKey)}`
+        } else {
+          // Fallback
+          imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+        }
+      } catch (e) {
+        console.warn('[insertSymbol] queryByIcnCode失败，使用view fallback:', e.message)
+        imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+      }
+
+      // 使用真实图片 URL，添加尺寸限制，并保存 xml 属性用于后续转换
+      // 🔑 关键修复：使用 HTML 实体编码保存转义后的 xml（这样被 UEditor 转义时能正确恢复）
+      const safeXml = escapeXmlForAttribute(decodedXml)
+      const html = `<img src="${imgSrc}" xml="${safeXml}" style="max-width: 300px; max-height: 200px; width: auto; height: auto;">`
       this.contentEditor.execCommand('inserthtml', html)
     },
 
@@ -1275,7 +1781,7 @@ export default {
     syncNodeToContent(node) {
       if (!node) return
 
-      // 🔑 S1000D 标准：levelledPara 节点也需要同步标题和内容
+      // 🔑 S1000D 标准：levelledPara 节点需要同步标题和内容
       if (node.type === 'levelledPara') {
         // 构建 levelledPara 的 content
         const parts = []
@@ -1286,13 +1792,20 @@ export default {
         }
 
         // 2. 添加直接内容（para/warning/figure 等）
+        // 🔑 P0修复问题2：item.content 已经是完整的 XML 节点（如 <warning id="...">内容</warning>），直接使用
         const contentTypes = ['warning', 'caution', 'note', 'para', 'figure', 'multimedia', 'table', 'foldout', 'caption']
         for (const type of contentTypes) {
           const items = node.html?.[type]
           if (Array.isArray(items) && items.length > 0) {
             items.forEach(item => {
               const isStructured = ['figure', 'multimedia', 'table', 'foldout', 'caption'].includes(type)
-              const content = isStructured ? item.xml : item.content
+              let content = isStructured ? item.xml : item.content
+
+              // 🔑 P0修复：如果 content 包含 xlink: 但没有命名空间声明，添加它
+              if (content && content.includes('xlink:') && !content.includes('xmlns:xlink')) {
+                content = content.replace(/^(<[a-zA-Z]+)(\s|>)/, '$1 xmlns:xlink="http://www.w3.org/1999/xlink"$2')
+              }
+
               if (content) {
                 parts.push(content)
               }
@@ -1315,41 +1828,9 @@ export default {
         return
       }
 
-      // 构建完整的 XML 内容
-      const contentTypes = ['warning', 'caution', 'note', 'para', 'figure', 'multimedia', 'table', 'foldout', 'caption']
-      const parts = []
-
-      // 1. 添加标题（如果存在）
-      if (node.title && node.title.trim()) {
-        parts.push(`<title>${this.escapeXmlContent(node.title)}</title>`)
-      }
-
-      // 2. 按 S1000D 顺序添加所有内容类型
-      for (const type of contentTypes) {
-        const items = node.html?.[type]
-        if (Array.isArray(items) && items.length > 0) {
-          items.forEach(item => {
-            const isStructured = ['figure', 'multimedia', 'table', 'foldout', 'caption'].includes(type)
-            const content = isStructured ? item.xml : item.content
-            if (content && content.trim()) {
-              parts.push(content)
-            }
-          })
-        }
-      }
-
-      // 3. 更新 node.content 为完整的 XML
-      const tagName = node.type || 'para'
-      const nodeId = node.id || `${tagName}-${Date.now()}`
-
-      if (parts.length > 0) {
-        node.content = `<${tagName} id="${nodeId}">${parts.join('')}</${tagName}>`
-      } else {
-        // 如果没有内容，保持空标签
-        node.content = `<${tagName} id="${nodeId}"></${tagName}>`
-      }
-
-      // 4. 递归同步子节点
+      // 🔑 P0修复问题2：对于非 levelledPara 节点（warning/para/note 等），
+      // 它们的 item.content 已经在 saveContentEditor 中被保存为完整的 XML 节点，
+      // 不需要在这里再包一层标签。这个分支只用于递归处理子节点。
       if (node.children && node.children.length > 0) {
         node.children.forEach(child => this.syncNodeToContent(child))
       }
@@ -1374,31 +1855,51 @@ export default {
         // 使用正确的 treeToXml 函数生成 XML
         let xml = treeToXml(this.rawTreeData)
 
-        // 🔑 关键修复：继承文档基础缩进（8个空格）
+        console.log('===== treeToXml 生成的 XML =====')
+        console.log(xml)
+        console.log('===== XML 长度:', xml.length, '=====')
+
+        // 语言转换（如果需要）
+        if (this.locale === 'cn') {
+          xml = this.toCnXml(xml)
+        }
+
+        // 🔑 修复问题4：先格式化 XML（2 个空格内部缩进）
+        if (this.formateXml) {
+          xml = this.formateXml(xml, 2)
+        }
+
+        // 🔑 关键修复：继承文档基础缩进（通常是 8 个空格）
+        // 问题：formateXml 会给根元素也添加缩进，导致第一行有额外的空格
+        // 解决：检测第一行的缩进，作为 formateXml 添加的"虚拟缩进"，在所有行中减去它
         const originalLine = this.editor.getLine(this.lineno)
         const baseIndentMatch = originalLine.match(/^(\s*)/)
         const baseIndent = baseIndentMatch ? baseIndentMatch[1] : ''
 
         if (baseIndent) {
-          // 对每一行（除第一行外）添加基础缩进
-          xml = xml.split('\n')
-            .map((line, index) => {
-              // 第一行保持原样
-              if (index === 0) return baseIndent + line
+          const lines = xml.split('\n')
+
+          // 检测第一行的缩进（这是 formateXml 错误添加的）
+          const firstLineIndent = lines[0] ? lines[0].match(/^(\s*)/)[1].length : 0
+
+          xml = lines
+            .map((line) => {
               // 空行不添加缩进
               if (!line.trim()) return ''
-              // 其他行添加基础缩进
-              return baseIndent + line
+
+              // 移除 formateXml 添加的虚拟缩进，保留相对缩进
+              const currentIndent = line.match(/^(\s*)/)[1].length
+              const relativeIndent = Math.max(0, currentIndent - firstLineIndent)
+              const indentSpaces = ' '.repeat(relativeIndent)
+
+              // 添加文档基础缩进 + 相对缩进
+              return baseIndent + indentSpaces + line.trimStart()
             })
             .join('\n')
         }
 
         // 去除末尾多余的换行符
         xml = xml.trimEnd()
-
-        if (this.locale === 'cn') {
-          xml = this.toCnXml(xml)
-        }
 
         this.editor.replaceRange(
           xml,
@@ -1449,6 +1950,19 @@ export default {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;')
+    },
+
+    /**
+     * 规范化 HTML 实体空格为普通空格
+     * 修复 UEditor 日期/时间按钮插入的 &nbsp; 等实体
+     */
+    normalizeWhitespace(content) {
+      if (!content) return ''
+      return content
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&thinsp;/g, ' ')
+        .replace(/&ensp;/g, ' ')
+        .replace(/&emsp;/g, ' ')
     },
 
     /**

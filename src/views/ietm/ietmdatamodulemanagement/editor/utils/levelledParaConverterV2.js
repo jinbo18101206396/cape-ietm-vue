@@ -35,7 +35,19 @@ export function parseXmlToTree(xmlString) {
 
   try {
     const parser = new DOMParser()
-    const xmlDoc = parser.parseFromString(xmlString, 'text/xml')
+
+    // 🔑 P0修复：预处理 XML，确保所有使用 xlink 的元素都能被正确解析
+    // 在所有 <warning>、<caution>、<note>、<para> 等内容元素上添加 xmlns:xlink 声明
+    let processedXml = xmlString
+    const tagsNeedingNamespace = ['warning', 'caution', 'note', 'para', 'figure', 'multimedia', 'table', 'foldout', 'caption']
+
+    tagsNeedingNamespace.forEach(tag => {
+      // 匹配没有 xmlns:xlink 声明的标签
+      const regex = new RegExp(`<${tag}(?![^>]*xmlns:xlink)([^>]*>)`, 'g')
+      processedXml = processedXml.replace(regex, `<${tag} xmlns:xlink="http://www.w3.org/1999/xlink"$1`)
+    })
+
+    const xmlDoc = parser.parseFromString(processedXml, 'text/xml')
 
     // 检查解析错误
     const parserError = xmlDoc.querySelector('parsererror')
@@ -327,11 +339,12 @@ function extractTitle(element, type) {
  */
 export function treeToXml(treeData) {
   if (!treeData || treeData.length === 0) {
-    return '<levelledPara></levelledPara>'
+    return '<levelledPara xmlns:xlink="http://www.w3.org/1999/xlink"></levelledPara>'
   }
 
   try {
-    let xml = '<levelledPara>\n'
+    // 🔑 P0修复：添加 xlink 命名空间声明，dmRef 标签需要此命名空间
+    let xml = '<levelledPara xmlns:xlink="http://www.w3.org/1999/xlink">\n'
 
     // treeData[0] 是根节点，包含实际的内容节点
     const rootNode = treeData[0]
@@ -367,7 +380,8 @@ function nodeToXml(node, depth) {
 
   // 🔑 S1000D 标准：嵌套的 levelledPara 生成 <levelledPara> 标签
   if (node.type === 'levelledPara') {
-    let xml = `${indent}<levelledPara>\n`
+    // 🔑 P0修复：嵌套的 levelledPara 也需要 xlink 命名空间声明
+    let xml = `${indent}<levelledPara xmlns:xlink="http://www.w3.org/1999/xlink">\n`
 
     // 从 node.content 中提取直接内容（不包括嵌套的 levelledPara）
     if (node.content) {
@@ -413,10 +427,20 @@ function nodeToXml(node, depth) {
   if (node.content) {
     try {
       const parser = new DOMParser()
-      const doc = parser.parseFromString(node.content, 'text/xml')
 
-      if (doc.querySelector('parsererror')) {
-        throw new Error('Invalid XML')
+      // 🔑 P0修复：为包含 xlink 属性的内容添加命名空间声明
+      let contentToParse = node.content
+      if (contentToParse.includes('xlink:') && !contentToParse.includes('xmlns:xlink')) {
+        // 在根元素中添加 xlink 命名空间声明
+        contentToParse = contentToParse.replace(/^(<[a-zA-Z]+)(\s|>)/, '$1 xmlns:xlink="http://www.w3.org/1999/xlink"$2')
+      }
+
+      const doc = parser.parseFromString(contentToParse, 'text/xml')
+
+      // 🔑 改进的 parsererror 检测（parsererror 在 xhtml 命名空间中）
+      if (doc.documentElement.nodeName === 'parsererror' || doc.querySelector('parsererror')) {
+        console.error('[nodeToXml] XML解析失败，使用原始内容')
+        return `${indent}${node.content}\n`
       }
 
       const element = doc.documentElement

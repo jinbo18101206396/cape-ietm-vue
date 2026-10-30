@@ -100,6 +100,10 @@
                   :cmnodeid="id"
                   :ifedit="readonly ? '0' : '1'"
                   :save="'1'"
+                  :project-parameters="JSON.stringify(designerSett)"
+                  :uniqueid="String(maxUniqueId || 0)"
+                  :dm-code="dmc"
+                  :node-list="nodeList"
                   @save="onLevelledParaSave"
                 />
                 <!-- 空状态提示 -->
@@ -422,6 +426,47 @@ export default {
     formateXml(xml, indent = 0) {
       return formatXml(xml, indent)
     },
+
+    // ── 🔧 修复P0-LAYOUT: 清理设计视图样式污染并刷新布局 ──────────────────────
+    // 当从任何设计视图返回源码视图时调用，用于清理容器样式污染和刷新CodeMirror布局
+    _cleanupDesignViewAndRefreshLayout(designerName = '') {
+      console.log(`[DmContentEditor] 🔄 开始从${designerName}设计器切换回源码视图`)
+
+      this.$nextTick(() => {
+        // ① 双重保险：强制清理可能残留的样式污染
+        const selectors = [
+          '.design-view-container',
+          '.view-tabs',
+          '.ant-tabs-content',
+          '.ant-tabs-tabpane'
+        ]
+
+        selectors.forEach(selector => {
+          const el = document.querySelector(selector)
+          if (el) {
+            const savedClass = el.className
+            el.style.cssText = ''
+            el.className = savedClass
+            console.log(`[DmContentEditor] ✓ ${designerName}切换-清理 ${selector}`)
+          }
+        })
+
+        // ② 等待DOM完全稳定后，调用DmSourceView的布局修复
+        this.$nextTick(() => {
+          // 使用setTimeout确保TabPane的显示/隐藏动画完全完成
+          setTimeout(() => {
+            console.log(`[DmContentEditor] 🔧 ${designerName}切换-准备调用 forceFixGuttersLayout`)
+            if (this.$refs.editor && this.$refs.editor.forceFixGuttersLayout) {
+              this.$refs.editor.forceFixGuttersLayout()
+              console.log(`[DmContentEditor] ✓ ${designerName}切换-布局刷新完成`)
+            } else {
+              console.warn(`[DmContentEditor] ⚠️ ${designerName}切换-editor ref不存在或方法未定义`)
+            }
+          }, 200)
+        })
+      })
+    },
+
     // ── 加载 ──────────────────────────────────────────────────────────────────
     loadData() {
       // 防御性检查：页面正在关闭或ID无效时，不发起请求
@@ -758,53 +803,8 @@ export default {
         this.attrVisible = true
       }
 
-      // 🔧 修复：从Para设计视图切换回源码视图时，CodeMirror的gutters布局错乱
-      // 根本原因：UEditor初始化时污染了父容器的CSS属性（height/overflow/width等），
-      // 导致CodeMirror在TabPane显示时基于错误的容器尺寸计算布局。
-      // 修复策略：①等待ParaDesigner销毁完成（已在beforeDestroy中彻底清理样式）
-      //          ②双重保险：再次清理可能残留的样式污染
-      //          ③延迟调用DmSourceView的forceFixGuttersLayout()方法
-      console.log('[DmContentEditor] 🔄 开始切换回源码视图')
-
-      this.$nextTick(() => {
-        // ① 双重保险：强制清理可能残留的样式污染
-        const designContainer = document.querySelector('.design-view-container')
-        if (designContainer) {
-          const savedClass = designContainer.className
-          designContainer.style.cssText = ''
-          designContainer.className = savedClass
-          console.log('[DmContentEditor] ✓ 双重清理 .design-view-container')
-        }
-
-        const viewTabs = document.querySelector('.view-tabs')
-        if (viewTabs) {
-          const savedClass = viewTabs.className
-          viewTabs.style.cssText = ''
-          viewTabs.className = savedClass
-          console.log('[DmContentEditor] ✓ 双重清理 .view-tabs')
-        }
-
-        const tabsContent = document.querySelector('.ant-tabs-content')
-        if (tabsContent) {
-          const savedClass = tabsContent.className
-          tabsContent.style.cssText = ''
-          tabsContent.className = savedClass
-          console.log('[DmContentEditor] ✓ 双重清理 .ant-tabs-content')
-        }
-
-        // ② 等待DOM完全稳定后，调用DmSourceView的布局修复
-        this.$nextTick(() => {
-          // 使用setTimeout确保TabPane的显示/隐藏动画完全完成
-          setTimeout(() => {
-            console.log('[DmContentEditor] 🔧 准备调用 forceFixGuttersLayout')
-            if (this.$refs.editor && this.$refs.editor.forceFixGuttersLayout) {
-              this.$refs.editor.forceFixGuttersLayout()
-            } else {
-              console.warn('[DmContentEditor] ⚠️ editor ref不存在或方法未定义')
-            }
-          }, 200)  // 延长到200ms，确保DOM完全稳定
-        })
-      })
+      // 使用公共方法清理样式并刷新布局
+      this._cleanupDesignViewAndRefreshLayout('Para')
     },
     // Figure设计器保存事件
     async onFigureSave(payload) {
@@ -834,6 +834,9 @@ export default {
       if (!this.readonly) {
         this.attrVisible = true
       }
+
+      // 使用公共方法清理样式并刷新布局
+      this._cleanupDesignViewAndRefreshLayout('Figure')
 
       // 刷新树（格式化后行号可能变化）
       this.$nextTick(() => {
@@ -869,6 +872,9 @@ export default {
         this.attrVisible = true
       }
 
+      // 使用公共方法清理样式并刷新布局
+      this._cleanupDesignViewAndRefreshLayout('Multimedia')
+
       // 刷新树（格式化后行号可能变化）
       this.$nextTick(() => {
         this.refreshTree()
@@ -887,27 +893,8 @@ export default {
         this.attrVisible = true
       }
 
-      // 修复：从Table设计视图切换回源码视图时的布局处理
-      console.log('[DmContentEditor] 🔄 开始从Table设计器切换回源码视图')
-
-      this.$nextTick(() => {
-        // 清理可能残留的样式污染
-        const designContainer = document.querySelector('.design-view-container')
-        if (designContainer) {
-          const savedClass = designContainer.className
-          designContainer.style.cssText = ''
-          designContainer.className = savedClass
-        }
-
-        // 等待DOM完全稳定后，调用DmSourceView的布局修复
-        this.$nextTick(() => {
-          setTimeout(() => {
-            if (this.$refs.editor && this.$refs.editor.forceFixGuttersLayout) {
-              this.$refs.editor.forceFixGuttersLayout()
-            }
-          }, 200)
-        })
-      })
+      // 使用公共方法清理样式并刷新布局
+      this._cleanupDesignViewAndRefreshLayout('Table')
     },
     // LevelledPara设计器保存事件
     async onLevelledParaSave() {
@@ -921,6 +908,9 @@ export default {
       if (!this.readonly) {
         this.attrVisible = true
       }
+
+      // 使用公共方法清理样式并刷新布局
+      this._cleanupDesignViewAndRefreshLayout('LevelledPara')
 
       // 刷新树（数据可能变化）
       this.$nextTick(() => {
@@ -1204,52 +1194,8 @@ export default {
           this.attrVisible = true
         }
 
-        // 🔧 修复：从Para设计视图切换回源码视图时，CodeMirror的gutters布局错乱
-        // 根本原因：UEditor初始化时污染了父容器的CSS属性（height/overflow/width等），
-        // 导致CodeMirror在TabPane显示时基于错误的容器尺寸计算布局。
-        // 修复策略：①等待ParaDesigner销毁完成（已在beforeDestroy中彻底清理样式）
-        //          ②双重保险：再次清理可能残留的样式污染
-        //          ③延迟调用DmSourceView的forceFixGuttersLayout()方法
-        console.log('[DmContentEditor] 🔄 Tab切换到源码视图')
-
-        this.$nextTick(() => {
-          // ① 双重保险：强制清理可能残留的样式污染
-          const designContainer = document.querySelector('.design-view-container')
-          if (designContainer) {
-            const savedClass = designContainer.className
-            designContainer.style.cssText = ''
-            designContainer.className = savedClass
-            console.log('[DmContentEditor] ✓ Tab切换-双重清理 .design-view-container')
-          }
-
-          const viewTabs = document.querySelector('.view-tabs')
-          if (viewTabs) {
-            const savedClass = viewTabs.className
-            viewTabs.style.cssText = ''
-            viewTabs.className = savedClass
-            console.log('[DmContentEditor] ✓ Tab切换-双重清理 .view-tabs')
-          }
-
-          const tabsContent = document.querySelector('.ant-tabs-content')
-          if (tabsContent) {
-            const savedClass = tabsContent.className
-            tabsContent.style.cssText = ''
-            tabsContent.className = savedClass
-            console.log('[DmContentEditor] ✓ Tab切换-双重清理 .ant-tabs-content')
-          }
-
-          this.$nextTick(() => {
-            setTimeout(() => {
-              // ② 调用DmSourceView的公开方法强制修复gutters
-              console.log('[DmContentEditor] 🔧 Tab切换-准备调用 forceFixGuttersLayout')
-              if (this.$refs.editor && this.$refs.editor.forceFixGuttersLayout) {
-                this.$refs.editor.forceFixGuttersLayout()
-              } else {
-                console.warn('[DmContentEditor] ⚠️ Tab切换-editor ref不存在或方法未定义')
-              }
-            }, 200)  // 延长到200ms，确保DOM完全稳定
-          })
-        })
+        // 使用公共方法清理样式并刷新布局
+        this._cleanupDesignViewAndRefreshLayout('Tab')
       }
     },
     // silent=true：编辑中途触发的防抖刷新，畸形XML解析失败时不弹错误提示、不清空已有树

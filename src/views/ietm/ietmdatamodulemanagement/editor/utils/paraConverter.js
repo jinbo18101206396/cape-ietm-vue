@@ -344,7 +344,14 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
   para = para.replace(/<table(?![^>]*(?:deflist|caption)="1")[^>]*>.*?\/>/g, '')
 
   // §9.2.7 公式（kfformula）转symbol
-  const formula = para.match(/<img class="kfformula".*?\/>/g)
+  // 🔑 关键修复：改进正则以处理 base64 数据中的 > 字符
+  // 旧正则1: /<img class="kfformula".*?\/>/g
+  //   → 问题: base64 中的 > 导致 .*? 提前终止
+  // 旧正则2: /<img[^>]+class="kfformula"[^>]*\/>/g
+  //   → 问题: [^>]+ 在遇到 base64 中的 > 时仍然失败
+  // 新方案: 使用 [\s\S] 匹配所有字符（包括 >），但限制贪心为最近的 class="kfformula"
+  // 策略: 匹配 <img ... class="kfformula" ... /> 其中 ... 可以包含任何字符
+  const formula = para.match(/<img[\s\S]*?class="kfformula"[\s\S]*?\/>/g)
   console.log('[html2para] 找到公式数量:', formula ? formula.length : 0)
   if (formula != null) {
     para = para.replace(/<\/para><para><img class="kfformula">/g, '<img class="kfformula">')

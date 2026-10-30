@@ -113,11 +113,41 @@ export default {
   beforeDestroy() {
     window.removeEventListener('resize', this.adjustEditorHeight)
     if (this.ueditor) {
-      this.ueditor.destroy()
+      try {
+        this.ueditor.destroy()
+      } catch (e) {
+        // UEditor销毁失败，继续
+      }
     }
+
+    // 🔧 修复P0-LAYOUT: 清理样式污染
+    this._cleanupViewStyles()
   },
 
   methods: {
+    // 🔧 修复P0-LAYOUT: 清理设计视图样式污染
+    _cleanupViewStyles() {
+      try {
+        const selectors = [
+          { method: 'closest', selector: '.design-view-container' },
+          { method: 'closest', selector: '.view-tabs' },
+          { method: 'closest', selector: '.ant-tabs-content' },
+          { method: 'closest', selector: '.ant-tabs-tabpane' }
+        ]
+
+        selectors.forEach(({ method, selector }) => {
+          const el = this.$el[method](selector)
+          if (el) {
+            const savedClass = el.className
+            el.style.cssText = ''
+            el.className = savedClass
+          }
+        })
+      } catch (error) {
+        // 清理样式污染失败，继续
+      }
+    },
+
     /**
      * 调整编辑器高度
      */
