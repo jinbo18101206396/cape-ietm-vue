@@ -601,6 +601,27 @@ export default {
       } finally {
         this.saving = false
       }
+    },
+
+    // 🔧 新增：为LevelledParaDesigner提供的方法，用于获取当前figure XML
+    async generateFigureXml() {
+      const validation = validateFigure({
+        title: this.figureTitle,
+        graphics: this.graphics,
+        legends: this.legends
+      })
+      if (!validation.valid) {
+        throw new Error(validation.errors.join('\n'))
+      }
+
+      const figureXml = await object2figure(null, {
+        title: this.figureTitle,
+        id: this.figureId,
+        graphics: this.graphics,
+        legends: this.legends
+      })
+
+      return figureXml
     }
   }
 }

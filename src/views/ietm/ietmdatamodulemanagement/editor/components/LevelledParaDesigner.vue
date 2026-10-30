@@ -347,6 +347,31 @@
       </div>
     </a-modal>
 
+    <!-- 插图编辑对话框（完整设计视图布局） -->
+    <a-modal
+      v-model="figureEditorVisible"
+      :title="figureEditorTitle"
+      :width="1200"
+      :maskClosable="false"
+      class="figure-editor-modal"
+    >
+      <div class="figure-editor-container">
+        <figure-designer
+          v-if="figureEditorVisible"
+          ref="figureDesigner"
+          :editor="figureEditorInstance"
+          :lineno="figureEditorLineno"
+          :cmnodeid="cmnodeid"
+          ifedit="1"
+          save="1"
+        />
+      </div>
+      <template slot="footer">
+        <a-button @click="closeFigureEditor">取消</a-button>
+        <a-button type="primary" @click="saveFigureEditor" :loading="figureEditorSaving">确定</a-button>
+      </template>
+    </a-modal>
+
     <!-- 批量生成对话框 -->
     <a-modal
       v-model="batchGenerateVisible"
@@ -439,6 +464,7 @@ import { getUEditorConfig, loadUEditor } from '../utils/ueditorConfig'
 import IetmInterrefDialog from './IetmInterrefDialog'
 import IetmDmRefDialog from './IetmDmRefDialog'
 import IetmSymbolDialog from './IetmSymbolDialog'
+import FigureDesigner from './FigureDesigner'
 
 export default {
   name: 'LevelledParaDesigner',
@@ -446,7 +472,8 @@ export default {
     ConvertedContent,
     IetmInterrefDialog,
     IetmDmRefDialog,
-    IetmSymbolDialog
+    IetmSymbolDialog,
+    FigureDesigner
   },
 
   props: {
@@ -490,6 +517,13 @@ export default {
       contentEditorReady: false,
       contentEditorId: `content_editor_${Date.now()}`,
       contentEditorSaving: false,
+
+      // 插图编辑器状态
+      figureEditorVisible: false,
+      figureEditorTitle: '',
+      figureEditorInstance: null,
+      figureEditorLineno: -1,
+      figureEditorSaving: false,
 
       batchGenerateVisible: false,
       batchGenerateType: '',
@@ -909,8 +943,53 @@ export default {
 
           let displayContent = item[contentField] || ''
 
+          // 🔑 特殊处理：figure类型需要解析XML并显示标题和图片
+          if (type === 'figure' && displayContent) {
+            try {
+              const parser = new DOMParser()
+              const doc = parser.parseFromString(displayContent, 'text/xml')
+
+              console.log('[getContentData] 解析figure XML:', displayContent.substring(0, 200))
+
+              if (!doc.querySelector('parsererror')) {
+                const figureElement = doc.documentElement
+
+                // 提取标题
+                const titleElement = figureElement.querySelector('title')
+                const title = titleElement ? titleElement.textContent : '无标题'
+
+                console.log('[getContentData] 提取标题:', title)
+
+                // 提取第一个图形的ICN
+                const graphicElement = figureElement.querySelector('graphic')
+                let icn = ''
+                if (graphicElement) {
+                  icn = graphicElement.getAttribute('infoEntityIdent') || ''
+                  console.log('[getContentData] 提取ICN:', icn)
+                }
+
+                // 生成显示内容：标题 + 图片
+                if (icn) {
+                  // 使用占位符，然后异步加载真实图片
+                  const placeholderSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='14' fill='%23999'%3E加载中...%3C/text%3E%3C/svg%3E"
+                  const imgId = `figure-img-${item.id || index}`
+                  displayContent = `<div><strong>标题：</strong>${title}</div><div style="margin-top: 8px;"><img id="${imgId}" src="${placeholderSrc}" data-icn="${icn}" style="max-width: 200px; max-height: 150px; border: 1px solid #ddd; padding: 2px;" /></div>`
+
+                  // 异步加载真实图片
+                  this._loadFigureImage(imgId, icn)
+                } else {
+                  displayContent = `<div><strong>标题：</strong>${title}</div><div style="color: #999; margin-top: 8px;">（无图形）</div>`
+                }
+              } else {
+                console.error('[getContentData] XML解析错误')
+              }
+            } catch (e) {
+              console.error('[getContentData] 解析figure XML失败:', e)
+              displayContent = '无法解析插图数据'
+            }
+          }
           // 🔑 关键修复：如果 content/xml 是完整的 XML 标签，需要提取内部内容用于显示
-          if (displayContent && displayContent.trim().startsWith('<')) {
+          else if (displayContent && displayContent.trim().startsWith('<')) {
             try {
               const parser = new DOMParser()
               const doc = parser.parseFromString(displayContent, 'text/xml')
@@ -983,6 +1062,46 @@ export default {
           return match
         }
       })
+    },
+
+    // 🔧 新增：异步加载figure图片
+    async _loadFigureImage(imgId, icn) {
+      try {
+        const apiBaseUrl = window._CONFIG?.domianURL || '/jeecg-boot'
+        const token = localStorage.getItem('pro__Access-Token') ? JSON.parse(localStorage.getItem('pro__Access-Token')).value : ''
+
+        // 查询ICN信息
+        const icnInfo = await fetch(`${apiBaseUrl}/icnmanage/ietmIcnManage/queryByIcnCode?icn=${encodeURIComponent(icn)}`, {
+          headers: { 'X-Access-Token': token }
+        }).then(r => r.json())
+
+        console.log('[_loadFigureImage] ICN查询结果:', icnInfo)
+
+        let imgSrc = null
+        if (icnInfo.success && icnInfo.result) {
+          const fileKey = icnInfo.result.ietmAttachment?.fileKey
+          if (fileKey) {
+            imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/viewFile?fileKey=${encodeURIComponent(fileKey)}`
+          } else {
+            imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+          }
+        } else {
+          imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+        }
+
+        console.log('[_loadFigureImage] 最终图片URL:', imgSrc)
+
+        // 更新图片
+        this.$nextTick(() => {
+          const imgElement = document.getElementById(imgId)
+          if (imgElement) {
+            imgElement.src = imgSrc
+            console.log('[_loadFigureImage] 图片已更新:', imgId)
+          }
+        })
+      } catch (e) {
+        console.error('[_loadFigureImage] 加载图片失败:', e)
+      }
     },
 
     getRowSelection(type) {
@@ -1256,6 +1375,12 @@ export default {
     // ==================== 编辑器 ====================
 
     async openContentEditor(type, index, mode) {
+      // 🔧 特殊处理：figure类型使用专门的FigureDesigner组件
+      if (type === 'figure') {
+        this.openFigureEditor(index, mode)
+        return
+      }
+
       this.contentEditorType = type
       this.contentEditorIndex = index
       const modeText = mode === 'view' ? '查看' : mode === 'edit' ? '编辑' : '添加'
@@ -1315,6 +1440,92 @@ export default {
         console.error('UEditor初始化失败:', error)
         this.$message.error('编辑器初始化失败')
       }
+    },
+
+    openFigureEditor(index, mode) {
+      // 保存编辑状态
+      this.contentEditorIndex = index
+
+      // 设置对话框标题
+      const modeText = mode === 'view' ? '查看' : mode === 'edit' ? '编辑' : '添加'
+      this.figureEditorTitle = `${modeText}插图`
+
+      // 创建临时编辑器实例用于FigureDesigner
+      this.figureEditorInstance = {
+        getLine: (lineno) => {
+          if (index >= 0 && this.selectedNode.html && this.selectedNode.html.figure) {
+            const item = this.selectedNode.html.figure[index]
+            return item.xml || ''
+          }
+          // 新增模式：返回空figure标签
+          return '<figure></figure>'
+        },
+        getRange: () => '',
+        lineCount: () => 1
+      }
+      this.figureEditorLineno = 0
+      this.figureEditorVisible = true
+    },
+
+    closeFigureEditor() {
+      this.figureEditorVisible = false
+      this.figureEditorInstance = null
+      this.figureEditorSaving = false
+    },
+
+    saveFigureEditor() {
+      const figureDesigner = this.$refs.figureDesigner
+      if (!figureDesigner) {
+        this.$message.error('FigureDesigner组件未正确加载')
+        return
+      }
+
+      this.figureEditorSaving = true
+
+      // 调用异步方法并处理Promise
+      figureDesigner.generateFigureXml()
+        .then(figureXml => {
+          if (!figureXml) {
+            this.$message.warning('请完整填写插图信息')
+            this.figureEditorSaving = false
+            return
+          }
+
+          console.log('[saveFigureEditor] 生成的figure XML:', figureXml)
+
+          // 保存到对应位置
+          if (!this.selectedNode.html) {
+            this.selectedNode.html = createEmptyHtmlContent()
+          }
+
+          const index = this.contentEditorIndex
+          if (index >= 0) {
+            // 编辑现有项
+            this.selectedNode.html.figure[index].xml = figureXml
+          } else {
+            // 添加新项
+            const itemId = `figure-${Date.now()}`
+            this.selectedNode.html.figure.push({
+              id: itemId,
+              xml: figureXml
+            })
+          }
+
+          console.log('[saveFigureEditor] 保存后的figure数组:', this.selectedNode.html.figure)
+
+          // 强制Vue更新视图
+          this.$forceUpdate()
+
+          this.$message.success('插图保存成功')
+          this.closeFigureEditor()
+        })
+        .catch(error => {
+          console.error('[LevelledPara] 保存插图失败:', error)
+          this.$message.error('保存插图失败: ' + error.message)
+        })
+        .finally(() => {
+          this.figureEditorSaving = false
+        })
     },
 
     closeContentEditor() {
@@ -2472,6 +2683,37 @@ export default {
   ::v-deep .edui-default {
     font-size: 13px;
     border-radius: 4px;
+  }
+}
+
+// 🔧 新增：插图编辑对话框样式（1200×500）
+.figure-editor-modal {
+  ::v-deep .ant-modal-body {
+    padding: 16px;
+    height: 500px;
+    overflow: hidden;
+  }
+
+  .figure-editor-container {
+    height: 100%;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+
+    ::v-deep .figure-designer {
+      flex: 1;
+      overflow: hidden;
+
+      // 隐藏FigureDesigner内部的保存按钮（使用对话框底部的确定按钮）
+      .figure-toolbar .toolbar-controls .save-btn {
+        display: none;
+      }
+    }
+  }
+
+  .modal-footer {
+    margin-top: 12px;
+    text-align: right;
   }
 }
 </style>
