@@ -1,7 +1,7 @@
 <template>
   <div class="table-designer">
     <!-- 北区域：工具栏和表格属性 -->
-    <div class="table-toolbar" v-if="showSaveBtn">
+    <div class="table-toolbar">
       <div class="toolbar-header">
         <span class="toolbar-title">◤表格◢</span>
         <a-tooltip
@@ -16,7 +16,7 @@
       <div class="toolbar-controls">
         <label class="control-item">标题：<input type="text" v-model="tableTitle" class="table-input" placeholder="表格标题（可选）"/></label>
         <label class="control-item">ID：<input type="text" v-model="tableId" class="table-input" placeholder="表格ID（可选）"/></label>
-        <a-button type="primary" icon="save" @click="handleSave" :loading="saving" class="save-btn">保存</a-button>
+        <a-button v-if="showSaveBtn" type="primary" icon="save" @click="handleSave" :loading="saving" class="save-btn">保存</a-button>
       </div>
     </div>
 
@@ -500,6 +500,35 @@ export default {
         this.$message.error('保存失败：' + error.message)
       } finally {
         this.saving = false
+      }
+    },
+
+    /**
+     * 获取表格XML（供LevelledParaDesigner使用）
+     * 不保存到编辑器，只返回生成的XML
+     */
+    async getTableXml() {
+      try {
+        // 第1步：验证编辑器
+        if (!this.ueditor) {
+          throw new Error('编辑器未初始化')
+        }
+
+        // 第2步：获取HTML内容
+        const html = this.ueditor.getContent()
+        if (!html || html.trim() === '' || html.trim() === '<table></table>') {
+          return null
+        }
+
+        // 第3步：HTML → XML转换（不需要格式化，LevelledParaDesigner会处理）
+        const xml = await htmlToTableXml(html, this.tableTitle, this.tableId, this.locale)
+
+        console.log('[TableDesigner] getTableXml - 生成的XML:', xml.substring(0, 200))
+
+        return xml
+      } catch (error) {
+        console.error('[TableDesigner] getTableXml失败:', error)
+        throw error
       }
     },
 

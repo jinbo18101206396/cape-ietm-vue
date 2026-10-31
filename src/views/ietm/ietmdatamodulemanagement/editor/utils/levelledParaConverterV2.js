@@ -36,21 +36,14 @@ export function parseXmlToTree(xmlString) {
   try {
     const parser = new DOMParser()
 
-    // 🔑 P0修复：预处理 XML，确保所有使用 xlink 的元素都能被正确解析
-    // 在所有 <warning>、<caution>、<note>、<para> 等内容元素上添加 xmlns:xlink 声明
-    let processedXml = xmlString
-    const tagsNeedingNamespace = ['warning', 'caution', 'note', 'para', 'figure', 'multimedia', 'table', 'foldout', 'caption']
+    // 🔑 优化：不需要预处理添加 xmlns:xlink
+    // 原因：XML namespace 会自动继承到所有子元素，只需在根元素声明一次
+    // 之前在所有使用 xlink: 的元素上添加 xmlns:xlink 是冗余的
 
-    tagsNeedingNamespace.forEach(tag => {
-      // 匹配没有 xmlns:xlink 声明的标签
-      const regex = new RegExp(`<${tag}(?![^>]*xmlns:xlink)([^>]*>)`, 'g')
-      processedXml = processedXml.replace(regex, `<${tag} xmlns:xlink="http://www.w3.org/1999/xlink"$1`)
-    })
-
-    const xmlDoc = parser.parseFromString(processedXml, 'text/xml')
+    const xmlDoc = parser.parseFromString(xmlString, 'text/xml')
 
     // 检查解析错误
-    const parserError = xmlDoc.querySelector('parsererror')
+    const parserError = xmlDoc.querySelector ? xmlDoc.querySelector('parsererror') : null
     if (parserError) {
       console.error('XML 解析错误:', parserError.textContent)
       throw new Error('XML 格式错误')
@@ -366,6 +359,20 @@ export function treeToXml(treeData) {
 }
 
 /**
+ * XML 属性值转义函数
+ * 将特殊字符转义为实体引用
+ */
+function escapeXmlAttribute(value) {
+  if (!value) return ''
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+/**
  * 递归将树节点转换为XML
  * 🔑 S1000D 标准：根据 node.type 区分处理
  *   - type='levelledPara': 生成 <levelledPara> 嵌套结构
@@ -380,8 +387,9 @@ function nodeToXml(node, depth) {
 
   // 🔑 S1000D 标准：嵌套的 levelledPara 生成 <levelledPara> 标签
   if (node.type === 'levelledPara') {
-    // 🔑 P0修复：嵌套的 levelledPara 也需要 xlink 命名空间声明
-    let xml = `${indent}<levelledPara xmlns:xlink="http://www.w3.org/1999/xlink">\n`
+    // 🔑 优化：只有根 levelledPara（depth=0 时由 treeToXml 处理）需要声明 xmlns:xlink
+    // 嵌套的 levelledPara 继承父元素的 namespace，不需要重复声明
+    let xml = `${indent}<levelledPara>\n`
 
     // 从 node.content 中提取直接内容（不包括嵌套的 levelledPara）
     if (node.content) {
@@ -398,14 +406,35 @@ function nodeToXml(node, depth) {
           if (childNode.nodeType !== 1) continue
           if (childNode.nodeName.toLowerCase() === 'levelledpara') continue
 
-          const serializer = new XMLSerializer()
-          const childXml = serializer.serializeToString(childNode)
-          const lines = childXml.split('\n')
-          lines.forEach((line, index) => {
-            if (line.trim()) {
-              xml += `${indent}  ${line.trim()}\n`
-            }
-          })
+          const childTagName = childNode.nodeName.toLowerCase()
+
+          // 🔑 P0修复：对结构化元素（multimedia/figure/table），直接使用原始 XML 内容
+          // 避免双重序列化导致属性变化和格式错误
+          const structuredElements = ['figure', 'multimedia', 'table', 'foldout', 'caption']
+
+          if (structuredElements.includes(childTagName)) {
+            // 直接序列化结构化元素，确保属性完整且格式正确
+            const serializer = new XMLSerializer()
+            const childXml = serializer.serializeToString(childNode)
+
+            // 🔑 关键：对每行添加缩进，但保持原始属性格式
+            const lines = childXml.split('\n')
+            lines.forEach(line => {
+              if (line.trim()) {
+                xml += `${indent}  ${line.trim()}\n`
+              }
+            })
+          } else {
+            // 非结构化元素使用标准序列化
+            const serializer = new XMLSerializer()
+            const childXml = serializer.serializeToString(childNode)
+            const lines = childXml.split('\n')
+            lines.forEach((line, index) => {
+              if (line.trim()) {
+                xml += `${indent}  ${line.trim()}\n`
+              }
+            })
+          }
         }
       } catch (error) {
         console.warn('[nodeToXml] Failed to parse levelledPara content:', error)
@@ -428,14 +457,9 @@ function nodeToXml(node, depth) {
     try {
       const parser = new DOMParser()
 
-      // 🔑 P0修复：为包含 xlink 属性的内容添加命名空间声明
-      let contentToParse = node.content
-      if (contentToParse.includes('xlink:') && !contentToParse.includes('xmlns:xlink')) {
-        // 在根元素中添加 xlink 命名空间声明
-        contentToParse = contentToParse.replace(/^(<[a-zA-Z]+)(\s|>)/, '$1 xmlns:xlink="http://www.w3.org/1999/xlink"$2')
-      }
-
-      const doc = parser.parseFromString(contentToParse, 'text/xml')
+      // 🔑 优化：不需要添加 xmlns:xlink
+      // 原因：所有元素都继承根元素的 namespace 声明
+      const doc = parser.parseFromString(node.content, 'text/xml')
 
       // 🔑 改进的 parsererror 检测（parsererror 在 xhtml 命名空间中）
       if (doc.documentElement.nodeName === 'parsererror' || doc.querySelector('parsererror')) {
@@ -444,12 +468,24 @@ function nodeToXml(node, depth) {
       }
 
       const element = doc.documentElement
+      const tagName = element.nodeName
+
+      // 🔑 关键修复：结构化元素（figure/multimedia/table/foldout/caption）直接使用原始XML
+      // 这些元素的XML已由各自的converter生成，不需要二次解析和格式化
+      const structuredElements = ['figure', 'multimedia', 'table', 'foldout', 'caption']
+      if (structuredElements.includes(tagName.toLowerCase())) {
+        // 直接返回原始XML，添加当前层级的缩进
+        const lines = node.content.split('\n').filter(line => line.trim())
+        const indentedLines = lines.map(line => `${indent}${line.trim()}`)
+        return indentedLines.join('\n') + '\n'
+      }
+
+      // 🔑 非结构化元素（para/warning/caution/note）：需要重新格式化
       const serializer = new XMLSerializer()
 
-      // 提取标签名和属性
-      const tagName = element.nodeName
+      // 提取标签名和属性（转义属性值）
       const attributes = Array.from(element.attributes)
-        .map(attr => `${attr.name}="${attr.value}"`)
+        .map(attr => `${attr.name}="${escapeXmlAttribute(attr.value)}"`)
         .join(' ')
 
       // 序列化所有子节点
@@ -476,14 +512,14 @@ function nodeToXml(node, depth) {
       console.warn('[nodeToXml] Failed to parse content:', error)
       const tagName = node.type || 'para'
       const nodeId = node.id || `${tagName}-${Date.now()}`
-      return `${indent}<${tagName} id="${nodeId}"></${tagName}>\n`
+      return `${indent}<${tagName} id="${escapeXmlAttribute(nodeId)}"></${tagName}>\n`
     }
   }
 
   // Fallback：没有 content 时使用基本结构
   const tagName = node.type || 'para'
   const nodeId = node.id || `${tagName}-${Date.now()}`
-  let xml = `${indent}<${tagName} id="${nodeId}">\n`
+  let xml = `${indent}<${tagName} id="${escapeXmlAttribute(nodeId)}">\n`
 
   if (node.children && node.children.length > 0) {
     node.children.forEach(child => {
@@ -620,13 +656,55 @@ export function validateTree(treeData) {
   }
 }
 
+/**
+ * 重新生成树节点的ID
+ * 🔑 从 levelledParaConverter.js 迁移，统一使用 V2
+ *
+ * @param {Array<TreeNode>} treeData - 树形数据数组
+ * @param {string} parentId - 父节点ID（默认为空字符串表示根节点）
+ * @returns {Array<TreeNode>} 重新生成ID后的树形数据
+ */
+export function regenerateIds(treeData, parentId = '') {
+  if (!Array.isArray(treeData)) return []
+
+  // 🔑 S1000D 标准：levelledPara 节点和内容节点分别计数
+  let levelledParaIndex = 0
+  let contentIndex = 0
+
+  return treeData.map((node) => {
+    let newId
+
+    if (node.type === 'levelledPara') {
+      // levelledPara 节点：按同级 levelledPara 计数
+      levelledParaIndex++
+      newId = parentId ? `${parentId}.${levelledParaIndex}` : `${levelledParaIndex}`
+    } else {
+      // 内容节点：按同级内容节点计数
+      contentIndex++
+      newId = parentId ? `${parentId}.${contentIndex}` : `${contentIndex}`
+    }
+
+    const newNode = {
+      ...node,
+      id: newId
+    }
+
+    if (node.children && node.children.length > 0) {
+      newNode.children = regenerateIds(node.children, newId)
+    }
+
+    return newNode
+  })
+}
+
 export default {
   parseXmlToTree,
   treeToXml,
   getRowhtml,
   createEmptyHtmlContent,
   createEmptyNode,
-  validateTree
+  validateTree,
+  regenerateIds
 }
 
 // CommonJS 导出（用于 Node.js/Jest）
@@ -637,6 +715,7 @@ if (typeof module !== 'undefined' && module.exports) {
     getRowhtml,
     createEmptyHtmlContent,
     createEmptyNode,
-    validateTree
+    validateTree,
+    regenerateIds
   }
 }

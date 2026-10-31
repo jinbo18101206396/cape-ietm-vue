@@ -25,16 +25,20 @@ export async function figure2object(Parent, figureXml) {
   }
 
   try {
-    // 关键修复：在解析前检查并注入缺失的xlink命名空间声明（与multimediaConverter一致）
-    // 旧数据可能没有xmlns:xlink声明，导致"Attribute xlink:type prefix is unbound"错误
+    // 🔑 兼容性处理：为缺失 xmlns:xlink 的旧数据添加命名空间声明
+    // 原因：数据库中的旧 Figure XML 可能没有 xmlns:xlink 声明
+    // 这会导致"Namespace prefix xlink for type on graphic is not defined"错误
+    let processedXml = figureXml
+
     if (figureXml.includes('xlink:') && !figureXml.includes('xmlns:xlink')) {
-      figureXml = figureXml.replace(
-        /(<figure[^>]*?)(>)/,
+      // 在 <figure> 标签中添加 xmlns:xlink 声明
+      processedXml = figureXml.replace(
+        /(<figure)(\s|>)/,
         '$1 xmlns:xlink="http://www.w3.org/1999/xlink"$2'
       )
     }
 
-    const xmlDoc = $.parseXML(figureXml)
+    const xmlDoc = $.parseXML(processedXml)
 
     // 检查jQuery parseXML错误
     if (!xmlDoc || xmlDoc.documentElement === undefined) {

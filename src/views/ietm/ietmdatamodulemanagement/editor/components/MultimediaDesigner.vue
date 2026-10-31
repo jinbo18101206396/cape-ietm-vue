@@ -554,6 +554,27 @@ export default {
       this.$message.error('3D模型加载失败，请检查文件格式是否正确')
     },
 
+    async generateMultimediaXml() {
+      // 前端验证
+      const validation = validateMultimedia({
+        title: this.multimediaTitle,
+        multimediaObjects: this.multimediaObjects
+      })
+
+      if (!validation.valid) {
+        throw new Error(validation.errors.join('\n'))
+      }
+
+      // 生成XML
+      const multimediaXml = await object2multimedia(null, {
+        title: this.multimediaTitle,
+        id: this.multimediaId,
+        multimediaObjects: this.multimediaObjects
+      })
+
+      return multimediaXml
+    },
+
     async handleSave() {
       if (this.saving) return
 

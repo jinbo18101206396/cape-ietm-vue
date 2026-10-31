@@ -96,6 +96,22 @@ export function extractImageDimensions(base64Data) {
 }
 
 /**
+ * XML 属性值转义函数
+ * 将特殊字符转义为实体引用，防止 XML 格式错误
+ * @param {String} value - 属性值
+ * @returns {String} 转义后的属性值
+ */
+function escapeXmlAttribute(value) {
+  if (!value) return ''
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+/**
  * 将公式HTML转换为XML symbol标签
  * @param {String} formulaHtml 公式HTML
  * @param {String} icn ICN编码
@@ -109,7 +125,8 @@ export function formulaHtmlToXmlSymbol(formulaHtml, icn, imageWidth, imageHeight
     return ''
   }
 
-  return `<symbol infoEntityIdent="${icn}" reproductionWidth="${imageWidth}" reproductionHeight="${imageHeight}" reproductionScale="100"></symbol>`
+  // 🔑 P0修复：属性值转义，防止特殊字符导致 XML 格式错误
+  return `<symbol infoEntityIdent="${escapeXmlAttribute(icn)}" reproductionWidth="${escapeXmlAttribute(String(imageWidth))}" reproductionHeight="${escapeXmlAttribute(String(imageHeight))}" reproductionScale="100"></symbol>`
 }
 
 /**

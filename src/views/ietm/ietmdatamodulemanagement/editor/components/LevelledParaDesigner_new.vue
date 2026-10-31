@@ -242,7 +242,7 @@
 </template>
 
 <script>
-import { parseXmlToTree, treeToXml, validateTree, regenerateIds, findNodeById, createEmptyNode } from '../utils/levelledParaConverter'
+import { parseXmlToTree, treeToXml, validateTree, regenerateIds, createEmptyNode } from '../utils/levelledParaConverterV2'
 import { getUEditorConfig, loadUEditor } from '../utils/ueditorConfig'
 
 export default {

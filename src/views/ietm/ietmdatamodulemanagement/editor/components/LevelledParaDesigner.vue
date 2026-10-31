@@ -372,6 +372,62 @@
       </template>
     </a-modal>
 
+    <!-- 多媒体编辑对话框（完整设计视图布局） -->
+    <a-modal
+      v-model="multimediaEditorVisible"
+      :title="multimediaEditorTitle"
+      :width="1200"
+      :maskClosable="false"
+      class="multimedia-editor-modal"
+    >
+      <div class="multimedia-editor-container">
+        <multimedia-designer
+          v-if="multimediaEditorVisible"
+          ref="multimediaDesigner"
+          :editor="multimediaEditorInstance"
+          :lineno="multimediaEditorLineno"
+          :cmnodeid="cmnodeid"
+          ifedit="1"
+          save="1"
+        />
+      </div>
+      <template slot="footer">
+        <a-button @click="closeMultimediaEditor">取消</a-button>
+        <a-button type="primary" @click="saveMultimediaEditor" :loading="multimediaEditorSaving">确定</a-button>
+      </template>
+    </a-modal>
+
+    <!-- 表格编辑对话框（完整设计视图布局） -->
+    <a-modal
+      v-model="tableEditorVisible"
+      :title="tableEditorTitle"
+      :width="1200"
+      :maskClosable="false"
+      class="table-editor-modal"
+    >
+      <div class="table-editor-container">
+        <table-designer
+          v-if="tableEditorVisible"
+          ref="tableDesigner"
+          :editor="tableEditorInstance"
+          :lineno="tableEditorLineno"
+          :cmnodeid="cmnodeid"
+          :locale="locale"
+          :project-parameters="projectParameters"
+          :uniqueid="uniqueid"
+          :dm-code="dmCode"
+          :node-list="nodeList"
+          :formate-xml="formateXml"
+          ifedit="1"
+          save="0"
+        />
+      </div>
+      <template slot="footer">
+        <a-button @click="closeTableEditor">取消</a-button>
+        <a-button type="primary" @click="saveTableEditor" :loading="tableEditorSaving">确定</a-button>
+      </template>
+    </a-modal>
+
     <!-- 批量生成对话框 -->
     <a-modal
       v-model="batchGenerateVisible"
@@ -456,15 +512,15 @@ const ConvertedContent = {
 }
 
 // 第3阶段修复：使用新的完整转换器
-import { parseXmlToTree, treeToXml, createEmptyNode, getRowhtml, createEmptyHtmlContent, validateTree } from '../utils/levelledParaConverterV2'
-// 从旧转换器导入 ID 重生成工具函数（独立功能）
-import { regenerateIds } from '../utils/levelledParaConverter'
+import { parseXmlToTree, treeToXml, createEmptyNode, getRowhtml, createEmptyHtmlContent, validateTree, regenerateIds } from '../utils/levelledParaConverterV2'
 import { escapeXmlForAttribute, html2para, para2html } from '../utils/paraConverter'
 import { getUEditorConfig, loadUEditor } from '../utils/ueditorConfig'
 import IetmInterrefDialog from './IetmInterrefDialog'
 import IetmDmRefDialog from './IetmDmRefDialog'
 import IetmSymbolDialog from './IetmSymbolDialog'
 import FigureDesigner from './FigureDesigner'
+import MultimediaDesigner from './MultimediaDesigner'
+import TableDesigner from './TableDesigner'
 
 export default {
   name: 'LevelledParaDesigner',
@@ -473,7 +529,9 @@ export default {
     IetmInterrefDialog,
     IetmDmRefDialog,
     IetmSymbolDialog,
-    FigureDesigner
+    FigureDesigner,
+    MultimediaDesigner,
+    TableDesigner
   },
 
   props: {
@@ -524,6 +582,20 @@ export default {
       figureEditorInstance: null,
       figureEditorLineno: -1,
       figureEditorSaving: false,
+
+      // 多媒体编辑器状态
+      multimediaEditorVisible: false,
+      multimediaEditorTitle: '',
+      multimediaEditorInstance: null,
+      multimediaEditorLineno: -1,
+      multimediaEditorSaving: false,
+
+      // 表格编辑器状态
+      tableEditorVisible: false,
+      tableEditorTitle: '',
+      tableEditorInstance: null,
+      tableEditorLineno: -1,
+      tableEditorSaving: false,
 
       batchGenerateVisible: false,
       batchGenerateType: '',
@@ -988,6 +1060,66 @@ export default {
               displayContent = '无法解析插图数据'
             }
           }
+          // 🔑 特殊处理：multimedia类型需要解析XML并显示标题和多媒体信息
+          else if (type === 'multimedia' && displayContent) {
+            try {
+              const parser = new DOMParser()
+              const doc = parser.parseFromString(displayContent, 'text/xml')
+
+              console.log('[getContentData] 解析multimedia XML:', displayContent.substring(0, 200))
+
+              if (!doc.querySelector('parsererror')) {
+                const multimediaElement = doc.documentElement
+
+                // 提取标题
+                const titleElement = multimediaElement.querySelector('title')
+                const title = titleElement ? titleElement.textContent : '无标题'
+
+                console.log('[getContentData] 提取多媒体标题:', title)
+
+                // 提取第一个多媒体对象的ICN和类型
+                const multimediaObjectElement = multimediaElement.querySelector('multimediaObject')
+                let icn = ''
+                let multimediaType = ''
+                if (multimediaObjectElement) {
+                  icn = multimediaObjectElement.getAttribute('infoEntityIdent') || ''
+                  multimediaType = multimediaObjectElement.getAttribute('multimediaType') || ''
+                  console.log('[getContentData] 提取多媒体ICN:', icn, '类型:', multimediaType)
+                }
+
+                // 统计多媒体对象数量
+                const objectCount = multimediaElement.querySelectorAll('multimediaObject').length
+
+                // 生成显示内容：标题 + 对象数量
+                if (objectCount > 0) {
+                  displayContent = `<div><strong>标题：</strong>${title}</div><div style="color: #666; margin-top: 4px;">多媒体对象：${objectCount} 个</div>`
+
+                  // 如果有ICN，显示预览图
+                  if (icn) {
+                    const previewId = `multimedia-preview-${item.id || index}`
+                    // 先显示加载占位符
+                    displayContent += `<div id="${previewId}" style="margin-top: 8px;">
+                      <div style="width: 200px; height: 150px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; background: #f0f0f0;">
+                        <span style="color: #999; font-size: 12px;">加载中...</span>
+                      </div>
+                    </div>`
+
+                    // 异步加载多媒体预览
+                    this.$nextTick(() => {
+                      this._loadMultimediaPreview(previewId, icn, multimediaType)
+                    })
+                  }
+                } else {
+                  displayContent = `<div><strong>标题：</strong>${title}</div><div style="color: #999; margin-top: 4px;">（无多媒体对象）</div>`
+                }
+              } else {
+                console.error('[getContentData] 多媒体XML解析错误')
+              }
+            } catch (e) {
+              console.error('[getContentData] 解析multimedia XML失败:', e)
+              displayContent = '无法解析多媒体数据'
+            }
+          }
           // 🔑 关键修复：如果 content/xml 是完整的 XML 标签，需要提取内部内容用于显示
           else if (displayContent && displayContent.trim().startsWith('<')) {
             try {
@@ -1102,6 +1234,181 @@ export default {
       } catch (e) {
         console.error('[_loadFigureImage] 加载图片失败:', e)
       }
+    },
+
+    async _loadMultimediaImage(imgId, icn) {
+      try {
+        const apiBaseUrl = window._CONFIG?.domianURL || '/jeecg-boot'
+        const token = localStorage.getItem('pro__Access-Token') ? JSON.parse(localStorage.getItem('pro__Access-Token')).value : ''
+
+        // 查询ICN信息
+        const icnInfo = await fetch(`${apiBaseUrl}/icnmanage/ietmIcnManage/queryByIcnCode?icn=${encodeURIComponent(icn)}`, {
+          headers: { 'X-Access-Token': token }
+        }).then(r => r.json())
+
+        console.log('[_loadMultimediaImage] ICN查询结果:', icnInfo)
+
+        let imgSrc = null
+        if (icnInfo.success && icnInfo.result) {
+          const fileKey = icnInfo.result.ietmAttachment?.fileKey
+          if (fileKey) {
+            imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/viewFile?fileKey=${encodeURIComponent(fileKey)}`
+          } else {
+            imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+          }
+        } else {
+          imgSrc = `${apiBaseUrl}/icnmanage/ietmIcnManage/view/${icn}`
+        }
+
+        console.log('[_loadMultimediaImage] 最终多媒体URL:', imgSrc)
+
+        // 更新图片
+        this.$nextTick(() => {
+          const imgElement = document.getElementById(imgId)
+          if (imgElement) {
+            imgElement.src = imgSrc
+            console.log('[_loadMultimediaImage] 多媒体已更新:', imgId)
+          }
+        })
+      } catch (e) {
+        console.error('[_loadMultimediaImage] 加载多媒体失败:', e)
+      }
+    },
+
+    async _loadMultimediaPreview(previewId, icn, multimediaType) {
+      try {
+        const apiBaseUrl = window._CONFIG?.domianURL || '/jeecg-boot'
+        const token = localStorage.getItem('pro__Access-Token') ? JSON.parse(localStorage.getItem('pro__Access-Token')).value : ''
+
+        // 第一步：查询 ICN 信息获取 ICN ID
+        const icnInfo = await fetch(`${apiBaseUrl}/icnmanage/ietmIcnManage/queryByIcnCode?icn=${encodeURIComponent(icn)}`, {
+          headers: { 'X-Access-Token': token }
+        }).then(r => r.json())
+
+        console.log('[_loadMultimediaPreview] ICN查询结果:', icnInfo)
+
+        if (!icnInfo.success || !icnInfo.result || !icnInfo.result.id) {
+          console.error('[_loadMultimediaPreview] 未找到ICN:', icn)
+          this._showPreviewError(previewId, '未找到文件')
+          return
+        }
+
+        const icnId = icnInfo.result.id
+        const attachment = icnInfo.result.ietmAttachment
+        const fileName = attachment?.fileName || ''
+        const fileExt = fileName ? fileName.substring(fileName.lastIndexOf('.')).toLowerCase() : ''
+
+        // 第二步：调用预览 API 获取预览信息（视频封面图、音频图标、3D 缩略图等）
+        const previewRes = await fetch(`${apiBaseUrl}/icnmanage/ietmIcnManage/preview/${icnId}`, {
+          headers: { 'X-Access-Token': token }
+        }).then(r => r.json())
+
+        console.log('[_loadMultimediaPreview] 预览API结果:', previewRes)
+
+        if (!previewRes.success || !previewRes.result || !previewRes.result.fileUrl) {
+          console.error('[_loadMultimediaPreview] 无法获取预览:', previewRes.message)
+          this._showPreviewError(previewId, '无法生成预览')
+          return
+        }
+
+        const previewInfo = previewRes.result
+        const previewType = previewInfo.previewType || ''
+        const previewFileUrl = previewInfo.fileUrl
+
+        console.log('[_loadMultimediaPreview] 预览类型:', previewType, '文件扩展名:', fileExt, '文件URL:', previewFileUrl)
+
+        // 第三步：使用 fetch 携带 token 加载 blob URL
+        const fullUrl = apiBaseUrl + previewFileUrl
+        const response = await fetch(fullUrl, {
+          method: 'GET',
+          headers: { 'X-Access-Token': token }
+        })
+
+        if (!response.ok) {
+          console.error('[_loadMultimediaPreview] 加载预览文件失败:', response.status)
+          this._showPreviewError(previewId, '加载失败')
+          return
+        }
+
+        // 检查 Content-Type
+        const contentType = response.headers.get('content-type') || ''
+        if (contentType.includes('application/json')) {
+          const json = await response.json()
+          console.error('[_loadMultimediaPreview] 服务器返回错误:', json)
+          this._showPreviewError(previewId, json.message || '加载失败')
+          return
+        }
+
+        const blob = await response.blob()
+        if (blob.size === 0) {
+          console.error('[_loadMultimediaPreview] 文件为空')
+          this._showPreviewError(previewId, '文件为空')
+          return
+        }
+
+        // 创建 Blob URL
+        const blobUrl = URL.createObjectURL(blob)
+
+        // 根据预览类型生成不同的播放器 HTML
+        let previewHtml = ''
+
+        if (previewType === 'VIDEO') {
+          // 视频播放器
+          previewHtml = `
+            <video controls style="max-width: 200px; max-height: 150px; border: 1px solid #ddd;">
+              <source src="${blobUrl}" type="video/mp4">
+              您的浏览器不支持视频播放
+            </video>`
+        } else if (previewType === 'AUDIO') {
+          // 音频播放器
+          previewHtml = `
+            <div style="width: 200px; border: 1px solid #ddd; padding: 8px; background: #f5f5f5;">
+              <audio controls style="width: 100%;">
+                <source src="${blobUrl}" type="audio/mpeg">
+                您的浏览器不支持音频播放
+              </audio>
+            </div>`
+        } else if (previewType === 'IMAGE') {
+          // 图像显示
+          previewHtml = `<img src="${blobUrl}" style="max-width: 200px; max-height: 150px; border: 1px solid #ddd; padding: 2px;" />`
+        } else if (previewType === '3D') {
+          // 3D模型 - 显示缩略图 + 提示（完整3D查看器需要 Vue 组件，在列表中难以实现）
+          previewHtml = `
+            <div style="width: 200px; height: 150px; border: 1px solid #ddd; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f0f0f0; cursor: pointer;" onclick="alert('请点击编辑按钮查看完整3D模型')">
+              <img src="${blobUrl}" style="max-width: 180px; max-height: 120px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+              <div style="display: none; font-size: 48px; color: #722ed1;">📦</div>
+              <div style="font-size: 11px; color: #666; margin-top: 4px;">点击查看3D模型</div>
+            </div>`
+        } else {
+          // 其他类型 - 尝试显示图片
+          previewHtml = `<img src="${blobUrl}" style="max-width: 200px; max-height: 150px; border: 1px solid #ddd; padding: 2px;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width: 200px; height: 150px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; background: #f0f0f0;\\'>无法显示此类型</div>';" />`
+        }
+
+        this.$nextTick(() => {
+          const previewElement = document.getElementById(previewId)
+          if (previewElement) {
+            previewElement.innerHTML = previewHtml
+            console.log('[_loadMultimediaPreview] 预览已更新:', previewId, '类型:', previewType)
+          }
+        })
+
+      } catch (e) {
+        console.error('[_loadMultimediaPreview] 加载多媒体预览失败:', e)
+        this._showPreviewError(previewId, '加载失败')
+      }
+    },
+
+    _showPreviewError(previewId, message) {
+      this.$nextTick(() => {
+        const previewElement = document.getElementById(previewId)
+        if (previewElement) {
+          previewElement.innerHTML = `<div style="width: 200px; height: 150px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; background: #fff5f5;">
+            <div style="text-align: center; color: #ff4d4f;">
+              <div style="font-size: 12px;">${message}</div>
+            </div>
+          </div>`
+        }
+      })
     },
 
     getRowSelection(type) {
@@ -1381,6 +1688,18 @@ export default {
         return
       }
 
+      // 🔧 特殊处理：multimedia类型使用专门的MultimediaDesigner组件
+      if (type === 'multimedia') {
+        this.openMultimediaEditor(index, mode)
+        return
+      }
+
+      // 🔧 特殊处理：table类型使用专门的TableDesigner组件
+      if (type === 'table') {
+        this.openTableEditor(index, mode)
+        return
+      }
+
       this.contentEditorType = type
       this.contentEditorIndex = index
       const modeText = mode === 'view' ? '查看' : mode === 'edit' ? '编辑' : '添加'
@@ -1526,6 +1845,194 @@ export default {
         .finally(() => {
           this.figureEditorSaving = false
         })
+    },
+
+    openMultimediaEditor(index, mode) {
+      // 保存编辑状态
+      this.contentEditorIndex = index
+
+      // 设置对话框标题
+      const modeText = mode === 'view' ? '查看' : mode === 'edit' ? '编辑' : '添加'
+      this.multimediaEditorTitle = `${modeText}多媒体`
+
+      // 创建临时编辑器实例用于MultimediaDesigner
+      this.multimediaEditorInstance = {
+        getLine: (lineno) => {
+          if (index >= 0 && this.selectedNode.html && this.selectedNode.html.multimedia) {
+            const item = this.selectedNode.html.multimedia[index]
+            return item.xml || ''
+          }
+          // 新增模式：返回空multimedia标签
+          return '<multimedia></multimedia>'
+        },
+        getRange: () => '',
+        lineCount: () => 1
+      }
+      this.multimediaEditorLineno = 0
+      this.multimediaEditorVisible = true
+    },
+
+    closeMultimediaEditor() {
+      this.multimediaEditorVisible = false
+      this.multimediaEditorInstance = null
+      this.multimediaEditorSaving = false
+    },
+
+    async saveMultimediaEditor() {
+      const multimediaDesigner = this.$refs.multimediaDesigner
+      if (!multimediaDesigner) {
+        this.$message.error('MultimediaDesigner组件未正确加载')
+        return
+      }
+
+      this.multimediaEditorSaving = true
+
+      try {
+        // 调用MultimediaDesigner的generateMultimediaXml方法
+        const multimediaXml = await multimediaDesigner.generateMultimediaXml()
+
+        if (!multimediaXml) {
+          this.$message.warning('请完整填写多媒体信息')
+          this.multimediaEditorSaving = false
+          return
+        }
+
+        console.log('[saveMultimediaEditor] 生成的multimedia XML:', multimediaXml)
+
+        // 保存到对应位置
+        if (!this.selectedNode.html) {
+          this.selectedNode.html = createEmptyHtmlContent()
+        }
+
+        const index = this.contentEditorIndex
+        if (index >= 0) {
+          // 编辑现有项
+          this.selectedNode.html.multimedia[index].xml = multimediaXml
+        } else {
+          // 添加新项
+          const itemId = `multimedia-${Date.now()}`
+          this.selectedNode.html.multimedia.push({
+            id: itemId,
+            xml: multimediaXml
+          })
+        }
+
+        console.log('[saveMultimediaEditor] 保存后的multimedia数组:', this.selectedNode.html.multimedia)
+
+        // 强制Vue更新视图
+        this.$forceUpdate()
+
+        this.$message.success('多媒体保存成功')
+        this.closeMultimediaEditor()
+      } catch (error) {
+        console.error('[LevelledPara] 保存多媒体失败:', error)
+        this.$message.error('保存多媒体失败: ' + error.message)
+      } finally {
+        this.multimediaEditorSaving = false
+      }
+    },
+
+    openTableEditor(index, mode) {
+      // 保存编辑状态
+      this.contentEditorIndex = index
+
+      // 设置对话框标题
+      const modeText = mode === 'view' ? '查看' : mode === 'edit' ? '编辑' : '添加'
+      this.tableEditorTitle = `${modeText}表格`
+
+      // 创建临时编辑器实例用于TableDesigner
+      this.tableEditorInstance = {
+        getLine: (lineno) => {
+          if (index >= 0 && this.selectedNode.html && this.selectedNode.html.table) {
+            const item = this.selectedNode.html.table[index]
+            return item.xml || ''
+          }
+          // 新增模式：返回符合 S1000D 4.0 标准的最小表格 XML
+          return `<table>
+  <tgroup cols="2">
+    <colspec colname="col1"/>
+    <colspec colname="col2"/>
+    <tbody>
+      <row>
+        <entry colname="col1"><para></para></entry>
+        <entry colname="col2"><para></para></entry>
+      </row>
+    </tbody>
+  </tgroup>
+</table>`
+        },
+        getRange: (start, end) => {
+          // 对于新增模式，返回整个 table XML
+          if (index >= 0 && this.selectedNode.html && this.selectedNode.html.table) {
+            const item = this.selectedNode.html.table[index]
+            return item.xml || ''
+          }
+          return this.tableEditorInstance.getLine(0)
+        },
+        lineCount: () => 1
+      }
+      this.tableEditorLineno = 0
+      this.tableEditorVisible = true
+    },
+
+    closeTableEditor() {
+      this.tableEditorVisible = false
+      this.tableEditorInstance = null
+      this.tableEditorSaving = false
+    },
+
+    async saveTableEditor() {
+      const tableDesigner = this.$refs.tableDesigner
+      if (!tableDesigner) {
+        this.$message.error('TableDesigner组件未正确加载')
+        return
+      }
+
+      this.tableEditorSaving = true
+
+      try {
+        // 调用TableDesigner的handleSave方法获取生成的XML
+        const tableXml = await tableDesigner.getTableXml()
+
+        if (!tableXml) {
+          this.$message.warning('请完整填写表格信息')
+          this.tableEditorSaving = false
+          return
+        }
+
+        console.log('[saveTableEditor] 生成的table XML:', tableXml)
+
+        // 保存到对应位置
+        if (!this.selectedNode.html) {
+          this.selectedNode.html = createEmptyHtmlContent()
+        }
+
+        const index = this.contentEditorIndex
+        if (index >= 0) {
+          // 编辑现有项
+          this.selectedNode.html.table[index].xml = tableXml
+        } else {
+          // 添加新项
+          const itemId = `table-${Date.now()}`
+          this.selectedNode.html.table.push({
+            id: itemId,
+            xml: tableXml
+          })
+        }
+
+        console.log('[saveTableEditor] 保存后的table数组:', this.selectedNode.html.table)
+
+        // 强制Vue更新视图
+        this.$forceUpdate()
+
+        this.$message.success('表格保存成功')
+        this.closeTableEditor()
+      } catch (error) {
+        console.error('[LevelledPara] 保存表格失败:', error)
+        this.$message.error('保存表格失败: ' + error.message)
+      } finally {
+        this.tableEditorSaving = false
+      }
     },
 
     closeContentEditor() {
@@ -2026,7 +2533,8 @@ export default {
 
         // 3. 更新 levelledPara 的 content（不包括嵌套的 levelledPara，由递归处理）
         if (parts.length > 0) {
-          node.content = `<levelledPara>\n  ${parts.join('\n  ')}\n</levelledPara>`
+          // 🔑 正确的处理：在每个 part 前后添加换行，保持格式清晰
+          node.content = `<levelledPara>\n${parts.join('\n')}\n</levelledPara>`
         } else {
           node.content = '<levelledPara></levelledPara>'
         }
@@ -2714,6 +3222,31 @@ export default {
   .modal-footer {
     margin-top: 12px;
     text-align: right;
+  }
+}
+
+.multimedia-editor-modal {
+  ::v-deep .ant-modal-body {
+    padding: 16px;
+    height: 500px;
+    overflow: hidden;
+  }
+
+  .multimedia-editor-container {
+    height: 100%;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+
+    ::v-deep .multimedia-designer {
+      flex: 1;
+      overflow: hidden;
+
+      // 隐藏MultimediaDesigner内部的保存按钮（使用对话框底部的确定按钮）
+      .multimedia-toolbar .toolbar-controls .save-btn {
+        display: none;
+      }
+    }
   }
 }
 </style>

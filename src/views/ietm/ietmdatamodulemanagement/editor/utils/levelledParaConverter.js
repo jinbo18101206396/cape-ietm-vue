@@ -1,4 +1,26 @@
 /**
+ * ⚠️ DEPRECATED - 此文件已废弃
+ *
+ * 请使用 levelledParaConverterV2.js 替代
+ *
+ * 迁移说明：
+ * - parseXmlToTree  → levelledParaConverterV2.parseXmlToTree
+ * - treeToXml       → levelledParaConverterV2.treeToXml
+ * - validateTree    → levelledParaConverterV2.validateTree
+ * - regenerateIds   → levelledParaConverterV2.regenerateIds ✅ 已迁移 (2026-10-31)
+ * - createEmptyNode → levelledParaConverterV2.createEmptyNode
+ *
+ * V2 改进：
+ * - ✅ 属性值转义（防止 XML 格式错误）
+ * - ✅ Namespace 优化（符合 S1000D 最佳实践）
+ * - ✅ 双重序列化修复
+ * - ✅ 完整的单元测试覆盖
+ *
+ * @deprecated 请使用 levelledParaConverterV2.js
+ * @since 2026-10-31 标记为废弃
+ */
+
+/**
  * levelledParaConverter.js
  * levelledPara XML ↔ TreeGrid 数据结构双向转换工具
  *
