@@ -1120,6 +1120,81 @@ export default {
               displayContent = '无法解析多媒体数据'
             }
           }
+          // 🔑 新增修复：foldout类型需要解析XML并显示内部内容
+          else if (type === 'foldout' && displayContent) {
+            try {
+              const parser = new DOMParser()
+              const doc = parser.parseFromString(displayContent, 'text/xml')
+
+              console.log('[getContentData] 解析foldout XML:', displayContent.substring(0, 200))
+
+              if (!doc.querySelector('parsererror')) {
+                const foldoutElement = doc.documentElement
+
+                // 🔑 foldout 结构：<foldout>内部是para/warning/figure等内容元素，提取所有文本内容
+                const serializer = new XMLSerializer()
+                let innerContent = ''
+
+                // 遍历所有子节点，提取文本内容
+                for (let i = 0; i < foldoutElement.childNodes.length; i++) {
+                  const child = foldoutElement.childNodes[i]
+                  if (child.nodeType === Node.ELEMENT_NODE) {
+                    // 如果是元素节点，提取其文本内容
+                    innerContent += child.textContent + ' '
+                  } else if (child.nodeType === Node.TEXT_NODE) {
+                    innerContent += child.textContent
+                  }
+                }
+
+                innerContent = innerContent.trim()
+
+                // 如果内容太长，截断显示
+                if (innerContent.length > 100) {
+                  displayContent = `<div style="color: #262626;">${innerContent.substring(0, 100)}...</div>`
+                } else if (innerContent.length > 0) {
+                  displayContent = `<div style="color: #262626;">${innerContent}</div>`
+                } else {
+                  displayContent = `<div style="color: #999;">（空折叠内容）</div>`
+                }
+              } else {
+                console.error('[getContentData] 折叠XML解析错误')
+                displayContent = '无法解析折叠数据'
+              }
+            } catch (e) {
+              console.error('[getContentData] 解析foldout XML失败:', e)
+              displayContent = '无法解析折叠数据'
+            }
+          }
+          // 🔑 新增修复：caption类型需要解析XML并显示内部内容
+          else if (type === 'caption' && displayContent) {
+            try {
+              const parser = new DOMParser()
+              const doc = parser.parseFromString(displayContent, 'text/xml')
+
+              console.log('[getContentData] 解析caption XML:', displayContent.substring(0, 200))
+
+              if (!doc.querySelector('parsererror')) {
+                const captionElement = doc.documentElement
+
+                // caption 通常包含简单的文本或para，提取文本内容
+                const textContent = captionElement.textContent.trim()
+
+                if (textContent.length > 100) {
+                  displayContent = `<div style="color: #262626;">${textContent.substring(0, 100)}...</div>`
+                } else if (textContent.length > 0) {
+                  displayContent = `<div style="color: #262626;">${textContent}</div>`
+                } else {
+                  displayContent = `<div style="color: #999;">（空图说）</div>`
+                }
+              } else {
+                console.error('[getContentData] 图说XML解析错误')
+                displayContent = '无法解析图说数据'
+              }
+            } catch (e) {
+              console.error('[getContentData] 解析caption XML失败:', e)
+              displayContent = '无法解析图说数据'
+            }
+          }
           // 🔑 关键修复：如果 content/xml 是完整的 XML 标签，需要提取内部内容用于显示
           else if (displayContent && displayContent.trim().startsWith('<')) {
             try {
@@ -1620,7 +1695,8 @@ export default {
         this.selectedNode.html = createEmptyHtmlContent()
       }
 
-      const isStructured = type === 'figure' || type === 'multimedia' || type === 'table'
+      // 🔑 关键修复：foldout 和 caption 也是结构化类型
+      const isStructured = type === 'figure' || type === 'multimedia' || type === 'table' || type === 'foldout' || type === 'caption'
 
       // 🔑 关键修复：直接操作原始数据，创建完整 XML 格式的项
       lines.forEach((line, idx) => {
@@ -1699,6 +1775,9 @@ export default {
         this.openTableEditor(index, mode)
         return
       }
+
+      // 🔧 特殊处理：foldout和caption也是结构化类型，但使用通用编辑器
+      // 注意：虽然它们是结构化类型，但编辑时仍使用富文本编辑器
 
       this.contentEditorType = type
       this.contentEditorIndex = index
@@ -2089,7 +2168,8 @@ export default {
             this.selectedNode.html = createEmptyHtmlContent()
           }
 
-          const isStructured = type === 'figure' || type === 'multimedia' || type === 'table'
+          // 🔑 关键修复：foldout 和 caption 也是结构化类型
+          const isStructured = type === 'figure' || type === 'multimedia' || type === 'table' || type === 'foldout' || type === 'caption'
 
           if (index >= 0) {
             // 编辑现有项：更新原始数据中的 content/xml 字段
@@ -2104,8 +2184,39 @@ export default {
             const originalItem = this.selectedNode.html[type][index]
             const itemId = originalItem.id || `${type}-${Date.now()}`
 
-            if (isStructured) {
-              // 结构化类型，保持原样（可能是 XML）
+            // 🔑 特殊处理：foldout 和 caption 虽然是结构化类型，但使用富文本编辑器
+            // 需要将富文本内容转换为 S1000D XML 格式并包装成完整的 XML 标签
+            if (type === 'foldout' || type === 'caption') {
+              // 步骤1：将 HTML 转换为 S1000D XML（<p> → <para>）
+              let s1000dContent = processedContent
+
+              // 🔑 关键：html2para 会剥离外层<p>标签，所以需要确保内容被正确转换
+              // 策略：先转换，如果结果是纯文本，则包装成<para>
+              try {
+                console.log(`[编辑${type}] 原始HTML:`, processedContent)
+
+                // 调用 html2para 进行转换
+                const converted = await html2para(this.Parent, processedContent, this.projectParameters, [])
+                console.log(`[编辑${type}] html2para返回:`, converted)
+
+                // 如果返回的内容不包含XML标签（纯文本），则包装成<para>
+                if (converted && !converted.includes('<')) {
+                  s1000dContent = `<para>${converted}</para>`
+                } else {
+                  s1000dContent = converted || ''
+                }
+
+                console.log(`[编辑${type}] 最终S1000D XML:`, s1000dContent)
+              } catch (e) {
+                console.error(`[编辑${type}] html2para转换失败:`, e.message)
+                // 如果转换失败，尝试简单替换 <p> → <para>
+                s1000dContent = processedContent.replace(/<p>/g, '<para>').replace(/<\/p>/g, '</para>')
+              }
+
+              // 步骤2：包装成完整的 XML 结构
+              originalItem.xml = `<${type} id="${itemId}">${s1000dContent}</${type}>`
+            } else if (isStructured) {
+              // 其他结构化类型（figure、multimedia、table），由专门设计器处理，保持原样
               originalItem.xml = processedContent
             } else {
               // 文本类型，需要包装成完整 XML
@@ -2190,7 +2301,39 @@ export default {
               id: newId
             }
 
-            if (isStructured) {
+            // 🔑 特殊处理：foldout 和 caption 虽然是结构化类型，但使用富文本编辑器
+            // 需要将富文本内容转换为 S1000D XML 格式并包装成完整的 XML 标签
+            if (type === 'foldout' || type === 'caption') {
+              // 步骤1：将 HTML 转换为 S1000D XML（<p> → <para>）
+              let s1000dContent = processedContent
+
+              // 🔑 关键：html2para 会剥离外层<p>标签，所以需要确保内容被正确转换
+              // 策略：先转换，如果结果是纯文本，则包装成<para>
+              try {
+                console.log(`[添加${type}] 原始HTML:`, processedContent)
+
+                // 调用 html2para 进行转换
+                const converted = await html2para(this.Parent, processedContent, this.projectParameters, [])
+                console.log(`[添加${type}] html2para返回:`, converted)
+
+                // 如果返回的内容不包含XML标签（纯文本），则包装成<para>
+                if (converted && !converted.includes('<')) {
+                  s1000dContent = `<para>${converted}</para>`
+                } else {
+                  s1000dContent = converted || ''
+                }
+
+                console.log(`[添加${type}] 最终S1000D XML:`, s1000dContent)
+              } catch (e) {
+                console.error(`[添加${type}] html2para转换失败:`, e.message)
+                // 如果转换失败，尝试简单替换 <p> → <para>
+                s1000dContent = processedContent.replace(/<p>/g, '<para>').replace(/<\/p>/g, '</para>')
+              }
+
+              // 步骤2：包装成完整的 XML 结构
+              newItem.xml = `<${type} id="${newId}">${s1000dContent}</${type}>`
+            } else if (isStructured) {
+              // 其他结构化类型（figure、multimedia、table），由专门设计器处理，保持原样
               newItem.xml = processedContent
             } else {
               // 🔧 修复SYMBOL-INCONSISTENCY: 检测 <img> 或 &lt;img（HTML转义）并转换为 <symbol>

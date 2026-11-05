@@ -206,7 +206,10 @@ export function detectMultimediaType(filename) {
   }
 
   // 3D模型格式 → multimediaType="3D"
-  const d3extArr = ['.wrl', '.smg', '.swf']
+  // 🔧 2026-11-04 修复P0：添加 .gltf 和 .stl 格式支持
+  // 根因：用户上传的 .gltf 和 .stl 文件无法被识别为 3D 类型
+  // Three.js 支持的格式：.gltf, .glb, .stl, .wrl (VRML)
+  const d3extArr = ['.wrl', '.smg', '.swf', '.gltf', '.glb', '.stl']
   if (d3extArr.includes(ext)) {
     return '3D'
   }
