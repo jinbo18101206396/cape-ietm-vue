@@ -13,7 +13,6 @@ import {
 } from '@/views/ietm/ietmdatamodulemanagement/editor/utils/multimediaConverter'
 
 describe('multimediaConverter.js', () => {
-
   // ============ multimedia2object() 测试 ============
 
   describe('multimedia2object()', () => {

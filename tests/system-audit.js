@@ -33,7 +33,7 @@ function findFiles(dir, pattern) {
     files.forEach(file => {
       const fullPath = path.join(dir, file)
       const stat = fs.statSync(fullPath)
-      
+
       if (stat.isDirectory()) {
         findFiles(fullPath, pattern)
       } else if (pattern.test(file)) {
@@ -60,12 +60,12 @@ console.log('-'.repeat(80))
 xmlFiles.forEach(filePath => {
   const fileName = path.basename(filePath)
   const content = fs.readFileSync(filePath, 'utf8')
-  
+
   // 问题1: 属性值未转义
   const attrRegex = /attr\.(name|value)|getAttribute|setAttribute/i
   const hasAttrHandling = attrRegex.test(content)
   const hasEscapeFunc = content.includes('escapeXml') || content.includes('escape')
-  
+
   if (hasAttrHandling && !hasEscapeFunc) {
     issues.push({
       file: fileName,
@@ -74,7 +74,7 @@ xmlFiles.forEach(filePath => {
       description: '文件中处理 XML 属性但可能缺少转义'
     })
   }
-  
+
   // 问题2: XMLSerializer 使用
   if (content.includes('XMLSerializer') && content.includes('serializeToString')) {
     const hasDoubleSerialize = (content.match(/serializeToString/g) || []).length > 3
@@ -87,7 +87,7 @@ xmlFiles.forEach(filePath => {
       })
     }
   }
-  
+
   // 问题3: namespace 声明
   const nsCount = (content.match(/xmlns:xlink/g) || []).length
   if (nsCount > 2) {
@@ -98,7 +98,7 @@ xmlFiles.forEach(filePath => {
       description: `发现 ${nsCount} 处 namespace 声明，可能冗余`
     })
   }
-  
+
   // 问题4: 正则表达式替换 XML
   if (content.includes('.replace(') && content.includes('xmlns:')) {
     const replaceCount = (content.match(/\.replace\([^)]*xmlns:/g) || []).length
@@ -129,7 +129,7 @@ const patterns = [
 xmlFiles.forEach(filePath => {
   const fileName = path.basename(filePath)
   const content = fs.readFileSync(filePath, 'utf8')
-  
+
   patterns.forEach(pattern => {
     if (pattern.regex.test(content)) {
       issues.push({

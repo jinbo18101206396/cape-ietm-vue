@@ -38,7 +38,6 @@ async function test() {
 
     // 保持页面打开，持续监听
     await page.waitForTimeout(300000) // 等待5分钟
-
   } catch (error) {
     if (error.message.includes('Target closed')) {
       console.log('\n浏览器已关闭')

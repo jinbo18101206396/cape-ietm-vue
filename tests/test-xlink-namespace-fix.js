@@ -16,23 +16,23 @@ const testCases = [
   {
     name: '包含 xlink 的 warning 元素',
     input: '<warning id="warning-1"><dmRef xlink:type="simple" xlink:show="replace">test</dmRef></warning>',
-    expected: '<warning xmlns:xlink="http://www.w3.org/1999/xlink" id="warning-1"><dmRef xlink:type="simple" xlink:show="replace">test</dmRef></warning>',
+    expected: '<warning xmlns:xlink="http://www.w3.org/1999/xlink" id="warning-1"><dmRef xlink:type="simple" xlink:show="replace">test</dmRef></warning>'
   },
   {
     name: '已有命名空间的元素',
     input: '<warning xmlns:xlink="http://www.w3.org/1999/xlink" id="warning-1"><dmRef xlink:type="simple">test</dmRef></warning>',
-    expected: '<warning xmlns:xlink="http://www.w3.org/1999/xlink" id="warning-1"><dmRef xlink:type="simple">test</dmRef></warning>',
+    expected: '<warning xmlns:xlink="http://www.w3.org/1999/xlink" id="warning-1"><dmRef xlink:type="simple">test</dmRef></warning>'
   },
   {
     name: '不包含 xlink 的元素',
     input: '<warning id="warning-1">普通文本</warning>',
-    expected: '<warning id="warning-1">普通文本</warning>',
+    expected: '<warning id="warning-1">普通文本</warning>'
   },
   {
     name: 'para 元素包含 xlink',
     input: '<para id="para-1"><internalRef xlink:href="#ref1">参考</internalRef></para>',
-    expected: '<para xmlns:xlink="http://www.w3.org/1999/xlink" id="para-1"><internalRef xlink:href="#ref1">参考</internalRef></para>',
-  },
+    expected: '<para xmlns:xlink="http://www.w3.org/1999/xlink" id="para-1"><internalRef xlink:href="#ref1">参考</internalRef></para>'
+  }
 ]
 
 console.log('\n========== 测试 xlink 命名空间修复 ==========\n')

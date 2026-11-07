@@ -164,7 +164,6 @@ test.describe('图片预览修复验证 - 简化版', () => {
         fullPage: true
       })
       console.log('\n📸 最终截图已保存')
-
     } catch (error) {
       console.error('\n❌ 测试出错:', error.message)
       await page.screenshot({

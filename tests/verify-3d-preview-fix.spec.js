@@ -61,11 +61,11 @@ test.describe('验证 3D 多媒体预览修复', () => {
   test('验证后端 MIME 类型检测', async ({ page }) => {
     // 测试 MimeTypeDetector 对 3D 格式的检测
     const mimeTypes = {
-      'glb': 'model/gltf-binary',    // GLB 魔数: "glTF" (0x67 0x6C 0x54 0x46)
-      'gltf': 'model/gltf+json',     // GLTF JSON: {"asset":...}
-      'stl_ascii': 'model/stl',      // STL ASCII: solid ...
-      'stl_binary': 'model/stl',     // STL Binary: 80字节头 + 数据
-      'wrl': 'model/vrml'            // VRML: #VRML ...
+      'glb': 'model/gltf-binary', // GLB 魔数: "glTF" (0x67 0x6C 0x54 0x46)
+      'gltf': 'model/gltf+json', // GLTF JSON: {"asset":...}
+      'stl_ascii': 'model/stl', // STL ASCII: solid ...
+      'stl_binary': 'model/stl', // STL Binary: 80字节头 + 数据
+      'wrl': 'model/vrml' // VRML: #VRML ...
     }
 
     console.log('\n✅ 后端 MIME 类型检测预期值：')

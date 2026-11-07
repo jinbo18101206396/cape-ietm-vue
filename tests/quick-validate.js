@@ -29,7 +29,7 @@ try {
       fatalError: (msg) => { throw new Error(msg) }
     }
   })
-  
+
   const doc = parser.parseFromString(xml, 'text/xml')
   console.log('   ✅ XML 解析成功\n')
 
@@ -40,7 +40,7 @@ try {
     const id = multimedia.getAttribute('id')
     const multimediaType = multimedia.getAttribute('multimediaType')
     const infoEntityIdent = doc.getElementsByTagName('multimediaObject')[0].getAttribute('infoEntityIdent')
-    
+
     console.log(`   id="${id}" ✅`)
     console.log(`   multimediaType="${multimediaType}" ✅`)
     console.log(`   infoEntityIdent="${infoEntityIdent}" ✅\n`)
@@ -74,19 +74,18 @@ try {
   console.log('6. S1000D 标准检查...')
   const levelledParas = doc.getElementsByTagName('levelledPara')
   console.log(`   ✅ levelledPara 元素数量: ${levelledParas.length}`)
-  
+
   const multimediaElements = doc.getElementsByTagName('multimedia')
   console.log(`   ✅ multimedia 元素数量: ${multimediaElements.length}`)
-  
+
   const titles = doc.getElementsByTagName('title')
   console.log(`   ✅ title 元素数量: ${titles.length}\n`)
 
-  console.log('='  .repeat(50))
+  console.log('='.repeat(50))
   console.log('✅ 所有验证通过！修复有效。')
-  console.log('='  .repeat(50) + '\n')
+  console.log('='.repeat(50) + '\n')
 
   process.exit(0)
-
 } catch (error) {
   console.error('\n❌ 验证失败:')
   console.error(error.message)

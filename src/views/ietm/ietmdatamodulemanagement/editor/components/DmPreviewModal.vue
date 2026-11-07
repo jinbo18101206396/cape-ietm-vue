@@ -359,6 +359,10 @@ export default {
               })
 
               const icnImages = Array.from(allIcnImages).filter(img => {
+                // 🔧 2026-11-06 修复：XSLT为symbol设置的占位SVG也是data:image/svg+xml，
+                // 但同时打了data-need-load="true"标记，必须保留以触发真实ICN加载
+                if (img.getAttribute('data-need-load') === 'true') return true
+
                 const src = img.getAttribute('src') || ''
 
                 // 🔧 2026-11-04 修复：排除所有多媒体类型，只保留真实图片

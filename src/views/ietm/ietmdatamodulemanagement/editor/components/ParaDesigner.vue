@@ -718,6 +718,11 @@ export default {
           )
         }
 
+        // 🔧 DEBUG: 输出UEditor生成的原始HTML结构
+        console.log('[ParaDesigner] ========== UEditor原始HTML ==========')
+        console.log(html)
+        console.log('[ParaDesigner] ==========================================')
+
         // 2. 转换HTML→XML（传入分配的uniqueid数组）
         // html2para函数会处理公式：生成ICN、保存到数据库、转换为symbol标签
         let paraContent = await html2para(this.Parent, html, this.projectParameters, allocatedUniqueids)

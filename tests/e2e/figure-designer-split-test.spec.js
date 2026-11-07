@@ -89,7 +89,6 @@ const fs = require('fs')
 
     console.log('\n✅ 测试完成')
     console.log('📸 截图保存在:', outputDir)
-
   } catch (error) {
     console.error('❌ 测试失败:', error.message)
     await page.screenshot({ path: path.join(outputDir, 'error.png'), fullPage: true })

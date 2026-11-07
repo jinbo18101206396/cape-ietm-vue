@@ -79,24 +79,24 @@ console.log()
 const checks = [
   {
     name: 'levelledPara 包含 xmlns:xlink',
-    test: () => syncedNode.content.includes('xmlns:xlink="http://www.w3.org/1999/xlink"'),
+    test: () => syncedNode.content.includes('xmlns:xlink="http://www.w3.org/1999/xlink"')
   },
   {
     name: 'warning 标签包含 xmlns:xlink',
-    test: () => syncedNode.content.includes('<warning xmlns:xlink="http://www.w3.org/1999/xlink"'),
+    test: () => syncedNode.content.includes('<warning xmlns:xlink="http://www.w3.org/1999/xlink"')
   },
   {
     name: 'dmRef 标签存在',
-    test: () => syncedNode.content.includes('<dmRef xlink:type="simple"'),
+    test: () => syncedNode.content.includes('<dmRef xlink:type="simple"')
   },
   {
     name: '没有 parsererror',
-    test: () => !syncedNode.content.includes('parsererror'),
+    test: () => !syncedNode.content.includes('parsererror')
   },
   {
     name: 'warning 标签不为空',
-    test: () => !syncedNode.content.match(/<warning[^>]*\/>/),
-  },
+    test: () => !syncedNode.content.match(/<warning[^>]*\/>/)
+  }
 ]
 
 console.log('步骤3: 验证结果\n')

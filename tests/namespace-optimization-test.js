@@ -72,7 +72,7 @@ try {
 
   // 比较关键属性值
   console.log('属性值检查:')
-  
+
   const attrBefore = mmBefore.getAttribute('id')
   const attrAfter = mmAfter.getAttribute('id')
   console.log(`  id: "${attrBefore}" === "${attrAfter}" ? ${attrBefore === attrAfter ? '✅' : '❌'}`)

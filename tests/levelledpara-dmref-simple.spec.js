@@ -124,7 +124,6 @@ async function test() {
     console.log('\n========== 测试完成 ==========\n')
 
     await page.waitForTimeout(3000)
-
   } catch (error) {
     console.error('测试失败:', error)
   } finally {

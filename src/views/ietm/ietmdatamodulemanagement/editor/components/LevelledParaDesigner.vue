@@ -987,11 +987,10 @@ export default {
         }
 
         // 更新所有具有该 ICN 的 img 标签
+        // 🔧 2026-11-06 修复P2：无条件更新 src，避免 fallback URL 阻止后续加载
         const allImgs = document.querySelectorAll(`img[data-icn="${icn}"]`)
         allImgs.forEach(img => {
-          if (img.src.includes('data:image')) {
-            img.src = imgSrc
-          }
+          img.src = imgSrc
         })
       } catch (e) {
         console.warn('[_loadSymbolImageUrl] 加载图片失败:', e.message)

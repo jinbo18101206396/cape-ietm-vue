@@ -37,7 +37,6 @@ async function simpleTest() {
     console.log('- treeToXml 生成的 XML')
 
     await page.waitForTimeout(60000)
-
   } catch (error) {
     console.error('错误:', error.message)
   } finally {

@@ -365,8 +365,8 @@ describe('回归测试 - 原始错误场景', () => {
     expect(generated).toBeDefined()
 
     // 不应该包含格式错误
-    expect(generated).not.toMatch(/="\s*"/)  // 空属性值
-    expect(generated).not.toMatch(/>[\s]*</g)  // 缺失元素标签
+    expect(generated).not.toMatch(/="\s*"/) // 空属性值
+    expect(generated).not.toMatch(/>[\s]*</g) // 缺失元素标签
 
     // 应该能再次解析
     const tree2 = parseXmlToTree(generated)

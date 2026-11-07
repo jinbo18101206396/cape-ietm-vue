@@ -388,6 +388,14 @@ export default {
         const historyIdChanged = to.query.historyId !== from.query.historyId
 
         if (idChanged || historyIdChanged) {
+          // 🔧 2026-11-06 修复P1：路由切换前先关闭所有设计器，避免显示上一个DM的内容
+          this.paraDesignerVisible = false
+          this.figureDesignerVisible = false
+          this.levelledParaDesignerVisible = false
+          this.multimediaDesignerVisible = false
+          this.tableDesignerVisible = false
+          this.viewMode = 'source'
+
           // 更新组件数据
           this.id = to.params.id
           this.historyId = to.query.historyId || null
@@ -971,25 +979,49 @@ export default {
 
     // ── 保存（§15） ───────────────────────────────────────────────────────────
     doSave(isAuto = false) {
-      if (this.readonly) return
-      if (!this.content || !this.content.trim()) { if (!isAuto) this.$message.warning('内容为空，无法保存'); return }
+      if (this.readonly) return Promise.resolve()
+      if (!this.content || !this.content.trim()) {
+        if (!isAuto) this.$message.warning('内容为空，无法保存')
+        return Promise.resolve()
+      }
+
       const proceed = () => {
         const body = this.locale === 'cn' ? toEnXml(this.content, this.cn2enElem) : this.content
         this.saving = true
-        postAction(`/ietm/dm-content/save/${this.id}`, { content: body, version: this.dbVersion })
+        return postAction(`/ietm/dm-content/save/${this.id}`, { content: body, version: this.dbVersion })
           .then(res => {
             if (res.success) {
               if (!isAuto) this.$message.success('保存成功')
               this.originalContent = this.content
               this.dirty = false
               if (this.dbVersion != null) this.dbVersion++
-            } else { this._onSaveFail(res) }
-          }).finally(() => { this.saving = false })
+              return true
+            } else {
+              this._onSaveFail(res)
+              return false
+            }
+          })
+          .catch(err => {
+            console.error('[doSave] 保存失败:', err)
+            if (!isAuto) this.$message.error('保存失败：' + (err.message || '网络错误'))
+            return false
+          })
+          .finally(() => { this.saving = false })
       }
+
       const common = this.designerSett.common || {}
       if (common.validdmBeforesave === 'true') {
-        this.doValidate(true).then(ok => { if (ok) proceed(); else this.$message.error('验证未通过，不能保存。') })
-      } else { proceed() }
+        return this.doValidate(true).then(ok => {
+          if (ok) {
+            return proceed()
+          } else {
+            this.$message.error('验证未通过，不能保存。')
+            return Promise.resolve(false)
+          }
+        })
+      } else {
+        return proceed()
+      }
     },
 
     // ── 校验（§17） ───────────────────────────────────────────────────────────

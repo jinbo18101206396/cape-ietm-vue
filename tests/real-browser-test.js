@@ -151,7 +151,6 @@ async function test() {
 
     // 保持浏览器打开5秒
     await page.waitForTimeout(5000)
-
   } catch (error) {
     console.error('\n❌ 测试失败:', error.message)
     console.error(error.stack)

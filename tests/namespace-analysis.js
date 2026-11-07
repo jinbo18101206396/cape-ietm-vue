@@ -80,8 +80,8 @@ console.log('\n' + '='.repeat(60))
 console.log('测试4: XML 大小对比')
 console.log('='.repeat(60) + '\n')
 
-const xml4_current = xml2  // 冗余声明版本
-const xml4_optimized = xml3_onlyRoot  // 优化版本
+const xml4_current = xml2 // 冗余声明版本
+const xml4_optimized = xml3_onlyRoot // 优化版本
 
 console.log(`当前版本大小: ${xml4_current.length} 字节`)
 console.log(`优化版本大小: ${xml4_optimized.length} 字节`)
@@ -108,4 +108,3 @@ console.log('  1. 只在根 levelledPara 元素上声明 xmlns:xlink')
 console.log('  2. 移除 parseXmlToTree 中的预处理逻辑')
 console.log('  3. 移除 nodeToXml 中对嵌套 levelledPara 的 namespace 声明')
 console.log('  4. 移除第二次解析时的 namespace 修复')
-

@@ -861,7 +861,7 @@ export default {
           console.log('🔍 [流程启动成功回调] 单记录刷新，ID:', selectedId)
 
           // 重新查询这条记录的最新状态
-          getAction('/ietm/data-module/queryById', { id: selectedId }).then(res => {
+          getAction(this.url.queryById, { id: selectedId }).then(res => {
             if (res.success && res.result) {
               console.log('✅ [流程启动成功回调] 单记录查询成功')
 
@@ -1018,14 +1018,14 @@ export default {
               this.ipagination.total = Math.max(0, (this.ipagination.total || 0) - 1)
             }
             const deleteType = this.isInitialVersion(record) ? '物理删除' : '逻辑删除'
-            this.$message.success(`删除成功（{deleteType}）`)
+            this.$message.success(`删除成功（${deleteType}）`)
             this.onClearSelected()
           } else {
             this.$message.error(res.message || '删除失败')
           }
         }).catch(err => {
-          // const errorMsg = err.response?.data?.message || err.message || '操作失败，请重试'
-          // this.$message.error(errorMsg)
+          const errorMsg = err.response?.data?.message || err.message || '操作失败，请重试'
+          this.$message.error(errorMsg)
         })
         return
       }
@@ -1052,7 +1052,7 @@ export default {
                 // 部分失败的情况
                 that.$warning({
                   title: '批量删除完成',
-                  content: `成功删除 {result.successCount} 条，失败删除 {result.failCount} 条。点击"查看详情"查看失败原因。`,
+                  content: `成功删除 ${result.successCount} 条，失败删除 ${result.failCount} 条。点击"查看详情"查看失败原因。`,
                   okText: '查看详情',
                   cancelText: '关闭',
                   onOk() {
@@ -1075,8 +1075,8 @@ export default {
               that.$message.error(res.message || '删除失败')
             }
           }).catch(err => {
-            // const errorMsg = err.response?.data?.message || err.message || '删除操作失败，请重试'
-            // that.$message.error(errorMsg)
+            const errorMsg = err.response?.data?.message || err.message || '删除操作失败，请重试'
+            that.$message.error(errorMsg)
           })
         }
       })
@@ -1395,7 +1395,7 @@ export default {
         if (res.success) {
           this.dataSource = res.result
           this.ipagination.total = res.result.length
-          this.$message.success(`搜索到{res.result.length}条记录`)
+          this.$message.success(`搜索到${res.result.length}条记录`)
         }
       }).finally(() => {
         this.loading = false

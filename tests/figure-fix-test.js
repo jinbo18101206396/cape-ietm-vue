@@ -42,7 +42,7 @@ try {
   if (doc.documentElement.nodeName !== 'parsererror') {
     const graphic = doc.getElementsByTagName('graphic')[0]
     const xlinkType = graphic.getAttribute('xlink:type')
-    
+
     if (xlinkType === 'simple') {
       console.log('✅ 旧数据可正确解析')
       console.log(`✅ xlink:type = "${xlinkType}"\n`)
@@ -85,11 +85,11 @@ try {
   if (doc.documentElement.nodeName !== 'parsererror') {
     const graphic = doc.getElementsByTagName('graphic')[0]
     const xlinkType = graphic.getAttribute('xlink:type')
-    
+
     if (xlinkType === 'simple') {
       console.log('✅ 新数据可正确解析')
       console.log(`✅ xlink:type = "${xlinkType}"`)
-      
+
       // 检查是否有重复声明
       const nsCount = (processedXml2.match(/xmlns:xlink/g) || []).length
       if (nsCount === 1) {

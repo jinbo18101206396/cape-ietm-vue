@@ -71,7 +71,6 @@
 
         console.log(`    图片${i}: ICN = ${icnCode || '无'}`)
       })
-
     } catch (e) {
       console.log(`  ⚠️ 无法访问iframe内容: ${e.message}`)
     }

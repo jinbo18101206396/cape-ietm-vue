@@ -98,9 +98,9 @@ test.describe('3D 多媒体预览问题诊断', () => {
     console.log('格式识别结果：', formatDetectionResult)
 
     // ❌ 问题确认：.gltf 和 .stl 不在识别列表中
-    expect(formatDetectionResult.gltf).toBe('other')  // 应该是 '3D'，但实际是 'other'
-    expect(formatDetectionResult.stl).toBe('other')   // 应该是 '3D'，但实际是 'other'
-    expect(formatDetectionResult.wrl).toBe('3D')      // ✓ 正确
+    expect(formatDetectionResult.gltf).toBe('other') // 应该是 '3D'，但实际是 'other'
+    expect(formatDetectionResult.stl).toBe('other') // 应该是 '3D'，但实际是 'other'
+    expect(formatDetectionResult.wrl).toBe('3D') // ✓ 正确
 
     console.log('❌ 问题1确认：multimediaConverter.js 只识别 [.wrl, .smg, .swf]')
     console.log('   缺少 .gltf 和 .stl 扩展名！')
@@ -111,9 +111,9 @@ test.describe('3D 多媒体预览问题诊断', () => {
 
     // 模拟创建三个 3D ICN（实际测试中应该已存在）
     const testIcnCodes = [
-      'ICN-ZB1-A-000000-60101-30101-00010-A-001-01',  // .gltf
-      'ICN-ZB1-A-000000-60101-30101-00008-A-001-01',  // .stl
-      'ICN-ZB1-A-000000-60101-30101-00006-A-001-01'   // .wrl
+      'ICN-ZB1-A-000000-60101-30101-00010-A-001-01', // .gltf
+      'ICN-ZB1-A-000000-60101-30101-00008-A-001-01', // .stl
+      'ICN-ZB1-A-000000-60101-30101-00006-A-001-01' // .wrl
     ]
 
     for (const icnCode of testIcnCodes) {

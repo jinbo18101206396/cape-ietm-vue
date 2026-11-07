@@ -213,6 +213,14 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     .replace(/<h.*?\/>/g, '')
     .replace(/<\/p><symbol/g, '<symbol')
 
+  // 🔧 修复：合并连续的同级列表标签（不破坏嵌套结构）
+  // 根因：富文本编辑器在来回切换时可能生成多个独立的<ul>/<ol>标签
+  // 关键：只合并</ul></li></ul><ul>这种平级模式，保留</ul><ul>这种嵌套模式
+  // 错误模式（平级）：</ul></li></ul><ul><li> → 应合并
+  // 正确模式（嵌套）：<li>text<ul><li> → 应保留
+  para = para.replace(/<\/ul>(\s*)<\/li>(\s*)<\/ul>(\s*)<ul.*?>/g, '')  // 合并平级ul
+    .replace(/<\/ol>(\s*)<\/li>(\s*)<\/ol>(\s*)<ol.*?>/g, '')  // 合并平级ol
+
   para = para.replace(/<ul.*?>/g, '<ul>')
     .replace(/<ol.*?>/g, '<ol>')
     // 修复BUG-006: 使用词边界避免误匹配<list>、<link>
@@ -274,14 +282,103 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     .replace(/<notePara>([\s\S]*?)<\/para>/g, '<notePara>$1</notePara>')
 
   // 🔧 修复P0-1: listItem内para重复问题
-  // 关键: 在<p>→<para>之后转换<li>，此时<li>内可能已有<para>
-  // 策略: 先处理已有<para>的情况（保持不变），再处理无<para>的情况（添加<para>）
+  // 🔧 修复NESTED-LIST: 嵌套列表符号丢失问题
+  // 根因：<li>text<randomList>...</randomList></li> 会被错误包裹成
+  //      <listItem><para>text<randomList>...</randomList></para></listItem>
+  //      这违反S1000D规范（randomList不能在para内），导致嵌套结构被打平
+  // 修复策略：递归处理，从最内层到最外层逐层转换
+  // S1000D正确结构：<listItem><para>text</para><randomList>...</randomList></listItem>
 
-  // 处理已有<para>的<li>（不添加para）
-  para = para.replace(/<li>(\s*<para>[\s\S]*?<\/para>\s*)<\/li>/g, '<listItem>$1</listItem>')
+  // Step 1: 从最内层开始处理，先转换没有嵌套列表的<li>
+  let maxIterations = 20; // 防止死循环
+  let changed = true;
 
-  // 处理无<para>的<li>（添加para）
-  // 使用负向预查确保不匹配已处理的<listItem>
+  while (changed && maxIterations-- > 0) {
+    changed = false;
+    const before = para;
+
+    // 处理不含嵌套列表的<li>（最内层）
+    para = para.replace(/<li>([^<]*|(?:(?!<(?:random|sequential)List).)*?)<\/li>/g, (match, content) => {
+      // 确保内容不包含randomList或sequentialList
+      if (!content.includes('<randomList') && !content.includes('<sequentialList')) {
+        changed = true;
+        const trimmed = content.trim();
+        if (trimmed) {
+          if (trimmed.startsWith('<para>') && trimmed.endsWith('</para>')) {
+            return '<listItem>' + trimmed + '</listItem>';
+          } else {
+            return '<listItem><para>' + trimmed + '</para></listItem>';
+          }
+        }
+        return '<listItem></listItem>';
+      }
+      return match;
+    });
+
+    if (before !== para) continue;
+
+    // 处理含嵌套randomList的<li>
+    para = para.replace(/<li>([\s\S]*?)(<randomList>[\s\S]*?<\/randomList>)([\s\S]*?)<\/li>/g, (match, before, nestedList, after) => {
+      changed = true;
+      let result = '<listItem>';
+
+      const beforeTrimmed = before.trim();
+      if (beforeTrimmed) {
+        if (beforeTrimmed.startsWith('<para>') && beforeTrimmed.endsWith('</para>')) {
+          result += beforeTrimmed;
+        } else {
+          result += '<para>' + beforeTrimmed + '</para>';
+        }
+      }
+
+      result += nestedList;
+
+      const afterTrimmed = after.trim();
+      if (afterTrimmed) {
+        if (afterTrimmed.startsWith('<para>') && afterTrimmed.endsWith('</para>')) {
+          result += afterTrimmed;
+        } else {
+          result += '<para>' + afterTrimmed + '</para>';
+        }
+      }
+
+      result += '</listItem>';
+      return result;
+    });
+
+    if (before !== para) continue;
+
+    // 处理含嵌套sequentialList的<li>
+    para = para.replace(/<li>([\s\S]*?)(<sequentialList>[\s\S]*?<\/sequentialList>)([\s\S]*?)<\/li>/g, (match, before, nestedList, after) => {
+      changed = true;
+      let result = '<listItem>';
+
+      const beforeTrimmed = before.trim();
+      if (beforeTrimmed) {
+        if (beforeTrimmed.startsWith('<para>') && beforeTrimmed.endsWith('</para>')) {
+          result += beforeTrimmed;
+        } else {
+          result += '<para>' + beforeTrimmed + '</para>';
+        }
+      }
+
+      result += nestedList;
+
+      const afterTrimmed = after.trim();
+      if (afterTrimmed) {
+        if (afterTrimmed.startsWith('<para>') && afterTrimmed.endsWith('</para>')) {
+          result += afterTrimmed;
+        } else {
+          result += '<para>' + afterTrimmed + '</para>';
+        }
+      }
+
+      result += '</listItem>';
+      return result;
+    });
+  }
+
+  // Step 2: 兜底处理剩余的<li>标签（如果还有）
   para = para.replace(/<li>([\s\S]*?)<\/li>/g, '<listItem><para>$1</para></listItem>')
 
   // §9.2.3 table转definitionList
