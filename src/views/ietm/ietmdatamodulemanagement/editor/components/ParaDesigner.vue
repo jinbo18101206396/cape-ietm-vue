@@ -341,6 +341,15 @@ export default {
         // 监听内容变化（用户编辑时）
         this.ueditor.addListener('contentChange', checkBrokenReferences)
 
+        // 🔧 2026-11-09 修复：监听内容变化，确保CSS始终存在
+        this.ueditor.addListener('contentChange', () => {
+          // 延迟注入，避免影响性能
+          clearTimeout(this._cssInjectTimer)
+          this._cssInjectTimer = setTimeout(() => {
+            this.injectOrderedListStyles()
+          }, 500)
+        })
+
         // 🔧 修复P0-PERF-1: 使用MutationObserver替代setTimeout轮询
         // 根因：UEditor会动态设置inline style覆盖CSS，必须监听DOM变化并修正
         const fixEditorHeight = () => {
@@ -385,6 +394,9 @@ export default {
               // 设置iframe内部样式失败，忽略
             }
           }
+
+          // 🔧 2026-11-09 修复：注入有序列表CSS样式
+          this.injectOrderedListStyles()
         }
 
         const hideElementPath = () => {
@@ -574,6 +586,138 @@ export default {
       // 不在这里重复注册，避免冲突
     },
 
+    // §9.1 注入有序列表CSS样式（独立函数）
+    injectOrderedListStyles() {
+      if (!this.ueditor) return
+
+      try {
+        const iframe = document.querySelector('.edui-editor iframe')
+        if (!iframe) return
+
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document
+        if (!iframeDoc) return
+
+        const styleId = 'custom-ol-numbering'
+        // 如果已存在则不重复注入
+        if (iframeDoc.getElementById(styleId)) return
+
+        const style = iframeDoc.createElement('style')
+        style.id = styleId
+        style.textContent = `
+          /* 中文出版物标准有序列表层级 - 使用CSS计数器实现自定义格式 */
+
+          /* 修复UEditor默认列表缩进 */
+          ol {
+            padding-left: 30px !important;
+            margin-left: 0;
+          }
+
+          /* 🔧 修复：移除<li>内<p>的上下边距，并改为inline避免换行 */
+          ol li p {
+            margin: 0 !important;
+            padding: 0 !important;
+            display: inline !important;
+          }
+
+          /* 第1层: 1, 2, 3... */
+          ol {
+            list-style-type: decimal;
+            counter-reset: level1;
+          }
+
+          /* 第2层: 1), 2), 3)... */
+          ol ol {
+            list-style-type: none !important;
+            counter-reset: level2;
+            padding-left: 30px !important;
+          }
+          ol ol > li {
+            counter-increment: level2;
+            list-style-type: none !important;
+          }
+          ol ol > li::before {
+            content: counter(level2) ")";
+            margin-right: 0.5em;
+            display: inline-block;
+          }
+
+          /* 第3层: (1), (2), (3)... */
+          ol ol ol {
+            list-style-type: none !important;
+            counter-reset: level3;
+            padding-left: 30px !important;
+          }
+          ol ol ol > li {
+            counter-increment: level3;
+            list-style-type: none !important;
+          }
+          ol ol ol > li::before {
+            content: "(" counter(level3) ")";
+            margin-right: 0.5em;
+            display: inline-block;
+          }
+
+          /* 第4层: 一), 二), 三)... */
+          ol ol ol ol {
+            list-style-type: none !important;
+            counter-reset: level4;
+            padding-left: 30px !important;
+          }
+          ol ol ol ol > li {
+            counter-increment: level4;
+            list-style-type: none !important;
+          }
+          ol ol ol ol > li::before {
+            content: counter(level4, cjk-ideographic) ")";
+            margin-right: 0.5em;
+            display: inline-block;
+          }
+
+          /* 第5层: (一), (二), (三)... */
+          ol ol ol ol ol {
+            list-style-type: none !important;
+            counter-reset: level5;
+            padding-left: 30px !important;
+          }
+          ol ol ol ol ol > li {
+            counter-increment: level5;
+            list-style-type: none !important;
+          }
+          ol ol ol ol ol > li::before {
+            content: "(" counter(level5, cjk-ideographic) ")";
+            margin-right: 0.5em;
+            display: inline-block;
+          }
+
+          /* 第6层及以上: 循环使用标准样式 */
+          ol ol ol ol ol ol {
+            list-style-type: decimal !important;
+            padding-left: 30px !important;
+          }
+          ol ol ol ol ol ol ol {
+            list-style-type: lower-alpha !important;
+            padding-left: 30px !important;
+          }
+          ol ol ol ol ol ol ol ol {
+            list-style-type: lower-roman !important;
+            padding-left: 30px !important;
+          }
+          ol ol ol ol ol ol ol ol ol {
+            list-style-type: upper-alpha !important;
+            padding-left: 30px !important;
+          }
+          ol ol ol ol ol ol ol ol ol ol {
+            list-style-type: upper-roman !important;
+            padding-left: 30px !important;
+          }
+        `
+        iframeDoc.head.appendChild(style)
+        console.log('[ParaDesigner] 有序列表CSS已注入')
+      } catch (e) {
+        console.warn('[ParaDesigner] CSS注入失败:', e)
+      }
+    },
+
     // §10.1 setcontent函数（加载内容）
     async setcontent() {
       // 等待UEditor初始化完成
@@ -678,8 +822,25 @@ export default {
           }
 
           const html = await para2html(this.Parent, xml)
+
+          // 🔧 调试：输出转换后的HTML
+          console.log('[ParaDesigner] para2html转换后的HTML:', html.substring(0, 500))
+
           this.ueditor.setContent(html)
+
+          // 🔧 调试：输出UEditor处理后的HTML
+          this.$nextTick(() => {
+            const contentAfter = this.ueditor.getContent()
+            console.log('[ParaDesigner] setContent后UEditor中的HTML:', contentAfter.substring(0, 500))
+          })
         }
+
+        // 🔧 2026-11-09 修复：setContent后重新注入CSS（因为内容加载可能清空iframe样式）
+        this.$nextTick(() => {
+          setTimeout(() => {
+            this.injectOrderedListStyles()
+          }, 100)
+        })
       } catch (error) {
         this.$message.error('加载内容失败：' + error.message)
       }
@@ -900,7 +1061,6 @@ export default {
     },
 
     // §7.3 插入图符
-    // §7.3 插入图符
     async insertSymbol(xml) {
       // xml 是 symbol 标签，需要包裹成 img 标签供 UEditor 显示
       const apiBaseUrl = window._CONFIG['domianURL'] || '/jeecg-boot'
@@ -938,14 +1098,7 @@ export default {
       const safeXml = escapeXmlForAttribute(xml)
       const html = `<img src="${imgSrc}" xml="${safeXml}" style="max-width: 300px; max-height: 200px; width: auto; height: auto;">`
       this.ueditor.execCommand('inserthtml', html)
-    },
-
-    // §7.4 插入公式（新增）
-    // 🔧 2026-10-15: 移除insertFormula、handleFormulaCancel、processFormulasInContent方法
-    // 使用UEditor自带的kityformula插件，不需要自定义处理
-
-    // 🔧 2026-10-15: 移除processFormulasInContent和saveFormulaToBackend方法
-    // 使用UEditor自带的kityformula插件，公式处理由插件负责
+    }
   }
 }
 </script>

@@ -284,6 +284,8 @@ function _splitGluedTags(xml) {
     // （文本/mixed 元素需保持 <para></para> 单行，光标才能落在中间输入文本）。
     const tokens = t.match(/<[^>]+>|[^<]+/g) || [t]
     const closeNameOf = s => (s && (s.match(/^<\/([^\s>]+)>$/) || [])[1])
+    const inlineElements = ['superScript', 'subScript', 'emphasis', 'subscript']
+
     let i = 0
     while (i < tokens.length) {
       const tok = tokens[i]
@@ -291,12 +293,21 @@ function _splitGluedTags(xml) {
       const openMatch = tok.match(/^<([^\s>/!?]+)[^>]*>$/)
       const openName  = (openMatch && !tok.endsWith('/>')) ? openMatch[1] : undefined
       const t1 = tokens[i + 1], t2 = tokens[i + 2]
+
       if (openName && closeNameOf(t1) === openName) {
         result.push(tok + t1)          // <name></name> 空元素合并单行
         i += 2
       } else if (openName && t1 && t1.charAt(0) !== '<' && closeNameOf(t2) === openName) {
-        result.push(tok + t1 + t2)     // <name>文本</name> 文本叶子合并单行（光标可落中间）
-        i += 3
+        // 🔧 2026-11-09 P0修复: inline 元素（superScript/subScript）始终合并为一行
+        //   其他元素（如普通的 <para>text</para>）也合并为一行
+        //   但如果外层是 para 且包含 inline 元素，则不合并（见下一个条件）
+        if (inlineElements.includes(openName)) {
+          result.push(tok + t1 + t2)   // inline 元素: <superScript>2</superScript> 保持一行
+          i += 3
+        } else {
+          result.push(tok + t1 + t2)   // <name>文本</name> 文本叶子合并单行（光标可落中间）
+          i += 3
+        }
       } else {
         result.push(tok)               // 其余（开/闭/自闭合/文本）各自独占一行
         i++

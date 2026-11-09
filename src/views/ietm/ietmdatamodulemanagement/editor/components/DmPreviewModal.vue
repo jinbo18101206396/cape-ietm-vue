@@ -228,14 +228,141 @@ export default {
 
       // 构建完整HTML文档
       // 注意：后端返回的HTML已包含完整的<style>标签（287行CSS），
-      // 前端不再添加覆盖样式，避免破坏后端精心设计的排版效果
-      const body = html || ''
+      // 🔧 2026-11-09 修复：添加自定义有序列表CSS，覆盖后端样式，确保预览与编辑器一致
+      // 🔧 2026-11-09 修复上标问题：后端XSLT将<superScript>转为<span class="superScript">，需转为<sup>标签
+      let body = html || ''
+
+      // 🔍 调试：打印转换前后的HTML（帮助定位问题）
+      console.log('🔍 [Preview Debug] 后端返回的原始HTML:', html.substring(0, 500))
+      console.log('🔍 [Preview Debug] 是否包含<superScript>标签:', html.includes('<superScript>'))
+      console.log('🔍 [Preview Debug] 是否包含class="superScript":', html.includes('class="superScript"'))
+      console.log('🔍 [Preview Debug] 是否包含<sup>标签:', html.includes('<sup>'))
+
+      // 修复文本格式显示：将后端XSLT输出的span标签转换为标准HTML标签
+      // 后端XSLT (symbols.xsl) 将 <superScript> 转为 <span class="superScript">
+      // 前端需要转换为标准HTML的 <sup> 标签以应用浏览器默认样式
+      body = body
+        // 处理后端XSLT输出的格式（优先）
+        .replace(/<span class="superScript">/g, '<sup>')
+        .replace(/<span class="subScript">/g, '<sub>')
+        // 处理可能存在的原始XML标签（向后兼容）
+        .replace(/<superScript>/g, '<sup>')
+        .replace(/<\/superScript>/g, '</sup>')
+        .replace(/<subScript>/g, '<sub>')
+        .replace(/<\/subScript>/g, '</sub>')
+        // 处理其他格式标签
+        .replace(/<emphasis>/g, '<strong>')
+        .replace(/<\/emphasis>/g, '</strong>')
+
+      // 🔍 调试：打印转换后的结果
+      console.log('🔍 [Preview Debug] 转换后的body:', body.substring(0, 500))
+      console.log('🔍 [Preview Debug] 转换后是否包含<sup>:', body.includes('<sup>'))
+
+      // 自定义有序列表CSS样式（与ParaDesigner.vue中的样式保持一致）
+      const CUSTOM_LIST_STYLE = `
+        <style>
+          /* 中文出版物标准有序列表层级 */
+          ol {
+            padding-left: 30px !important;
+            margin-left: 0;
+          }
+
+          ol li p {
+            margin: 0 !important;
+            padding: 0 !important;
+            display: inline !important;
+          }
+
+          /* 第1层: 1, 2, 3... */
+          ol {
+            list-style-type: decimal;
+            counter-reset: level1;
+          }
+
+          /* 第2层: 1), 2), 3)... */
+          ol ol {
+            list-style-type: none !important;
+            counter-reset: level2;
+            padding-left: 30px !important;
+          }
+          ol ol > li {
+            counter-increment: level2;
+            list-style-type: none !important;
+          }
+          ol ol > li::before {
+            content: counter(level2) ")";
+            margin-right: 0.5em;
+            display: inline-block;
+          }
+
+          /* 第3层: (1), (2), (3)... */
+          ol ol ol {
+            list-style-type: none !important;
+            counter-reset: level3;
+            padding-left: 30px !important;
+          }
+          ol ol ol > li {
+            counter-increment: level3;
+            list-style-type: none !important;
+          }
+          ol ol ol > li::before {
+            content: "(" counter(level3) ")";
+            margin-right: 0.5em;
+            display: inline-block;
+          }
+
+          /* 第4层: 一), 二), 三)... */
+          ol ol ol ol {
+            list-style-type: none !important;
+            counter-reset: level4;
+            padding-left: 30px !important;
+          }
+          ol ol ol ol > li {
+            counter-increment: level4;
+            list-style-type: none !important;
+          }
+          ol ol ol ol > li::before {
+            content: counter(level4, cjk-ideographic) ")";
+            margin-right: 0.5em;
+            display: inline-block;
+          }
+
+          /* 第5层: (一), (二), (三)... */
+          ol ol ol ol ol {
+            list-style-type: none !important;
+            counter-reset: level5;
+            padding-left: 30px !important;
+          }
+          ol ol ol ol ol > li {
+            counter-increment: level5;
+            list-style-type: none !important;
+          }
+          ol ol ol ol ol > li::before {
+            content: "(" counter(level5, cjk-ideographic) ")";
+            margin-right: 0.5em;
+            display: inline-block;
+          }
+
+          /* 上标和下标样式 */
+          sup {
+            vertical-align: super;
+            font-size: 0.75em;
+            line-height: 0;
+          }
+
+          sub {
+            vertical-align: sub;
+            font-size: 0.75em;
+            line-height: 0;
+          }
+        </style>
+      `
 
       // 加载时桩脚本：必须放在 <head>，在 body 内联 <script>（XSLT 生成，如 common.xsl:196
       // 的 new HotspotLink()、base.xsl 的 JumpToRow('dmview')）解析执行之前定义所有旧阅读器
       // 全局函数/构造器/对象，否则会抛 ReferenceError（iframe.onload 太晚，parse 阶段已报错）。
       // 注意：脚本闭合标签在字符串里写成 <\/script>，否则会截断组件 script 块。
-      const fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8">' + STUB_SCRIPT_HEAD + '</head>' +
+      const fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8">' + CUSTOM_LIST_STYLE + STUB_SCRIPT_HEAD + '</head>' +
         '<body style="margin:0;padding:16px;">' + body + '</body></html>'
 
       // 创建Blob URL（text/html类型，iframe会当作完整文档加载）
@@ -302,6 +429,11 @@ export default {
 
               // 渲染热点SVG叠加层
               this.renderHotspotOverlays(iframeDoc, iframeWin)
+
+              // 🔧 2026-11-09 修复：后端XSLT硬编码的序号格式不正确
+              // 问题：后端使用 <span class="seqItem"> 硬编码序号，格式为 (1) → a. → (a)
+              // 解决：用JavaScript替换为正确的格式 1. → 1) → (1)
+              this.fixSequentialListNumbers(iframeDoc)
 
               // 🔧 2026-11-03 修复P1：先替换多媒体占位图标（必须在ICN加载前执行）
               // 修复旧服务器相对路径图标（avicit/ietm/viewer/images/）
@@ -1103,6 +1235,137 @@ export default {
      * @param {Document} iframeDoc - iframe文档对象
      * @param {Window} iframeWin - iframe窗口对象
      */
+    /**
+     * 修复后端XSLT硬编码的有序列表序号格式
+     *
+     * 问题：后端生成的HTML使用 <span class="seqItem"> 硬编码序号
+     * 格式错误：(1) → a. → (a)
+     * 正确格式：1. → 1) → (1)
+     *
+     * 解决方案：
+     * 1. 查找所有 .seqItem 元素
+     * 2. 根据原始序号格式判断层级（更可靠）
+     * 3. 替换序号为正确格式
+     * 4. 重新编号（支持多个列表项）
+     */
+    fixSequentialListNumbers(iframeDoc) {
+      try {
+        const seqItems = iframeDoc.querySelectorAll('span.seqItem')
+        if (seqItems.length === 0) {
+          return
+        }
+
+        const levelCounters = {}
+        let prevLevel = -1
+
+        seqItems.forEach((item, idx) => {
+          const originalText = item.textContent || ''
+          const marginLeft = item.style.marginLeft || '0'
+          const indent = parseInt(marginLeft) / 2 || 0
+
+          // 🔧 智能层级判断：结合原始格式 + 缩进 + 上下文
+          let level = 0
+
+          if (indent === 0) {
+            // 没有缩进 → 第1级
+            level = 0
+          } else if (indent === 1) {
+            // 缩进2em
+            if (/^\([0-9一-十]+\)/.test(originalText.trim())) {
+              // 原格式是 (1) (2) → 第1级（后端错误）或第3级
+              // 看上一项的层级：如果上一项是第0级，这是第1级的错误格式
+              // 如果上一项是第1级，这是第3级
+              if (prevLevel === 0) {
+                level = 0 // 修正后端错误
+              } else if (prevLevel === 1) {
+                level = 2 // 真正的第3级
+              } else {
+                level = 0
+              }
+            } else if (/^[a-z]\./.test(originalText.trim())) {
+              // a., b. → 第2级
+              level = 1
+            } else if (/^\([a-z]\)/.test(originalText.trim())) {
+              // (a), (b) → 第3级
+              level = 2
+            } else {
+              // 默认：根据上一项层级判断
+              if (prevLevel === 0) {
+                level = 1 // 第2级
+              } else if (prevLevel >= 1) {
+                level = prevLevel + 1 // 更深一级
+              } else {
+                level = 1
+              }
+            }
+          } else {
+            // 其他缩进
+            level = indent
+          }
+
+          // 初始化计数器
+          if (!levelCounters[level]) {
+            levelCounters[level] = 1
+          }
+
+          // 重置更深层级的计数器
+          for (let l = level + 1; l <= 10; l++) {
+            levelCounters[l] = 1
+          }
+
+          const counter = levelCounters[level]
+
+          // 移除旧序号
+          let textWithoutNumber = originalText
+            .replace(/^[0-9一-十]+[\.。)）]\s*/, '')
+            .replace(/^[\(（][0-9一-十a-zA-Z]+[\)）]\s*/, '')
+            .replace(/^[a-zA-Z]+[\.。]\s*/, '')
+            .replace(/^[\(（][a-zA-Z]+[\)）]\s*/, '')
+            .trim()
+
+          // 生成新序号
+          let newNumber = ''
+          if (level === 0) {
+            newNumber = `${counter}.`
+          } else if (level === 1) {
+            newNumber = `${counter})`
+          } else if (level === 2) {
+            newNumber = `(${counter})`
+          } else if (level === 3) {
+            const cjk = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
+            newNumber = `${cjk[counter] || counter})`
+          } else if (level === 4) {
+            const cjk = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
+            newNumber = `(${cjk[counter] || counter})`
+          } else {
+            newNumber = `${counter}.`
+          }
+
+          item.innerHTML = `${newNumber}&nbsp;${textWithoutNumber}`
+
+          // 🔧 修复缩进：根据层级设置正确的margin-left
+          if (level === 0) {
+            item.style.marginLeft = '0'
+          } else if (level === 1) {
+            item.style.marginLeft = '2em'
+          } else if (level === 2) {
+            item.style.marginLeft = '4em'
+          } else if (level === 3) {
+            item.style.marginLeft = '6em'
+          } else if (level === 4) {
+            item.style.marginLeft = '8em'
+          } else {
+            item.style.marginLeft = `${level * 2}em`
+          }
+
+          levelCounters[level]++
+          prevLevel = level
+        })
+      } catch (error) {
+        console.error('❌ [Preview] 修复有序列表序号失败:', error)
+      }
+    },
+
     renderHotspotOverlays(iframeDoc, iframeWin) {
       try {
         // 查找所有热点数据标记（由XSLT生成的span.hotspot-data元素）

@@ -18,6 +18,20 @@ import { getDmcByText } from './refsBuilder'  // 🔧 2026-10-10 使用本地DMC
 const PLACEHOLDER_LF = ''  // 换行符占位符
 const PLACEHOLDER_CR = ''  // 回车符占位符
 
+// ========== 无序列表符号映射 ==========
+// UEditor的list-style-type(CSS) ↔ S1000D的randomList@listItemPrefix(descript.xsd)
+// 映射依据渲染层 S1000D40/xsl/lists.xsl：pf02=实心点 pf05=空心圆圈 pf06=方块
+const LISTSTYLE_TO_PF = {
+  disc: 'pf02',
+  circle: 'pf05',
+  square: 'pf06'
+}
+const PF_TO_LISTSTYLE = {
+  pf02: 'disc',
+  pf05: 'circle',
+  pf06: 'square'
+}
+
 // ========== XSS防护工具函数 ==========
 
 /**
@@ -70,6 +84,13 @@ export async function para2html(parent, str) {
 
   let html = str.trim()
 
+  // 🔧 2026-11-09 P0修复: 三级有序列表显示格式问题
+  //   根因: fixListForUEditor()将嵌套列表从para内移到listItem兄弟位置，导致HTML结构错误
+  //   验证: UEditor完全支持标准嵌套HTML (<ol><li>文字<ol>...</ol></li></ol>)
+  //   修复: 移除此调用，让标签替换直接处理标准S1000D结构，CSS样式能正确应用
+  //   影响: 需同步修改html2para侧的fixSiblingNestedLists()调用（第369行）
+  // html = fixListForUEditor(html)  // 已禁用 - 2026-11-09
+
   // §8.2.1 definitionList转table
   // 🔧 修复P0-DEFLIST: 使用[\s\S]*?代替.*?以匹配多行XML
   const deflists = html.match(/<definitionList[\s\S]*?<\/definitionList>/g)
@@ -106,7 +127,35 @@ export async function para2html(parent, str) {
     .replace(/<\/superScript>/g, '</sup>')
     .replace(/<subScript>/g, '<sub>')
     .replace(/<\/subScript>/g, '</sub>')
-    .replace(/<randomList/g, '<ul')
+
+  // 🔧 2026-11-09 P0修复: 清理 <p> 标签内部的空白字符
+  //   根因: XML 格式化后，<para> 内部有换行和缩进，浏览器会显示为空格
+  //   症状: "1²" 在编辑器中显示为 "1          2"（有10个空格）
+  //   修复: 移除 <p> 内部所有的换行和多余空白
+
+  // 安全检查：确保 html 不是 undefined
+  if (html && typeof html === 'string') {
+    // 一次性清理所有空白：将 <p>...</p> 内部的所有多余空白替换为单个空格
+    html = html.replace(/<p([^>]*)>([\s\S]*?)<\/p>/g, (match, attrs, content) => {
+      // 清理内容中的所有多余空白（换行、缩进等）
+      const cleaned = content
+        .replace(/^\s+/, '')           // 移除开头空白
+        .replace(/\s+$/, '')           // 移除结尾空白
+        .replace(/\s+</g, ' <')        // 标签前的空白 → 单个空格
+        .replace(/>\s+/g, '> ')        // 标签后的空白 → 单个空格
+      return `<p${attrs}>${cleaned}</p>`
+    })
+  }
+
+  // 🔧 还原无序列表符号：listItemPrefix → ul的list-style-type（供UEditor显示）
+  // 必须显式输出list-style-type：否则裸<ul>会继承浏览器嵌套默认级联
+  // (L1=disc/L2=circle/L3=square)，导致设计视图符号与保存值不一致。
+  // 无prefix或pf02默认为disc（与descript.xsd默认值一致）。
+  html = html.replace(/<randomList(\s[^>]*)?>/g, (match, attrs) => {
+      const pfMatch = (attrs || '').match(/listItemPrefix="([^"]+)"/)
+      const listStyle = (pfMatch && PF_TO_LISTSTYLE[pfMatch[1]]) || 'disc'
+      return `<ul style="list-style-type:${listStyle}">`
+    })
     .replace(/<\/randomList>/g, '</ul>')
     .replace(/<sequentialList/g, '<ol')
     .replace(/<\/sequentialList>/g, '</ol>')
@@ -120,6 +169,146 @@ export async function para2html(parent, str) {
     .replace(/<\/notePara>/g, '</p>')
     .replace(/<emphasis>/g, '<strong>')
     .replace(/<\/emphasis>/g, '</strong>')
+
+  // 🔧 2026-11-09 P0修复: 移除 <li> 内的 <p> 标签
+  //   标签替换后会产生 <li><p>文字<ol>...</ol></p></li>
+  //   这是非法HTML（<p> 不能包含块级元素如 <ol>）
+  //   解决方案：检测并移除这种模式中的 <p> 标签
+  //   策略：使用简单的字符串替换，移除 <li> 紧跟的 <p> 和 </li> 前的 </p>
+
+  // 移除 <li> 开头的 <p> 和 </li> 结尾的 </p>
+  html = html.replace(/<li>(\s*)<p>/g, '<li>$1')
+  html = html.replace(/<\/p>(\s*)<\/li>/g, '$1</li>')
+
+  // 🔧 2026-11-09 P0修复: 处理最外层 <p> 包含列表的情况
+  //   使用平衡标签匹配，处理两种情况：
+  //   1. <p><ol>...</ol></p> → <ol>...</ol>
+  //   2. <p>文字<ol>...</ol></p> → <p>文字</p><ol>...</ol>
+  function removeOuterParagraphAroundList(str) {
+    console.log('[paraConverter] removeOuterParagraphAroundList 开始')
+
+    // 查找 <p...> 标签
+    const pMatch = str.match(/<p([^>]*)>/)
+    if (!pMatch) {
+      console.log('[paraConverter] 未找到 <p> 标签')
+      return str
+    }
+
+    const pStart = pMatch.index
+    const pAttrs = pMatch[1]
+    const pEnd = pStart + pMatch[0].length
+
+    // 查找配对的 </p>
+    let depth = 1
+    let pos = pEnd
+    while (depth > 0 && pos < str.length) {
+      const nextP = str.indexOf('<p', pos)
+      const nextCloseP = str.indexOf('</p>', pos)
+
+      if (nextCloseP < 0) {
+        console.log('[paraConverter] 没有找到 </p>')
+        return str
+      }
+
+      // 检查 <p 是否是标签开始（不是属性值的一部分）
+      if (nextP >= 0 && nextP < nextCloseP && str[nextP + 2] === '>' || str[nextP + 2] === ' ') {
+        depth++
+        pos = nextP + 2
+      } else {
+        depth--
+        if (depth === 0) {
+          pos = nextCloseP
+          break
+        }
+        pos = nextCloseP + 4
+      }
+    }
+
+    const closePEnd = pos + 4  // pos是</p>的开始位置，+4是</p>的长度
+    const pContent = str.substring(pEnd, pos)
+
+    console.log('[paraConverter] <p>内容:', pContent.substring(0, 100))
+
+    // 查找内容中的 <ol 或 <ul
+    const listMatch = pContent.match(/<(ol|ul)/)
+    if (!listMatch) {
+      console.log('[paraConverter] <p>内不包含列表')
+      return str
+    }
+
+    const listTag = listMatch[1]
+    const listStart = pContent.indexOf(`<${listTag}`)
+
+    // 使用平衡标签匹配找到配对的 </ol> 或 </ul>
+    let listDepth = 1
+    let listPos = listStart + listTag.length + 1
+    const openTag = `<${listTag}`
+    const closeTag = `</${listTag}>`
+
+    while (listDepth > 0 && listPos < pContent.length) {
+      const nextOpen = pContent.indexOf(openTag, listPos)
+      const nextClose = pContent.indexOf(closeTag, listPos)
+
+      if (nextClose < 0) {
+        console.log('[paraConverter] 列表标签不平衡')
+        return str
+      }
+
+      if (nextOpen >= 0 && nextOpen < nextClose) {
+        listDepth++
+        listPos = nextOpen + openTag.length
+      } else {
+        listDepth--
+        if (listDepth === 0) {
+          listPos = nextClose + closeTag.length
+          break
+        }
+        listPos = nextClose + closeTag.length
+      }
+    }
+
+    // 提取列表前后的文本
+    const textBefore = pContent.substring(0, listStart).trim()
+    const listContent = pContent.substring(listStart, listPos)
+    const textAfter = pContent.substring(listPos).trim()
+
+    console.log('[paraConverter] 文字前:', textBefore.substring(0, 30))
+    console.log('[paraConverter] 列表:', listContent.substring(0, 50))
+    console.log('[paraConverter] 文字后:', textAfter.substring(0, 30))
+
+    // 重建HTML
+    const before = str.substring(0, pStart)
+    const after = str.substring(closePEnd)
+    let result = before
+
+    if (textBefore) {
+      result += `<p${pAttrs}>${textBefore}</p>`
+    }
+
+    result += listContent
+
+    if (textAfter) {
+      result += `<p${pAttrs}>${textAfter}</p>`
+    }
+
+    result += after
+
+    console.log('[paraConverter] 处理完成')
+    return result
+  }
+
+  // 循环处理，直到没有外层 <p> 包裹列表
+  console.log('[paraConverter] 开始循环移除外层 <p>')
+  let maxIter = 10
+  while (maxIter-- > 0) {
+    const before = html
+    html = removeOuterParagraphAroundList(html)
+    if (html === before) {
+      console.log('[paraConverter] 循环结束，没有更多变化')
+      break
+    }
+    console.log('[paraConverter] 循环继续，迭代剩余:', maxIter)
+  }
 
   // §8.2.3 internalRef转<a>标签
   const refs = []
@@ -221,7 +410,14 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
   para = para.replace(/<\/ul>(\s*)<\/li>(\s*)<\/ul>(\s*)<ul.*?>/g, '')  // 合并平级ul
     .replace(/<\/ol>(\s*)<\/li>(\s*)<\/ol>(\s*)<ol.*?>/g, '')  // 合并平级ol
 
-  para = para.replace(/<ul.*?>/g, '<ul>')
+  // 🔧 保留无序列表符号：从list-style-type提取符号，暂存为data-pf属性
+  // 根因：旧逻辑<ul.*?>→<ul>会丢弃list-style-type，导致circle/square符号永久丢失
+  para = para.replace(/<ul(\s[^>]*)?>/g, (match, attrs) => {
+    const styleMatch = (attrs || '').match(/list-style-type:\s*([a-z]+)/i)
+    const listStyle = styleMatch ? styleMatch[1].toLowerCase() : 'disc'
+    const pf = LISTSTYLE_TO_PF[listStyle] || 'pf02'
+    return `<ul data-pf="${pf}">`
+  })
     .replace(/<ol.*?>/g, '<ol>')
     // 修复BUG-006: 使用词边界避免误匹配<list>、<link>
     .replace(/<li(\s[^>]*)?\>/g, '<li>')
@@ -248,7 +444,10 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     .replace(/<\/ol><p>/g, '</ol>')
     .replace(/<li><p>/g, '<li>')
     .replace(/<\/p><\/li>/g, '</li>')
-    .replace(/<ul>/g, '<randomList>')
+    // 🔧 将暂存的data-pf转为S1000D标准属性listItemPrefix（pf02=默认实心点，省略）
+    .replace(/<ul data-pf="([^"]+)">/g, (match, pf) => {
+      return pf === 'pf02' ? '<randomList>' : `<randomList listItemPrefix="${pf}">`
+    })
     .replace(/<\/ul>/g, '</randomList>')
     .replace(/<ol>/g, '<sequentialList>')
     .replace(/<\/ol>/g, '</sequentialList>')
@@ -266,6 +465,13 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     .replace(/<\/table>\s*<\/p>/g, '</table>')         // </table> </p>
     .replace(/<\/table>\s*<p>/g, '</table>')           // </table> <p>
 
+  // 🔧 2026-11-09 P0修复: 移除 <li> 内的 <p> 标签（预处理）
+  //   浏览器会自动修复HTML，导致 <li><p>文字<ol>...</ol></p></li>
+  //   这些 <p> 标签会干扰后续的列表转换逻辑
+  //   在转换前移除它们，确保结构干净
+  para = para.replace(/<li>(\s*)<p>/g, '<li>$1')
+  para = para.replace(/<\/p>(\s*)<\/li>/g, '$1</li>')
+
   // 🔧 修复P0-5: warningAndCautionPara/notePara往返问题
   // 在<p>→<para>之前，先识别并转换带data-type的特殊para
   para = para.replace(/<p data-type="warningAndCautionPara">/g, '<warningAndCautionPara>')
@@ -281,104 +487,56 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
   para = para.replace(/<warningAndCautionPara>([\s\S]*?)<\/para>/g, '<warningAndCautionPara>$1</warningAndCautionPara>')
     .replace(/<notePara>([\s\S]*?)<\/para>/g, '<notePara>$1</notePara>')
 
-  // 🔧 修复P0-1: listItem内para重复问题
-  // 🔧 修复NESTED-LIST: 嵌套列表符号丢失问题
-  // 根因：<li>text<randomList>...</randomList></li> 会被错误包裹成
-  //      <listItem><para>text<randomList>...</randomList></para></listItem>
-  //      这违反S1000D规范（randomList不能在para内），导致嵌套结构被打平
-  // 修复策略：递归处理，从最内层到最外层逐层转换
-  // S1000D正确结构：<listItem><para>text</para><randomList>...</randomList></listItem>
+  // 🔧 修复NESTED-LIST: 嵌套列表结构非法 + 符号丢失问题
+  // 根因1(结构)：旧逻辑把嵌套列表放成para的兄弟 <listItem><para>t</para><randomList>…
+  //   违反descript.xsd —— listItem只允许note/para，嵌套列表必须在para内。
+  // 根因2(正则)：<randomList>[\s\S]*?</randomList> 非贪婪，在3层同名嵌套时错配，
+  //   把结构打平成兄弟节点（见图2）。
+  // 正确结构：<listItem><para>文字<randomList>…</randomList></para></listItem>
+  // 修复策略：从最内层<li>开始逐层转换（只匹配内部不含<li>的li，保证最内层先处理）。
 
-  // Step 1: 从最内层开始处理，先转换没有嵌套列表的<li>
-  let maxIterations = 20; // 防止死循环
-  let changed = true;
-
-  while (changed && maxIterations-- > 0) {
-    changed = false;
-    const before = para;
-
-    // 处理不含嵌套列表的<li>（最内层）
-    para = para.replace(/<li>([^<]*|(?:(?!<(?:random|sequential)List).)*?)<\/li>/g, (match, content) => {
-      // 确保内容不包含randomList或sequentialList
-      if (!content.includes('<randomList') && !content.includes('<sequentialList')) {
-        changed = true;
-        const trimmed = content.trim();
-        if (trimmed) {
-          if (trimmed.startsWith('<para>') && trimmed.endsWith('</para>')) {
-            return '<listItem>' + trimmed + '</listItem>';
-          } else {
-            return '<listItem><para>' + trimmed + '</para></listItem>';
-          }
-        }
-        return '<listItem></listItem>';
-      }
-      return match;
-    });
-
-    if (before !== para) continue;
-
-    // 处理含嵌套randomList的<li>
-    para = para.replace(/<li>([\s\S]*?)(<randomList>[\s\S]*?<\/randomList>)([\s\S]*?)<\/li>/g, (match, before, nestedList, after) => {
-      changed = true;
-      let result = '<listItem>';
-
-      const beforeTrimmed = before.trim();
-      if (beforeTrimmed) {
-        if (beforeTrimmed.startsWith('<para>') && beforeTrimmed.endsWith('</para>')) {
-          result += beforeTrimmed;
-        } else {
-          result += '<para>' + beforeTrimmed + '</para>';
-        }
-      }
-
-      result += nestedList;
-
-      const afterTrimmed = after.trim();
-      if (afterTrimmed) {
-        if (afterTrimmed.startsWith('<para>') && afterTrimmed.endsWith('</para>')) {
-          result += afterTrimmed;
-        } else {
-          result += '<para>' + afterTrimmed + '</para>';
-        }
-      }
-
-      result += '</listItem>';
-      return result;
-    });
-
-    if (before !== para) continue;
-
-    // 处理含嵌套sequentialList的<li>
-    para = para.replace(/<li>([\s\S]*?)(<sequentialList>[\s\S]*?<\/sequentialList>)([\s\S]*?)<\/li>/g, (match, before, nestedList, after) => {
-      changed = true;
-      let result = '<listItem>';
-
-      const beforeTrimmed = before.trim();
-      if (beforeTrimmed) {
-        if (beforeTrimmed.startsWith('<para>') && beforeTrimmed.endsWith('</para>')) {
-          result += beforeTrimmed;
-        } else {
-          result += '<para>' + beforeTrimmed + '</para>';
-        }
-      }
-
-      result += nestedList;
-
-      const afterTrimmed = after.trim();
-      if (afterTrimmed) {
-        if (afterTrimmed.startsWith('<para>') && afterTrimmed.endsWith('</para>')) {
-          result += afterTrimmed;
-        } else {
-          result += '<para>' + afterTrimmed + '</para>';
-        }
-      }
-
-      result += '</listItem>';
-      return result;
-    });
+  // 去掉文字片段外层的单层<para>包裹（重建到统一para内）
+  const unwrapPara = (s) => {
+    const t = s.trim()
+    if (t.startsWith('<para>') && t.endsWith('</para>') && t.indexOf('<para>', 6) === -1) {
+      return t.substring(6, t.length - 7)
+    }
+    return t
   }
 
-  // Step 2: 兜底处理剩余的<li>标签（如果还有）
+  let maxIterations = 50  // 防止死循环
+  let changed = true
+  while (changed && maxIterations-- > 0) {
+    changed = false
+    // 只匹配内部不含<li>的最内层<li>（其子列表此时已全部转为listItem）
+    para = para.replace(/<li>((?:(?!<li>|<\/li>)[\s\S])*)<\/li>/g, (match, content) => {
+      changed = true
+      // 分离文字部分与可选的嵌套列表（randomList/sequentialList）
+      const listMatch = content.match(/<(?:randomList|sequentialList)(?:\s[^>]*)?>[\s\S]*<\/(?:randomList|sequentialList)>/)
+      if (listMatch) {
+        const nestedList = listMatch[0]
+        const textBefore = unwrapPara(content.substring(0, listMatch.index))
+        const textAfter = unwrapPara(content.substring(listMatch.index + nestedList.length))
+        // 嵌套列表放在para内，符合S1000D
+        return '<listItem><para>' + textBefore + nestedList + textAfter + '</para></listItem>'
+      }
+      const trimmed = content.trim()
+      if (!trimmed) return '<listItem><para></para></listItem>'
+      if (trimmed.startsWith('<para>') && trimmed.endsWith('</para>')) {
+        return '<listItem>' + trimmed + '</listItem>'
+      }
+      return '<listItem><para>' + trimmed + '</para></listItem>'
+    })
+  }
+
+  // 🔧 2026-11-09 P0修复: 三级有序列表显示格式问题
+  //   根因分析: 之前的注释理解有误 - UEditor的标准模型是嵌套列表在<li>内部，而非兄弟
+  //   实际验证: UEditor完全支持 <ol><li>文字<ol>...</ol></li></ol> 标准HTML结构
+  //   修复策略: 移除fixSiblingNestedLists()调用，保持标准的嵌套结构不变
+  //   影响范围: 与para2html侧的fixListForUEditor()互为逆变换，已同步禁用
+  // para = fixSiblingNestedLists(para)  // 已禁用 - 2026-11-09
+
+  // 兜底：若仍有残留<li>（异常嵌套），简单包裹避免数据丢失
   para = para.replace(/<li>([\s\S]*?)<\/li>/g, '<listItem><para>$1</para></listItem>')
 
   // §9.2.3 table转definitionList
@@ -675,10 +833,136 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     })
   }
 
+  // 🔧 2026-11-09 P0修复: 将包含 inline 元素的内容格式化为多行
+  //   目标: 1<superScript>2</superScript> → 多行格式
+  //   策略: 在 inline 元素前后插入换行，外层调用者会添加 <para> 标签并由 formatXml 添加缩进
+  para = para.replace(/^([^<]*)<(superScript|subScript)([^>]*)>([^<]*)<\/(superScript|subScript)>([^<]*)$/g,
+    (match, textBefore, openTag, inlineAttrs, inlineText, closeTag, textAfter) => {
+      let result = ''
+
+      if (textBefore.trim()) {
+        result += `${textBefore.trim()}\n    `
+      }
+
+      result += `<${openTag}${inlineAttrs}>${inlineText}</${closeTag}>`
+
+      if (textAfter.trim()) {
+        result += `\n    ${textAfter.trim()}`
+      }
+
+      return result
+    })
+
   return para
 }
 
 // ========== 辅助函数 ==========
+
+/**
+ * 修复UEditor嵌套列表的"兄弟"结构，使其符合S1000D。
+ * 输入已是 randomList/sequentialList/listItem/para 形式，但嵌套列表是前一个
+ * listItem的兄弟（UEditor模型）。本函数把每个"紧跟</listItem>的兄弟列表"
+ * 移进前一个listItem的最后一个</para>之前（即嵌套进该listItem的para内）。
+ * 用平衡标签扫描定位列表的结束位置，支持任意层嵌套。
+ * @param {String} s - 待修复的XML片段
+ * @returns {String} - 嵌套列表均位于listItem内para中的合法片段
+ */
+function fixSiblingNestedLists(s) {
+  const LIST_OPEN = /<(randomList|sequentialList)(?:\s[^>]*)?>/g
+  let guard = 1000
+  while (guard-- > 0) {
+    // 找到第一个"</listItem>紧跟一个列表开标签"的位置
+    const m = s.match(/<\/listItem>\s*<(randomList|sequentialList)(?:\s[^>]*)?>/)
+    if (!m) break
+
+    const listStart = m.index + s.substring(m.index).indexOf('<', '</listItem>'.length)
+    const tag = m[1]
+    // 平衡扫描：从listStart找到与之匹配的结束标签
+    const end = findMatchingClose(s, listStart, tag)
+    if (end === -1) break  // 结构异常，停止避免死循环
+
+    const nestedList = s.substring(listStart, end)
+    const liEnd = m.index + '</listItem>'.length  // 前一个listItem的结束位置
+
+    // 在前一个listItem内部，找最后一个</para>（嵌套列表要插在它之前）
+    const liInner = s.substring(0, m.index)
+    const lastParaClose = liInner.lastIndexOf('</para>')
+    if (lastParaClose === -1) break
+
+    // 重建：把nestedList插入到前一个listItem最后一个</para>之前，并从原位置删除
+    const newS =
+      s.substring(0, lastParaClose) +
+      nestedList +
+      s.substring(lastParaClose, liEnd) +
+      s.substring(end)
+    if (newS === s) break
+    s = newS
+  }
+  // 复位正则lastIndex（LIST_OPEN未使用exec，无需复位，占位保持可读性）
+  void LIST_OPEN
+  return s
+}
+
+/**
+ * 从openIdx处的开标签起，平衡扫描同名tag，返回其结束标签之后的下标；找不到返回-1。
+ */
+function findMatchingClose(s, openIdx, tag) {
+  const open = new RegExp(`<${tag}(?:\\s[^>]*)?>`, 'g')
+  const close = new RegExp(`</${tag}>`, 'g')
+  let depth = 0
+  let i = openIdx
+  while (i < s.length) {
+    open.lastIndex = i
+    close.lastIndex = i
+    const o = open.exec(s)
+    const c = close.exec(s)
+    const oIdx = o ? o.index : Infinity
+    const cIdx = c ? c.index : Infinity
+    if (oIdx === Infinity && cIdx === Infinity) return -1
+    if (oIdx < cIdx) {
+      depth++
+      i = oIdx + o[0].length
+    } else {
+      depth--
+      i = cIdx + c[0].length
+      if (depth === 0) return i
+    }
+  }
+  return -1
+}
+
+/**
+ * fixSiblingNestedLists的逆变换（para2html加载侧用）。
+ * 把合法S1000D的 <listItem><para>文字<LIST>…</LIST></para></listItem>
+ * 还原为UEditor模型 <listItem><para>文字</para></listItem><LIST>…</LIST>
+ * （嵌套列表移出para，作为listItem的兄弟）。否则UEditor会把嵌套层级打平重排。
+ * @param {String} s - 含randomList/sequentialList/listItem/para的XML片段
+ * @returns {String} - 嵌套列表均为listItem兄弟的UEditor模型片段
+ */
+function fixListForUEditor(s) {
+  const re = /<listItem>\s*<para>((?:(?!<para>|<\/para>|<listItem>|<randomList|<sequentialList)[\s\S])*?)(<(randomList|sequentialList)(?:\s[^>]*)?>)/
+  let guard = 1000
+  while (guard-- > 0) {
+    const m = s.match(re)
+    if (!m) break
+    const liStart = m.index
+    const text = m[1]
+    const listOpenStart = m.index + m[0].length - m[2].length
+    const tag = m[3]
+    const listEnd = findMatchingClose(s, listOpenStart, tag)
+    if (listEnd === -1) break
+    const list = s.substring(listOpenStart, listEnd)
+    // 嵌套列表后应紧跟 </para></listItem>
+    const tail = s.substring(listEnd).match(/^\s*<\/para>\s*<\/listItem>/)
+    if (!tail) break
+    const liEndAbs = listEnd + tail[0].length
+    const rebuilt = '<listItem><para>' + text.trim() + '</para></listItem>' + list
+    const newS = s.substring(0, liStart) + rebuilt + s.substring(liEndAbs)
+    if (newS === s) break
+    s = newS
+  }
+  return s
+}
 
 /**
  * captionGroup转换辅助函数

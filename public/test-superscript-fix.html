@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>上标样式测试</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      line-height: 2;
+    }
+
+    .test-section {
+      margin-bottom: 40px;
+      padding: 20px;
+      border: 1px solid #ddd;
+      background: #f9f9f9;
+    }
+
+    h2 {
+      color: #333;
+      border-bottom: 2px solid #1890ff;
+      padding-bottom: 10px;
+    }
+
+    /* 修复前：没有样式 */
+    .before sup {
+      /* 没有任何样式 */
+    }
+
+    /* 修复后：正确的上标样式 */
+    .after sup {
+      vertical-align: super;
+      font-size: 0.75em;
+      line-height: 0;
+    }
+
+    .after sub {
+      vertical-align: sub;
+      font-size: 0.75em;
+      line-height: 0;
+    }
+
+    .highlight {
+      background-color: yellow;
+      padding: 2px 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>上标样式修复对比测试</h1>
+
+  <div class="test-section before">
+    <h2>❌ 修复前（错误）</h2>
+    <p>牵引和滑行（总论）-符号清单</p>
+    <p>参考文献<sup class="highlight">12</sup>显示为普通文本</p>
+    <p>化学式 H<sub class="highlight">2</sub>O 的下标也不正确</p>
+    <p style="color: red; font-size: 14px;">
+      ⚠️ 上标和下标显示为正常大小，没有位置偏移
+    </p>
+  </div>
+
+  <div class="test-section after">
+    <h2>✅ 修复后（正确）</h2>
+    <p>牵引和滑行（总论）-符号清单</p>
+    <p>参考文献<sup class="highlight">12</sup>显示为上标</p>
+    <p>化学式 H<sub class="highlight">2</sub>O 的下标正确显示</p>
+    <p style="color: green; font-size: 14px;">
+      ✓ 上标字体缩小到75%，位置上移<br>
+      ✓ 下标字体缩小到75%，位置下移
+    </p>
+  </div>
+
+  <div class="test-section">
+    <h2>🔍 修复的CSS代码</h2>
+    <pre style="background: #f5f5f5; padding: 15px; border-left: 4px solid #1890ff; overflow-x: auto;">
+/* 上标和下标样式 */
+sup {
+  vertical-align: super;  /* 垂直位置提升 */
+  font-size: 0.75em;      /* 字体缩小到75% */
+  line-height: 0;         /* 不影响行高 */
+}
+
+sub {
+  vertical-align: sub;    /* 垂直位置下降 */
+  font-size: 0.75em;      /* 字体缩小到75% */
+  line-height: 0;         /* 不影响行高 */
+}</pre>
+  </div>
+
+  <div class="test-section">
+    <h2>📝 如何验证修复</h2>
+    <ol style="line-height: 1.8;">
+      <li>打开 DM 编辑页面，点击"预览"按钮</li>
+      <li>在预览弹出框中，观察包含上标的文本</li>
+      <li>上标应该显示为：<strong>字体更小</strong>且<strong>位置上移</strong></li>
+      <li>如果仍显示为普通文本，请按 <code>Ctrl+Shift+R</code> 强制刷新浏览器</li>
+    </ol>
+  </div>
+
+  <div style="margin-top: 40px; padding: 20px; background: #fff3cd; border-left: 4px solid #ffc107;">
+    <h3>⚠️ 重要提示</h3>
+    <p><strong>修改 .vue 文件后，需要等待 Webpack 热更新完成。</strong></p>
+    <p>查看终端输出，等待看到类似以下信息：</p>
+    <pre style="background: #f5f5f5; padding: 10px; margin-top: 10px;">
+✔ Compiled successfully in XXXms
+DONE  Compiled successfully in XXXms</pre>
+    <p style="margin-top: 10px;">然后在浏览器中按 <code>Ctrl+Shift+R</code>（强制刷新）或 <code>F5</code> 刷新页面。</p>
+  </div>
+</body>
+</html>
