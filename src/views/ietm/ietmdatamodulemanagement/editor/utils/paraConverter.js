@@ -42,15 +42,31 @@ const PF_TO_LISTSTYLE = {
  */
 export function escapeXmlForAttribute(xml) {
   if (!xml) return ''
-  return xml
+
+  // 🔧 2026-11-10 调试：统计输入的换行符数量
+  const inputNewlines = (xml.match(/\n/g) || []).length
+  console.log('[escapeXmlForAttribute] 输入换行符数量:', inputNewlines)
+  console.log('[escapeXmlForAttribute] 输入前100字符:', xml.substring(0, 100))
+
+  // 🔧 2026-11-10 修复：使用更安全的转义序列，防止UEditor删除
+  // 策略：使用&#xA;（十六进制）代替&#10;（十进制），某些编辑器对十六进制更友好
+  // 如果还不行，则使用自定义占位符（类似URL编码）
+  const result = xml
     .replace(/&/g, '&amp;')   // & 必须最先替换
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')  // 防止属性值闭合
     .replace(/'/g, '&#39;')   // 防止单引号属性值闭合
     .replace(/`/g, '&#96;')   // 防止反引号注入
-    .replace(/\r/g, PLACEHOLDER_CR) // 🔧 2026-10-10 P0-3修复：使用Unicode私有区字符，极大降低冲突风险
-    .replace(/\n/g, PLACEHOLDER_LF) // 🔧 2026-10-10 P0-3修复：使用Unicode私有区字符，极大降低冲突风险
+    .replace(/\r/g, '__CR__')  // 🔧 使用文本占位符，UEditor无法解析
+    .replace(/\n/g, '__LF__')  // 🔧 使用文本占位符，UEditor无法解析
+
+  // 🔧 调试：统计输出的占位符数量
+  const outputPlaceholders = (result.match(/__LF__/g) || []).length
+  console.log('[escapeXmlForAttribute] 输出__LF__数量:', outputPlaceholders)
+  console.log('[escapeXmlForAttribute] 输出前100字符:', result.substring(0, 100))
+
+  return result
 }
 
 /**
@@ -66,8 +82,8 @@ function unescapeXmlAttribute(escapedXml) {
     .replace(/&quot;/g, '"')
     .replace(/&gt;/g, '>')
     .replace(/&lt;/g, '<')
-    .replace(new RegExp(PLACEHOLDER_CR, 'g'), '\r')  // 🔧 2026-10-10 P0-3修复：解码回车符
-    .replace(new RegExp(PLACEHOLDER_LF, 'g'), '\n')  // 🔧 2026-10-10 P0-3修复：解码换行符
+    .replace(/__CR__/g, '\r')  // 🔧 2026-11-10 修复：解码文本占位符
+    .replace(/__LF__/g, '\n')  // 🔧 2026-11-10 修复：解码文本占位符
     .replace(/&amp;/g, '&')    // & 必须最后替换
 }
 
@@ -127,6 +143,8 @@ export async function para2html(parent, str) {
     .replace(/<\/superScript>/g, '</sup>')
     .replace(/<subScript>/g, '<sub>')
     .replace(/<\/subScript>/g, '</sub>')
+    .replace(/<delete>/g, '<s>')
+    .replace(/<\/delete>/g, '</s>')
 
   // 🔧 2026-11-09 P0修复: 清理 <p> 标签内部的空白字符
   //   根因: XML 格式化后，<para> 内部有换行和缩进，浏览器会显示为空格
@@ -136,7 +154,14 @@ export async function para2html(parent, str) {
   // 安全检查：确保 html 不是 undefined
   if (html && typeof html === 'string') {
     // 一次性清理所有空白：将 <p>...</p> 内部的所有多余空白替换为单个空格
+    // 🔧 2026-11-10 修复：跳过包含 <a> 标签（dmRef/internalRef转换后）的 <p>，保留其内部 XML 格式
     html = html.replace(/<p([^>]*)>([\s\S]*?)<\/p>/g, (match, attrs, content) => {
+      // 如果内容包含 <a> 标签（已转换的 dmRef/internalRef/symbol），跳过清理
+      // 这些 <a> 标签的 xml 属性中包含原始的多行格式化 XML，需要保留
+      if (/<a[\s\S]*?xml="/.test(content)) {
+        return match  // 保持原样，不清理空白
+      }
+
       // 清理内容中的所有多余空白（换行、缩进等）
       const cleaned = content
         .replace(/^\s+/, '')           // 移除开头空白
@@ -167,6 +192,14 @@ export async function para2html(parent, str) {
     .replace(/<\/warningAndCautionPara>/g, '</p>')
     .replace(/<notePara>/g, '<p data-type="notePara">')
     .replace(/<\/notePara>/g, '</p>')
+    // 🔧 2026-11-10 P0修复: S1000D <emphasis> 变体 → HTML标准标签（符合S1000D 4.0标准）
+    // 先处理带属性的emphasis（包含开闭标签对）
+    .replace(/<emphasis[^>]*\s+emph="(em01|bold)"[^>]*>([\s\S]*?)<\/emphasis>/g, '<strong>$2</strong>')  // 粗体
+    .replace(/<emphasis[^>]*\s+emph="(em02|italic)"[^>]*>([\s\S]*?)<\/emphasis>/g, '<em>$2</em>')        // 斜体
+    .replace(/<emphasis[^>]*\s+emph="(em03|underscr)"[^>]*>([\s\S]*?)<\/emphasis>/g, '<u>$2</u>')       // 下划线
+    .replace(/<emphasis[^>]*\s+emph="em04"[^>]*>([\s\S]*?)<\/emphasis>/g, '<mark>$2</mark>')            // 高亮/上划线
+    .replace(/<emphasis[^>]*\s+emph="em05"[^>]*>([\s\S]*?)<\/emphasis>/g, '<s>$2</s>')                  // 删除线
+    // 最后处理无属性的emphasis（默认为粗体）
     .replace(/<emphasis>/g, '<strong>')
     .replace(/<\/emphasis>/g, '</strong>')
 
@@ -394,7 +427,11 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     .replace(/<br>/g, '')
     .replace(/<\/br>/g, '')
     .replace(/<br\/>/g, '')
-    .replace(/\n/g, '')
+    // 🔧 2026-11-10 修复：保留换行符，让 formatXml() 处理格式化
+    // 问题：.replace(/\n/g, '') 导致第二次保存时格式丢失（往返转换不一致）
+    // 根因：para2html 保留原始多行 XML → html2para 恢复后仍是多行 → 此处强制删除换行 → 变成单行
+    // 修复：注释此行，保留从设计视图恢复的 XML 的原始格式，让 formatXml() 统一格式化
+    // .replace(/\n/g, '')  // ❌ 已禁用 - 保留换行符以保持格式一致性
     .replace(/<p><\/p>/g, '')
     .replace(/<a name=.*?><\/a>/g, '')
     .replace(/<h\d.*?>/g, '<p>')
@@ -421,6 +458,11 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     .replace(/<ol.*?>/g, '<ol>')
     // 修复BUG-006: 使用词边界避免误匹配<list>、<link>
     .replace(/<li(\s[^>]*)?\>/g, '<li>')
+    // 🔧 2026-11-10 P0修复: 处理带删除线样式的 span (UEditor 可能将 <s> 转换为带样式的 span)
+    // 需要同时处理开标签和闭标签，确保标签配对
+    .replace(/<span[^>]*style="[^"]*text-decoration:\s*line-through[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '<s>$1</s>')
+    .replace(/<span[^>]*style="[^"]*text-decoration:\s*underline\s+line-through[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '<s>$1</s>')
+    .replace(/<span[^>]*style="[^"]*text-decoration:\s*line-through\s+underline[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '<s>$1</s>')
     .replace(/<span.*?>/g, '')
     .replace(/<\/span>/g, '')
     // 修复BUG-004: 使用词边界避免误匹配<para>、<pre>
@@ -436,6 +478,33 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     // 修复BUG-003: 使用词边界避免误匹配<subScript>、<subject>、<submit>
     .replace(/<sub(\s[^>]*)?\>/g, '<subScript>')
     .replace(/<\/sub>/g, '</subScript>')
+    // 🔧 2026-11-10 P0修复: HTML格式标签 → S1000D标准元素（完全符合S1000D 4.0标准）
+    // 删除线: <s>/<del>/<strike> → <delete>
+    .replace(/<s(\s[^>]*)?\>/g, '<delete>')
+    .replace(/<\/s>/g, '</delete>')
+    .replace(/<del(\s[^>]*)?\>/g, '<delete>')
+    .replace(/<\/del>/g, '</delete>')
+    .replace(/<strike(\s[^>]*)?\>/g, '<delete>')
+    .replace(/<\/strike>/g, '</delete>')
+    // 粗体: <b>/<strong> → <emphasis emph="em01">
+    .replace(/<b(\s[^>]*)?\>/g, '<emphasis emph="em01">')
+    .replace(/<\/b>/g, '</emphasis>')
+    .replace(/<strong(\s[^>]*)?\>/g, '<emphasis emph="em01">')
+    .replace(/<\/strong>/g, '</emphasis>')
+    // 斜体: <i>/<em> → <emphasis emph="em02">
+    .replace(/<i(\s[^>]*)?\>/g, '<emphasis emph="em02">')
+    .replace(/<\/i>/g, '</emphasis>')
+    .replace(/<em(\s[^>]*)?\>/g, '<emphasis emph="em02">')
+    .replace(/<\/em>/g, '</emphasis>')
+    // 下划线: <u> → <emphasis emph="em03">
+    .replace(/<u(\s[^>]*)?\>/g, '<emphasis emph="em03">')
+    .replace(/<\/u>/g, '</emphasis>')
+    // 高亮/标记: <mark> → <emphasis emph="em04">
+    .replace(/<mark(\s[^>]*)?\>/g, '<emphasis emph="em04">')
+    .replace(/<\/mark>/g, '</emphasis>')
+    // 插入: <ins> → <emphasis emph="em03"> (与下划线相同效果)
+    .replace(/<ins(\s[^>]*)?\>/g, '<emphasis emph="em03">')
+    .replace(/<\/ins>/g, '</emphasis>')
     .replace(/<\/p><ul>/g, '<ul>')
     .replace(/<\/p><ol>/g, '<ol>')
     .replace(/<\/ul><\/p>/g, '</ul>')

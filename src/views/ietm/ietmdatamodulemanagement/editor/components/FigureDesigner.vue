@@ -9,7 +9,7 @@
 
       <!-- 控制行（标题、ID、保存按钮在同一行）-->
       <div class="toolbar-controls">
-        <label class="control-item">标题：<input type="text" v-model="figureTitle" class="figure-input" :disabled="readonly" placeholder="图形标题（必填）"/></label>
+        <label class="control-item"><span style="color: red;">*</span>标题：<input type="text" v-model="figureTitle" class="figure-input" :disabled="readonly" placeholder="图形标题（必填）"/></label>
         <label class="control-item">ID：<input type="text" v-model="figureId" class="figure-input" :disabled="readonly" placeholder="图形ID（可选）"/></label>
         <a-button type="primary" icon="save" @click="handleSave" :loading="saving" class="save-btn">保存</a-button>
       </div>
@@ -218,7 +218,7 @@ export default {
           // 旧系统行为：空figure时不报错，直接初始化空表单
           this.figureTitle = ''
           this.figureId = ''
-          this.graphics = [{ icn: '', filename: '', hotspots: [] }]
+          this.graphics = []
           this.legends = []
           this.selectedGraphicIndex = 0
           return

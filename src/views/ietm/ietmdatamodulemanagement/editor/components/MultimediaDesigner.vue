@@ -9,7 +9,7 @@
 
       <!-- 控制行（标题、ID、保存按钮在同一行）-->
       <div class="toolbar-controls">
-        <label class="control-item">标题：<input type="text" v-model="multimediaTitle" class="multimedia-input" :disabled="readonly" placeholder="多媒体标题（必填）"/></label>
+        <label class="control-item"><span style="color: red;">*</span>标题：<input type="text" v-model="multimediaTitle" class="multimedia-input" :disabled="readonly" placeholder="多媒体标题（必填）"/></label>
         <label class="control-item">ID：<input type="text" v-model="multimediaId" class="multimedia-input" :disabled="readonly" placeholder="多媒体ID（可选）"/></label>
         <a-button type="primary" icon="save" @click="handleSave" :loading="saving" class="save-btn">保存</a-button>
       </div>
@@ -235,7 +235,7 @@ export default {
         if (isEmptyMultimedia) {
           this.multimediaTitle = ''
           this.multimediaId = ''
-          this.multimediaObjects = [{ icn: '', filename: '', multimediaType: '' }]
+          this.multimediaObjects = []
           this.selectedObjectIndex = 0
           return
         }

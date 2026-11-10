@@ -245,6 +245,12 @@ export default {
         // 处理后端XSLT输出的格式（优先）
         .replace(/<span class="superScript">/g, '<sup>')
         .replace(/<span class="subScript">/g, '<sub>')
+        // 🔧 2026-11-10 P0修复：处理后端XSLT输出的emphasis CSS类 → HTML标准标签
+        .replace(/<span class="boldemphasis">/g, '<strong>')
+        .replace(/<span class="italicemphasis">/g, '<em>')
+        .replace(/<span class="underlineemphasis">/g, '<u>')
+        .replace(/<span class="overlinemphasis">/g, '<mark>')
+        .replace(/<span class="strikethroughemphasis">/g, '<s>')
         // 处理可能存在的原始XML标签（向后兼容）
         .replace(/<superScript>/g, '<sup>')
         .replace(/<\/superScript>/g, '</sup>')
@@ -253,6 +259,9 @@ export default {
         // 处理其他格式标签
         .replace(/<emphasis>/g, '<strong>')
         .replace(/<\/emphasis>/g, '</strong>')
+        // 🔧 2026-11-10 修复删除线显示：将S1000D的<delete>标签转换为HTML的<s>标签
+        .replace(/<delete>/g, '<s>')
+        .replace(/<\/delete>/g, '</s>')
 
       // 🔍 调试：打印转换后的结果
       console.log('🔍 [Preview Debug] 转换后的body:', body.substring(0, 500))

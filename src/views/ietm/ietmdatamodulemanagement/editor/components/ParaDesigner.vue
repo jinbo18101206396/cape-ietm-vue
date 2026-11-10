@@ -888,6 +888,20 @@ export default {
         // html2para函数会处理公式：生成ICN、保存到数据库、转换为symbol标签
         let paraContent = await html2para(this.Parent, html, this.projectParameters, allocatedUniqueids)
 
+        // 🔧 调试日志：详细的换行符诊断
+        console.log('[ParaDesigner] ========== 换行符诊断 ==========')
+        console.log('[ParaDesigner] Step 1 - html2para返回:')
+        console.log('  - 长度:', paraContent.length)
+        console.log('  - 换行符数量:', (paraContent.match(/\n/g) || []).length)
+        console.log('  - 包含dmRef:', paraContent.includes('dmRef'))
+        if (paraContent.includes('dmRef')) {
+          const dmRefMatch = paraContent.match(/<dmRef[\s\S]*?<\/dmRef>/)
+          if (dmRefMatch) {
+            console.log('  - dmRef内容换行数:', (dmRefMatch[0].match(/\n/g) || []).length)
+            console.log('  - dmRef内容预览:', dmRefMatch[0].substring(0, 200))
+          }
+        }
+
         // 🔧 修复P0-DATALOSS-2: 保存前验证转换结果
         // 防止用户手动修改引用元素后数据丢失
         if (html && paraContent) {
@@ -947,6 +961,11 @@ export default {
         // 构建完整的para XML
         let xml = paraContent ? `${paraTag}\n${paraContent}\n</para>` : `${paraTag}\n</para>`
 
+        // 🔧 调试日志：Step 2 - 包裹para标签后
+        console.log('[ParaDesigner] Step 2 - 包裹para标签后:')
+        console.log('  - 长度:', xml.length)
+        console.log('  - 换行符数量:', (xml.match(/\n/g) || []).length)
+
         // 🔧 DEBUG: 检查formatXml前的XML
         console.log('[ParaDesigner] formatXml前的xml长度:', xml.length)
         console.log('[ParaDesigner] formatXml前的换行数:', (xml.match(/\n/g) || []).length)
@@ -955,6 +974,13 @@ export default {
         const indent = this.editor.getLine(this.lineno).indexOf('<')
         console.log('[ParaDesigner] 基础缩进indent:', indent)
         xml = this.formateXml(xml, indent)
+
+        // 🔧 调试日志：Step 3 - formatXml后
+        console.log('[ParaDesigner] Step 3 - formatXml后:')
+        console.log('  - 长度:', xml.length)
+        console.log('  - 换行符数量:', (xml.match(/\n/g) || []).length)
+        console.log('  - 前500字符:', xml.substring(0, 500))
+        console.log('[ParaDesigner] =====================================')
 
         // 🔧 DEBUG: 检查formatXml后的XML
         console.log('[ParaDesigner] formatXml后的xml长度:', xml.length)

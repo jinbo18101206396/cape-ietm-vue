@@ -279,7 +279,8 @@ function _splitGluedTags(xml) {
     const t = line.trim()
     if (!t) return
     // prologue / DOCTYPE 原样保留；无 >< 粘连的行（含内联文本 <t>x</t>）也原样保留
-    if (t.startsWith('<?') || t.startsWith('<!') || !/></.test(t)) { result.push(t); return }
+    // 🔧 2026-11-10 修复：检测 '>空格<' 或 '><' 模式，处理标签之间有空格的情况
+    if (t.startsWith('<?') || t.startsWith('<!') || (!/></.test(t) && !/>\s+</.test(t))) { result.push(t); return }
     // 分词为「标签 | 文本」序列，逐 token 独占一行；但把紧邻的空元素对 <name></name> 合并回一行
     // （文本/mixed 元素需保持 <para></para> 单行，光标才能落在中间输入文本）。
     const tokens = t.match(/<[^>]+>|[^<]+/g) || [t]
