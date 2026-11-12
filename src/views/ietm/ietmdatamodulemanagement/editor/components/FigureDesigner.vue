@@ -9,7 +9,7 @@
 
       <!-- 控制行（标题、ID、保存按钮在同一行）-->
       <div class="toolbar-controls">
-        <label class="control-item">标题：<input type="text" v-model="figureTitle" class="figure-input" :disabled="readonly" placeholder="图形标题（必填）"/></label>
+        <label class="control-item"><span style="color: red;">*</span>标题：<input type="text" v-model="figureTitle" class="figure-input" :disabled="readonly" placeholder="图形标题（必填）"/></label>
         <label class="control-item">ID：<input type="text" v-model="figureId" class="figure-input" :disabled="readonly" placeholder="图形ID（可选）"/></label>
         <a-button type="primary" icon="save" @click="handleSave" :loading="saving" class="save-btn">保存</a-button>
       </div>
@@ -218,7 +218,7 @@ export default {
           // 旧系统行为：空figure时不报错，直接初始化空表单
           this.figureTitle = ''
           this.figureId = ''
-          this.graphics = [{ icn: '', filename: '', hotspots: [] }]
+          this.graphics = []
           this.legends = []
           this.selectedGraphicIndex = 0
           return
@@ -758,6 +758,7 @@ export default {
         flex-direction: column;
         overflow: hidden;
         padding: 8px;
+        min-height: 0;
 
         .preview-panel {
           flex: 1;
@@ -766,6 +767,7 @@ export default {
           background: #fafafa;
           border: 1px solid #e8e8e8;
           border-radius: 2px;
+          min-height: 0;
 
           .panel-title {
             font-weight: 600;
@@ -776,6 +778,7 @@ export default {
             text-decoration: underline;
             color: blue;
             cursor: pointer;
+            flex-shrink: 0;
           }
 
           .preview-container {
@@ -783,15 +786,24 @@ export default {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 10px;
+            padding: 20px;
             overflow: hidden;
             text-align: center;
+            background: #f5f5f5;
+            min-height: 400px;
+
+            /deep/ .ant-spin-container {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 400px;
+            }
 
             .preview-image {
-              max-width: 60%;
-              max-height: 60%;
+              max-width: 100%;
+              max-height: 560px;
               object-fit: contain;
-              margin: 0 auto;
+              display: block;
             }
           }
         }

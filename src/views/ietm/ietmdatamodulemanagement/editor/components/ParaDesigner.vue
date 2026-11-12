@@ -725,6 +725,15 @@ export default {
         return
       }
 
+      // 🔧 修复：检查 CodeMirror 实例是否已初始化
+      // 根因：组件挂载时 $refs.editor 可能还未完成 CodeMirror 初始化
+      // 导致 this.editor 为 null/undefined，调用 getLine() 时报错 "Cannot read properties of undefined (reading 'dom')"
+      if (!this.editor || typeof this.editor.getLine !== 'function') {
+        this.$message.error('编辑器未就绪，请稍后重试')
+        console.error('[ParaDesigner] CodeMirror 实例未初始化，editor=', this.editor)
+        return
+      }
+
       try {
         const paraName = this.getLocaleName('para')
         const nowstr = this.editor.getLine(this.lineno)
@@ -746,6 +755,23 @@ export default {
           // 单行para
           const html = await para2html(this.Parent, nowstr)
           this.ueditor.setContent(html)
+
+          // 🔧 2026-11-11 P0修复：移除UEditor自动添加的<li>内的<p>标签
+          this.$nextTick(() => {
+            const body = this.ueditor.body
+            const listItems = body.querySelectorAll('li > p')
+
+            listItems.forEach(p => {
+              const parent = p.parentNode
+              if (parent && parent.tagName === 'LI') {
+                while (p.firstChild) {
+                  parent.insertBefore(p.firstChild, p)
+                }
+                parent.removeChild(p)
+              }
+            })
+          })
+
           this.endline = this.lineno
         } else {
           // 多行para
@@ -828,9 +854,35 @@ export default {
 
           this.ueditor.setContent(html)
 
-          // 🔧 调试：输出UEditor处理后的HTML
+          // 🔧 2026-11-11 P0修复：UEditor的setContent会自动在<li>内添加<p>标签
+          //   这会导致嵌套列表结构被破坏（UEditor将嵌套的<ol>提升为兄弟节点）
+          //   解决方案：setContent后立即移除<li>内的<p>标签
           this.$nextTick(() => {
-            const contentAfter = this.ueditor.getContent()
+            const editor = this.ueditor
+            const body = editor.body
+
+            // 查找所有<li>内的<p>标签并移除
+            const listItems = body.querySelectorAll('li > p')
+            let removedCount = 0
+
+            listItems.forEach(p => {
+              const parent = p.parentNode
+              if (parent && parent.tagName === 'LI') {
+                // 将<p>的内容移到<li>中，然后移除<p>
+                while (p.firstChild) {
+                  parent.insertBefore(p.firstChild, p)
+                }
+                parent.removeChild(p)
+                removedCount++
+              }
+            })
+
+            if (removedCount > 0) {
+              console.log(`[ParaDesigner] 移除了 ${removedCount} 个<li>内的<p>标签`)
+            }
+
+            // 调试：输出清理后的HTML
+            const contentAfter = editor.getContent()
             console.log('[ParaDesigner] setContent后UEditor中的HTML:', contentAfter.substring(0, 500))
           })
         }
@@ -887,6 +939,20 @@ export default {
         // 2. 转换HTML→XML（传入分配的uniqueid数组）
         // html2para函数会处理公式：生成ICN、保存到数据库、转换为symbol标签
         let paraContent = await html2para(this.Parent, html, this.projectParameters, allocatedUniqueids)
+
+        // 🔧 调试日志：详细的换行符诊断
+        console.log('[ParaDesigner] ========== 换行符诊断 ==========')
+        console.log('[ParaDesigner] Step 1 - html2para返回:')
+        console.log('  - 长度:', paraContent.length)
+        console.log('  - 换行符数量:', (paraContent.match(/\n/g) || []).length)
+        console.log('  - 包含dmRef:', paraContent.includes('dmRef'))
+        if (paraContent.includes('dmRef')) {
+          const dmRefMatch = paraContent.match(/<dmRef[\s\S]*?<\/dmRef>/)
+          if (dmRefMatch) {
+            console.log('  - dmRef内容换行数:', (dmRefMatch[0].match(/\n/g) || []).length)
+            console.log('  - dmRef内容预览:', dmRefMatch[0].substring(0, 200))
+          }
+        }
 
         // 🔧 修复P0-DATALOSS-2: 保存前验证转换结果
         // 防止用户手动修改引用元素后数据丢失
@@ -947,6 +1013,11 @@ export default {
         // 构建完整的para XML
         let xml = paraContent ? `${paraTag}\n${paraContent}\n</para>` : `${paraTag}\n</para>`
 
+        // 🔧 调试日志：Step 2 - 包裹para标签后
+        console.log('[ParaDesigner] Step 2 - 包裹para标签后:')
+        console.log('  - 长度:', xml.length)
+        console.log('  - 换行符数量:', (xml.match(/\n/g) || []).length)
+
         // 🔧 DEBUG: 检查formatXml前的XML
         console.log('[ParaDesigner] formatXml前的xml长度:', xml.length)
         console.log('[ParaDesigner] formatXml前的换行数:', (xml.match(/\n/g) || []).length)
@@ -955,6 +1026,13 @@ export default {
         const indent = this.editor.getLine(this.lineno).indexOf('<')
         console.log('[ParaDesigner] 基础缩进indent:', indent)
         xml = this.formateXml(xml, indent)
+
+        // 🔧 调试日志：Step 3 - formatXml后
+        console.log('[ParaDesigner] Step 3 - formatXml后:')
+        console.log('  - 长度:', xml.length)
+        console.log('  - 换行符数量:', (xml.match(/\n/g) || []).length)
+        console.log('  - 前500字符:', xml.substring(0, 500))
+        console.log('[ParaDesigner] =====================================')
 
         // 🔧 DEBUG: 检查formatXml后的XML
         console.log('[ParaDesigner] formatXml后的xml长度:', xml.length)

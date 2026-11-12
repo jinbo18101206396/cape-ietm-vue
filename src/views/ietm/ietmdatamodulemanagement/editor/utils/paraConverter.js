@@ -42,15 +42,32 @@ const PF_TO_LISTSTYLE = {
  */
 export function escapeXmlForAttribute(xml) {
   if (!xml) return ''
-  return xml
+
+  // 🔧 2026-11-10 调试：统计输入的换行符数量
+  const inputNewlines = (xml.match(/\n/g) || []).length
+  console.log('[escapeXmlForAttribute] 输入换行符数量:', inputNewlines)
+  console.log('[escapeXmlForAttribute] 输入前100字符:', xml.substring(0, 100))
+
+  // 🔧 2026-11-11 修复: 使用 Unicode 私有区常量替代文本占位符
+  // 原因: '__LF__'/'__CR__' 是普通字符串，若用户文本中恰好包含这两个字符串
+  //       则解码时会被误还原为换行符，造成数据破坏。
+  //       Unicode 私有区字符（U+E001/U+E002）在正常文本中不会出现，更安全。
+  const result = xml
     .replace(/&/g, '&amp;')   // & 必须最先替换
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')  // 防止属性值闭合
     .replace(/'/g, '&#39;')   // 防止单引号属性值闭合
     .replace(/`/g, '&#96;')   // 防止反引号注入
-    .replace(/\r/g, PLACEHOLDER_CR) // 🔧 2026-10-10 P0-3修复：使用Unicode私有区字符，极大降低冲突风险
-    .replace(/\n/g, PLACEHOLDER_LF) // 🔧 2026-10-10 P0-3修复：使用Unicode私有区字符，极大降低冲突风险
+    .replace(/\r/g, PLACEHOLDER_CR)  // 使用 Unicode 私有区字符，避免与用户文本冲突
+    .replace(/\n/g, PLACEHOLDER_LF)  // 使用 Unicode 私有区字符，避免与用户文本冲突
+
+  // 🔧 调试：统计输出的占位符数量
+  const outputPlaceholders = (result.match(new RegExp(PLACEHOLDER_LF, 'g')) || []).length
+  console.log('[escapeXmlForAttribute] 输出PLACEHOLDER_LF数量:', outputPlaceholders)
+  console.log('[escapeXmlForAttribute] 输出前100字符:', result.substring(0, 100))
+
+  return result
 }
 
 /**
@@ -66,8 +83,12 @@ function unescapeXmlAttribute(escapedXml) {
     .replace(/&quot;/g, '"')
     .replace(/&gt;/g, '>')
     .replace(/&lt;/g, '<')
-    .replace(new RegExp(PLACEHOLDER_CR, 'g'), '\r')  // 🔧 2026-10-10 P0-3修复：解码回车符
-    .replace(new RegExp(PLACEHOLDER_LF, 'g'), '\n')  // 🔧 2026-10-10 P0-3修复：解码换行符
+    // 🔧 2026-11-11 修复: 同步使用 Unicode 私有区常量解码（对应 escapeXmlForAttribute 修复）
+    // 同时保留 __CR__/__LF__ 兼容解码，确保历史数据仍能正确还原
+    .replace(new RegExp(PLACEHOLDER_CR, 'g'), '\r')
+    .replace(new RegExp(PLACEHOLDER_LF, 'g'), '\n')
+    .replace(/__CR__/g, '\r')   // 兼容：解码旧数据中的文本占位符
+    .replace(/__LF__/g, '\n')   // 兼容：解码旧数据中的文本占位符
     .replace(/&amp;/g, '&')    // & 必须最后替换
 }
 
@@ -84,12 +105,13 @@ export async function para2html(parent, str) {
 
   let html = str.trim()
 
-  // 🔧 2026-11-09 P0修复: 三级有序列表显示格式问题
-  //   根因: fixListForUEditor()将嵌套列表从para内移到listItem兄弟位置，导致HTML结构错误
-  //   验证: UEditor完全支持标准嵌套HTML (<ol><li>文字<ol>...</ol></li></ol>)
-  //   修复: 移除此调用，让标签替换直接处理标准S1000D结构，CSS样式能正确应用
-  //   影响: 需同步修改html2para侧的fixSiblingNestedLists()调用（第369行）
-  // html = fixListForUEditor(html)  // 已禁用 - 2026-11-09
+  // 🔧 2026-11-11 P0修复: 三级有序列表显示层级错乱问题
+  //   根因: UEditor会自动"修复" <li>文字<ol>...</ol></li> 结构，将嵌套的<ol>提升为兄弟节点
+  //   症状: 图1保存后再次加载（图3），"二级"和"三级"变成同一层级
+  //   验证: UEditor实际不支持标准嵌套HTML，必须转换为兄弟结构才能正确显示
+  //   修复: 启用fixListForUEditor()，将嵌套列表移到listItem兄弟位置（适配UEditor期望结构）
+  //   往返: para2html用fixListForUEditor() + html2para用第663行修复逻辑，保证XML↔HTML双向一致
+  html = fixListForUEditor(html)
 
   // §8.2.1 definitionList转table
   // 🔧 修复P0-DEFLIST: 使用[\s\S]*?代替.*?以匹配多行XML
@@ -121,32 +143,13 @@ export async function para2html(parent, str) {
   }
 
   // §8.2.2 基础元素转换
-  html = html.replace(/<para/g, '<p')
-    .replace(/<\/para>/g, '</p>')
-    .replace(/<superScript>/g, '<sup>')
-    .replace(/<\/superScript>/g, '</sup>')
-    .replace(/<subScript>/g, '<sub>')
-    .replace(/<\/subScript>/g, '</sub>')
+  // 🔧 2026-11-11 P0修复: 先转换列表元素，再转换para
+  //   根因: 如果先转换para→p，会导致listItem内的para也变成p
+  //   HTML规范: <li>内部可以直接包含文本，不需要<p>
+  //   问题: <li><p>文字<ol>...</ol></p></li> 浏览器会重新排列成错误结构
+  //   修复: 先转换列表元素，然后只转换非listItem内的para
 
-  // 🔧 2026-11-09 P0修复: 清理 <p> 标签内部的空白字符
-  //   根因: XML 格式化后，<para> 内部有换行和缩进，浏览器会显示为空格
-  //   症状: "1²" 在编辑器中显示为 "1          2"（有10个空格）
-  //   修复: 移除 <p> 内部所有的换行和多余空白
-
-  // 安全检查：确保 html 不是 undefined
-  if (html && typeof html === 'string') {
-    // 一次性清理所有空白：将 <p>...</p> 内部的所有多余空白替换为单个空格
-    html = html.replace(/<p([^>]*)>([\s\S]*?)<\/p>/g, (match, attrs, content) => {
-      // 清理内容中的所有多余空白（换行、缩进等）
-      const cleaned = content
-        .replace(/^\s+/, '')           // 移除开头空白
-        .replace(/\s+$/, '')           // 移除结尾空白
-        .replace(/\s+</g, ' <')        // 标签前的空白 → 单个空格
-        .replace(/>\s+/g, '> ')        // 标签后的空白 → 单个空格
-      return `<p${attrs}>${cleaned}</p>`
-    })
-  }
-
+  // Step 1: 转换列表元素（randomList/sequentialList/listItem）
   // 🔧 还原无序列表符号：listItemPrefix → ul的list-style-type（供UEditor显示）
   // 必须显式输出list-style-type：否则裸<ul>会继承浏览器嵌套默认级联
   // (L1=disc/L2=circle/L3=square)，导致设计视图符号与保存值不一致。
@@ -161,22 +164,191 @@ export async function para2html(parent, str) {
     .replace(/<\/sequentialList>/g, '</ol>')
     .replace(/<listItem/g, '<li')
     .replace(/<\/listItem>/g, '</li>')
-    // 🔧 修复P0-5: warningAndCautionPara/notePara往返问题
-    // 添加data-type属性标记，以便html2para还原时识别原始类型
-    .replace(/<warningAndCautionPara>/g, '<p data-type="warningAndCautionPara">')
+
+  // Step 2: 移除<li>内部的<para>标签
+  // 🔧 2026-11-11 P0修复: 移除<li>内的<para>标签，简化为标准HTML结构
+  //   根因: UEditor会自动"修复" <li><p>文字<ol>...</ol></p></li> 结构
+  //   实际测试: 即使保留<p>标签，UEditor仍会将嵌套的<ol>提升为兄弟节点
+  //   正确方案: 使用 <li>文字<ol>...</ol></li>（HTML5标准，不需要<p>包裹）
+  //   关键: 在para2html阶段就移除<li>内的<para>标签
+
+  // 先转换para标签，后面会专门处理<li>内的<p>
+
+  // Step 3: 转换剩余的para标签（外层para和其他非listItem内的para）
+  html = html.replace(/<para/g, '<p')
+    .replace(/<\/para>/g, '</p>')
+    .replace(/<superScript>/g, '<sup>')
+    .replace(/<\/superScript>/g, '</sup>')
+    .replace(/<subScript>/g, '<sub>')
+    .replace(/<\/subScript>/g, '</sub>')
+    // 注意：删除线通过 <emphasis emphasisType="em05"> 处理，不使用 <delete> 元素
+    // <delete> 是块级元素，不能在 <para> 内使用
+
+  // Step 4: 处理包含列表的<p>标签
+  // ⚠️ HTML规范：<p>不能直接包含块级元素（如<ol>、<ul>）
+  // S1000D中：<para>可以直接包含<sequentialList>、<randomList>
+  // 策略：
+  //   1. 最外层的<p>如果只包含列表（无文字），直接移除<p>标签
+  //   2. 最外层的<p>如果包含列表和文字，保留<p>标签（UEditor支持HTML5结构）
+  // 🔧 2026-11-11 修复: <li>内的<p>已在前面移除，这里只处理最外层<p>
+
+  function convertParagraphsWithLists(str) {
+    let result = str
+    let changed = true
+    let maxIterations = 50
+
+    while (changed && maxIterations-- > 0) {
+      changed = false
+
+      // 查找第一个<p>标签
+      const pMatch = result.match(/<p([^>]*)>/)
+      if (!pMatch) break
+
+      const pStart = pMatch.index
+      const pAttrs = pMatch[1]
+      const pEnd = pStart + pMatch[0].length
+
+      // 使用深度计数找到匹配的</p>
+      let depth = 1
+      let pos = pEnd
+      let closePEnd = -1
+
+      while (depth > 0 && pos < result.length) {
+        const nextOpen = result.indexOf('<p', pos)
+        const nextClose = result.indexOf('</p>', pos)
+
+        if (nextClose === -1) break
+
+        if (nextOpen !== -1 && nextOpen < nextClose) {
+          const charAfter = result.charAt(nextOpen + 2)
+          if (charAfter === '>' || charAfter === ' ') {
+            depth++
+          }
+          pos = nextOpen + 2
+        } else {
+          depth--
+          if (depth === 0) {
+            closePEnd = nextClose + 4
+            break
+          }
+          pos = nextClose + 4
+        }
+      }
+
+      if (closePEnd === -1) break
+
+      // 提取<p>内容
+      const content = result.substring(pEnd, closePEnd - 4)
+
+      // 检查内容是否直接包含<ol>或<ul>
+      if (/<(ol|ul)[\s>]/.test(content)) {
+        // 检查<p>是否在<li>内：向前查找，统计<li>和</li>的数量
+        const beforeP = result.substring(0, pStart)
+        const openLiCount = (beforeP.match(/<li[\s>]/g) || []).length
+        const closeLiCount = (beforeP.match(/<\/li>/g) || []).length
+        const isInsideLi = openLiCount > closeLiCount  // 如果<li>多于</li>，说明在<li>内
+
+        // 检查内容是否只有列表：去掉空白后是否以<ol或<ul开头
+        const contentTrimmed = content.trim()
+        const isOnlyList = /^<(ol|ul)[\s>]/.test(contentTrimmed)
+
+        if (isInsideLi) {
+          // 🔧 2026-11-11 P0修复: <li>内的<p>已被移除，跳过
+          //   前置步骤已经执行: <li><p>文字<ol>...</ol></p></li> → <li>文字<ol>...</ol></li>
+          //   这里不应该匹配到<li>内的<p>，如果匹配到说明前置步骤有问题
+          console.warn('[paraConverter] 警告: <li>内仍有<p>标签，前置移除步骤可能失败')
+          // 跳过这个<p>
+          result = result.substring(0, pStart) +
+                   '\x00P\x00' + pAttrs + '\x00' +
+                   content +
+                   '\x00/P\x00' +
+                   result.substring(closePEnd)
+        } else if (isOnlyList) {
+          // 最外层的<p>只包含列表，直接移除<p>标签
+          result = result.substring(0, pStart) +
+                   content +
+                   result.substring(closePEnd)
+          changed = true
+        } else {
+          // 🔧 2026-11-11 P0修复: 最外层的<p>包含列表和文字，保留<p>标签
+          //   原因: 与<li>内的处理保持一致，UEditor支持<p>内包含块级元素
+          //   HTML5规范: 虽然不推荐，但<p>内包含块级元素是合法的
+          result = result.substring(0, pStart) +
+                   '\x00P\x00' + pAttrs + '\x00' +
+                   content +
+                   '\x00/P\x00' +
+                   result.substring(closePEnd)
+          // 不设置changed=true，跳过这个<p>
+        }
+      } else {
+        // 跳过这个<p>，继续查找下一个
+        result = result.substring(0, pStart) +
+                 '\x00P\x00' + pAttrs + '\x00' +
+                 content +
+                 '\x00/P\x00' +
+                 result.substring(closePEnd)
+      }
+    }
+
+    // 还原临时标记
+    result = result.replace(/\x00P\x00([^\x00]*)\x00/g, '<p$1>')
+      .replace(/\x00\/P\x00/g, '</p>')
+
+    return result
+  }
+
+  html = convertParagraphsWithLists(html)
+
+  // 🔧 2026-11-09 P0修复: 清理 <p> 标签内部的空白字符
+  //   根因: XML 格式化后，<para> 内部有换行和缩进，浏览器会显示为空格
+  //   症状: "1²" 在编辑器中显示为 "1          2"（有10个空格）
+  //   修复: 移除 <p> 内部所有的换行和多余空白
+
+  // 安全检查：确保 html 不是 undefined
+  if (html && typeof html === 'string') {
+    // 一次性清理所有空白：将 <p>...</p> 内部的所有多余空白替换为单个空格
+    // 🔧 2026-11-10 修复：跳过包含 <a> 标签（dmRef/internalRef转换后）的 <p>，保留其内部 XML 格式
+    html = html.replace(/<p([^>]*)>([\s\S]*?)<\/p>/g, (match, attrs, content) => {
+      // 如果内容包含 <a> 标签（已转换的 dmRef/internalRef/symbol），跳过清理
+      // 这些 <a> 标签的 xml 属性中包含原始的多行格式化 XML，需要保留
+      if (/<a[\s\S]*?xml="/.test(content)) {
+        return match  // 保持原样，不清理空白
+      }
+
+      // 清理内容中的所有多余空白（换行、缩进等）
+      const cleaned = content
+        .replace(/^\s+/, '')           // 移除开头空白
+        .replace(/\s+$/, '')           // 移除结尾空白
+        .replace(/\s+</g, ' <')        // 标签前的空白 → 单个空格
+        .replace(/>\s+/g, '> ')        // 标签后的空白 → 单个空格
+      return `<p${attrs}>${cleaned}</p>`
+    })
+  }
+
+  // 🔧 修复P0-5: warningAndCautionPara/notePara往返问题
+  // 添加data-type属性标记，以便html2para还原时识别原始类型
+  html = html.replace(/<warningAndCautionPara>/g, '<p data-type="warningAndCautionPara">')
     .replace(/<\/warningAndCautionPara>/g, '</p>')
     .replace(/<notePara>/g, '<p data-type="notePara">')
     .replace(/<\/notePara>/g, '</p>')
+    // 🔧 2026-11-11 P0修复: S1000D <emphasis> 使用正确属性 emphasisType（符合S1000D 4.0标准）
+    // 先处理带属性的emphasis（包含开闭标签对）
+    .replace(/<emphasis[^>]*\s+emphasisType="(em01|bold)"[^>]*>([\s\S]*?)<\/emphasis>/g, '<strong>$2</strong>')  // 粗体
+    .replace(/<emphasis[^>]*\s+emphasisType="(em02|italic)"[^>]*>([\s\S]*?)<\/emphasis>/g, '<em>$2</em>')        // 斜体
+    .replace(/<emphasis[^>]*\s+emphasisType="(em03|underscr)"[^>]*>([\s\S]*?)<\/emphasis>/g, '<u>$2</u>')       // 下划线
+    .replace(/<emphasis[^>]*\s+emphasisType="em04"[^>]*>([\s\S]*?)<\/emphasis>/g, '<mark>$1</mark>')            // 高亮/上划线 (只有1个捕获组)
+    .replace(/<emphasis[^>]*\s+emphasisType="em05"[^>]*>([\s\S]*?)<\/emphasis>/g, '<s>$1</s>')                  // 删除线 (只有1个捕获组)
+    // 🔧 2026-11-11 兼容性处理: 转换旧数据中的 <delete> 元素（块级元素，已废弃）
+    .replace(/<delete>([\s\S]*?)<\/delete>/g, '<s>$1</s>')  // 将旧的 <delete> 转为 <s> 以便显示
+    // 最后处理无属性的emphasis（默认为粗体）
     .replace(/<emphasis>/g, '<strong>')
     .replace(/<\/emphasis>/g, '</strong>')
 
-  // 🔧 2026-11-09 P0修复: 移除 <li> 内的 <p> 标签
-  //   标签替换后会产生 <li><p>文字<ol>...</ol></p></li>
-  //   这是非法HTML（<p> 不能包含块级元素如 <ol>）
-  //   解决方案：检测并移除这种模式中的 <p> 标签
-  //   策略：使用简单的字符串替换，移除 <li> 紧跟的 <p> 和 </li> 前的 </p>
-
-  // 移除 <li> 开头的 <p> 和 </li> 结尾的 </p>
+  // 🔧 2026-11-11 P0修复: 移除 <li> 内的 <p> 标签
+  //   根因: UEditor会自动"修复" <li><p>文字<ol>...</ol></p></li> 结构
+  //   测试发现: 即使保留<p>标签，UEditor仍会将嵌套的<ol>提升为兄弟节点（见图3）
+  //   正确方案: 使用 <li>文字<ol>...</ol></li>（HTML5标准，不需要<p>包裹）
+  //   关键: 移除<li>内的<p>标签，让UEditor按标准HTML处理
   html = html.replace(/<li>(\s*)<p>/g, '<li>$1')
   html = html.replace(/<\/p>(\s*)<\/li>/g, '$1</li>')
 
@@ -297,18 +469,24 @@ export async function para2html(parent, str) {
     return result
   }
 
-  // 循环处理，直到没有外层 <p> 包裹列表
-  console.log('[paraConverter] 开始循环移除外层 <p>')
-  let maxIter = 10
-  while (maxIter-- > 0) {
-    const before = html
-    html = removeOuterParagraphAroundList(html)
-    if (html === before) {
-      console.log('[paraConverter] 循环结束，没有更多变化')
-      break
-    }
-    console.log('[paraConverter] 循环继续，迭代剩余:', maxIter)
-  }
+  // 🔧 2026-11-11 P0修复: 禁用移除外层<p>包裹列表的逻辑
+  //   根因: removeOuterParagraphAroundList会将 <p>文字<ol>...</ol></p> 转换为 <p>文字</p><ol>...</ol>
+  //   这导致UEditor认为HTML结构错误，自动将<ol>提升为<li>的兄弟节点
+  //   解决方案: 保留 <p>文字<ol>...</ol></p> 结构，让UEditor不"修复"它
+  //   注意: <p>内包含块级元素在HTML5中是合法的，UEditor支持这种结构
+
+  // 已禁用 - 保留<p>包裹列表的结构
+  // console.log('[paraConverter] 开始循环移除外层 <p>')
+  // let maxIter = 10
+  // while (maxIter-- > 0) {
+  //   const before = html
+  //   html = removeOuterParagraphAroundList(html)
+  //   if (html === before) {
+  //     console.log('[paraConverter] 循环结束，没有更多变化')
+  //     break
+  //   }
+  //   console.log('[paraConverter] 循环继续，迭代剩余:', maxIter)
+  // }
 
   // §8.2.3 internalRef转<a>标签
   const refs = []
@@ -394,7 +572,11 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     .replace(/<br>/g, '')
     .replace(/<\/br>/g, '')
     .replace(/<br\/>/g, '')
-    .replace(/\n/g, '')
+    // 🔧 2026-11-10 修复：保留换行符，让 formatXml() 处理格式化
+    // 问题：.replace(/\n/g, '') 导致第二次保存时格式丢失（往返转换不一致）
+    // 根因：para2html 保留原始多行 XML → html2para 恢复后仍是多行 → 此处强制删除换行 → 变成单行
+    // 修复：注释此行，保留从设计视图恢复的 XML 的原始格式，让 formatXml() 统一格式化
+    // .replace(/\n/g, '')  // ❌ 已禁用 - 保留换行符以保持格式一致性
     .replace(/<p><\/p>/g, '')
     .replace(/<a name=.*?><\/a>/g, '')
     .replace(/<h\d.*?>/g, '<p>')
@@ -421,6 +603,11 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     .replace(/<ol.*?>/g, '<ol>')
     // 修复BUG-006: 使用词边界避免误匹配<list>、<link>
     .replace(/<li(\s[^>]*)?\>/g, '<li>')
+    // 🔧 2026-11-10 P0修复: 处理带删除线样式的 span (UEditor 可能将 <s> 转换为带样式的 span)
+    // 需要同时处理开标签和闭标签，确保标签配对
+    .replace(/<span[^>]*style="[^"]*text-decoration:\s*line-through[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '<s>$1</s>')
+    .replace(/<span[^>]*style="[^"]*text-decoration:\s*underline\s+line-through[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '<s>$1</s>')
+    .replace(/<span[^>]*style="[^"]*text-decoration:\s*line-through\s+underline[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '<s>$1</s>')
     .replace(/<span.*?>/g, '')
     .replace(/<\/span>/g, '')
     // 修复BUG-004: 使用词边界避免误匹配<para>、<pre>
@@ -436,6 +623,35 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     // 修复BUG-003: 使用词边界避免误匹配<subScript>、<subject>、<submit>
     .replace(/<sub(\s[^>]*)?\>/g, '<subScript>')
     .replace(/<\/sub>/g, '</subScript>')
+    // 🔧 2026-11-11 P0修复: HTML格式标签 → S1000D标准元素（删除线应使用emphasis而非delete）
+    // 删除线: <s>/<del>/<strike> → <emphasis emphasisType="em05">（内联元素，符合S1000D para内容模型）
+    // 注意：<delete>是块级元素，不能在<para>内使用，应使用<emphasis emphasisType="em05">代替
+    .replace(/<s(\s[^>]*)?\>/g, '<emphasis emphasisType="em05">')
+    .replace(/<\/s>/g, '</emphasis>')
+    .replace(/<del(\s[^>]*)?\>/g, '<emphasis emphasisType="em05">')
+    .replace(/<\/del>/g, '</emphasis>')
+    .replace(/<strike(\s[^>]*)?\>/g, '<emphasis emphasisType="em05">')
+    .replace(/<\/strike>/g, '</emphasis>')
+    // 🔧 2026-11-11 P0修复: HTML格式标签 → S1000D标准元素（使用正确的 emphasisType 属性）
+    // 粗体: <b>/<strong> → <emphasis emphasisType="em01">
+    .replace(/<b(\s[^>]*)?\>/g, '<emphasis emphasisType="em01">')
+    .replace(/<\/b>/g, '</emphasis>')
+    .replace(/<strong(\s[^>]*)?\>/g, '<emphasis emphasisType="em01">')
+    .replace(/<\/strong>/g, '</emphasis>')
+    // 斜体: <i>/<em> → <emphasis emphasisType="em02">
+    .replace(/<i(\s[^>]*)?\>/g, '<emphasis emphasisType="em02">')
+    .replace(/<\/i>/g, '</emphasis>')
+    .replace(/<em(\s[^>]*)?\>/g, '<emphasis emphasisType="em02">')
+    .replace(/<\/em>/g, '</emphasis>')
+    // 下划线: <u> → <emphasis emphasisType="em03">
+    .replace(/<u(\s[^>]*)?\>/g, '<emphasis emphasisType="em03">')
+    .replace(/<\/u>/g, '</emphasis>')
+    // 高亮/标记: <mark> → <emphasis emphasisType="em04">
+    .replace(/<mark(\s[^>]*)?\>/g, '<emphasis emphasisType="em04">')
+    .replace(/<\/mark>/g, '</emphasis>')
+    // 插入: <ins> → <emphasis emphasisType="em03"> (与下划线相同效果)
+    .replace(/<ins(\s[^>]*)?\>/g, '<emphasis emphasisType="em03">')
+    .replace(/<\/ins>/g, '</emphasis>')
     .replace(/<\/p><ul>/g, '<ul>')
     .replace(/<\/p><ol>/g, '<ol>')
     .replace(/<\/ul><\/p>/g, '</ul>')
@@ -444,6 +660,83 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     .replace(/<\/ol><p>/g, '</ol>')
     .replace(/<li><p>/g, '<li>')
     .replace(/<\/p><\/li>/g, '</li>')
+
+  // 🔧 2026-11-11 P0修复: UEditor嵌套列表兄弟结构修复
+  //   根本原因: UEditor生成的嵌套列表是<li>的兄弟节点，而不是子节点
+  //   示例: <ol><li>文字</li><ol>...</ol></ol>
+  //   S1000D要求: 嵌套列表必须在<para>内部
+  //   目标结构: <ol><li>文字<ol>...</ol></li></ol>
+  //   修复策略: 将</li>后紧跟的完整<ol>...</ol>或<ul>...</ul>块移入前一个<li>内部
+  //   ⚠️ 必须在 <ol>→<sequentialList> 转换之前执行！
+
+  console.log('[html2para] 🔧 修复前的HTML:', para)
+
+  let fixIterations = 50
+  let fixChanged = true
+  while (fixChanged && fixIterations-- > 0) {
+    fixChanged = false
+
+    // 查找 </li> 后紧跟 <ol> 或 <ul> 的位置
+    const liCloseMatch = para.match(/(<\/li>)(\s*)(<(ol|ul)(?:\s[^>]*)?>)/)
+    if (!liCloseMatch) break
+
+    console.log('[html2para] 🔍 找到兄弟结构:', liCloseMatch[0])
+
+    const closeLiPos = para.indexOf(liCloseMatch[0])
+    const listStartPos = closeLiPos + liCloseMatch[1].length + liCloseMatch[2].length
+    const listTag = liCloseMatch[4] // 'ol' 或 'ul'
+    const openTagLength = liCloseMatch[3].length
+
+    // 手动查找匹配的 </ol> 或 </ul>
+    let depth = 1
+    let pos = listStartPos + openTagLength
+    let listEndPos = -1
+
+    while (depth > 0 && pos < para.length) {
+      const nextOpen = para.indexOf(`<${listTag}`, pos)
+      const nextClose = para.indexOf(`</${listTag}>`, pos)
+
+      if (nextClose === -1) break
+
+      if (nextOpen === -1 || nextClose < nextOpen) {
+        depth--
+        if (depth === 0) {
+          listEndPos = nextClose + `</${listTag}>`.length
+          break
+        }
+        pos = nextClose + `</${listTag}>`.length
+      } else {
+        // 检查是否是真正的开始标签（不是属性中的文本）
+        const charAfterTag = para.charAt(nextOpen + listTag.length + 1)
+        if (charAfterTag === ' ' || charAfterTag === '>') {
+          depth++
+        }
+        pos = nextOpen + listTag.length + 2
+      }
+    }
+
+    if (listEndPos > 0) {
+      fixChanged = true
+      // 提取嵌套列表块
+      const nestedList = para.substring(listStartPos, listEndPos)
+      console.log('[html2para] 📦 提取的嵌套列表:', nestedList)
+
+      // 重构：将嵌套列表移到 </li> 之前
+      para = para.substring(0, closeLiPos) +
+             nestedList +
+             liCloseMatch[1] + // </li>
+             para.substring(listEndPos)
+
+      console.log('[html2para] ✅ 修复后的HTML片段:', para.substring(Math.max(0, closeLiPos - 20), Math.min(para.length, closeLiPos + nestedList.length + 50)))
+    } else {
+      console.log('[html2para] ❌ 未找到匹配的结束标签')
+      break // 避免死循环
+    }
+  }
+
+  console.log('[html2para] 🔧 修复后的HTML:', para)
+
+  para = para
     // 🔧 将暂存的data-pf转为S1000D标准属性listItemPrefix（pf02=默认实心点，省略）
     .replace(/<ul data-pf="([^"]+)">/g, (match, pf) => {
       return pf === 'pf02' ? '<randomList>' : `<randomList listItemPrefix="${pf}">`
@@ -480,7 +773,9 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
   // Step 3: 统一转换<p>和</p>为<para>和</para>
   para = para.replace(/<\/p>/g, '</para>')             // 先转结束标签
     .replace(/<p>/g, '<para>')                         // 再转开始标签
-    .replace(/<strong>/g, '<emphasis>')
+    // 🔧 2026-11-11 修复: 兜底 <strong> 转换补全 emphasisType 属性
+    // 此处为安全兜底（正常路径已在第494行处理），确保遗漏的 <strong> 也携带完整属性
+    .replace(/<strong>/g, '<emphasis emphasisType="em01">')
     .replace(/<\/strong>/g, '</emphasis>')
 
   // 🔧 修复P0-5: 将</para>转换为对应的特殊标签结束符
@@ -511,15 +806,56 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     // 只匹配内部不含<li>的最内层<li>（其子列表此时已全部转为listItem）
     para = para.replace(/<li>((?:(?!<li>|<\/li>)[\s\S])*)<\/li>/g, (match, content) => {
       changed = true
-      // 分离文字部分与可选的嵌套列表（randomList/sequentialList）
-      const listMatch = content.match(/<(?:randomList|sequentialList)(?:\s[^>]*)?>[\s\S]*<\/(?:randomList|sequentialList)>/)
-      if (listMatch) {
-        const nestedList = listMatch[0]
-        const textBefore = unwrapPara(content.substring(0, listMatch.index))
-        const textAfter = unwrapPara(content.substring(listMatch.index + nestedList.length))
-        // 嵌套列表放在para内，符合S1000D
-        return '<listItem><para>' + textBefore + nestedList + textAfter + '</para></listItem>'
+
+      // 🔧 2026-11-11 修复：使用深度匹配找到完整的嵌套列表
+      // 旧的正则 /<(?:randomList|sequentialList)(?:\s[^>]*)?>[\s\S]*<\/(?:randomList|sequentialList)>/
+      // 在多层嵌套时会错误地只匹配到第一个结束标签
+
+      // 查找嵌套列表的开始位置
+      const listStartMatch = content.match(/<(randomList|sequentialList)(?:\s[^>]*)?>/)
+      if (listStartMatch) {
+        const listType = listStartMatch[1]
+        const listStartPos = listStartMatch.index
+        const listOpenTagEnd = listStartPos + listStartMatch[0].length
+
+        // 使用深度计数找到匹配的结束标签
+        let depth = 1
+        let pos = listOpenTagEnd
+        let listEndPos = -1
+
+        while (depth > 0 && pos < content.length) {
+          const nextOpen = content.indexOf(`<${listType}`, pos)
+          const nextClose = content.indexOf(`</${listType}>`, pos)
+
+          if (nextClose === -1) break
+
+          if (nextOpen === -1 || nextClose < nextOpen) {
+            depth--
+            if (depth === 0) {
+              listEndPos = nextClose + `</${listType}>`.length
+              break
+            }
+            pos = nextClose + `</${listType}>`.length
+          } else {
+            // 检查是否是真正的开始标签
+            const charAfter = content.charAt(nextOpen + listType.length + 1)
+            if (charAfter === ' ' || charAfter === '>') {
+              depth++
+            }
+            pos = nextOpen + listType.length + 2
+          }
+        }
+
+        if (listEndPos > 0) {
+          const nestedList = content.substring(listStartPos, listEndPos)
+          const textBefore = unwrapPara(content.substring(0, listStartPos))
+          const textAfter = unwrapPara(content.substring(listEndPos))
+          // 嵌套列表放在para内，符合S1000D
+          return '<listItem><para>' + textBefore + nestedList + textAfter + '</para></listItem>'
+        }
       }
+
+      // 没有嵌套列表的情况
       const trimmed = content.trim()
       if (!trimmed) return '<listItem><para></para></listItem>'
       if (trimmed.startsWith('<para>') && trimmed.endsWith('</para>')) {
@@ -529,12 +865,11 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
     })
   }
 
-  // 🔧 2026-11-09 P0修复: 三级有序列表显示格式问题
-  //   根因分析: 之前的注释理解有误 - UEditor的标准模型是嵌套列表在<li>内部，而非兄弟
-  //   实际验证: UEditor完全支持 <ol><li>文字<ol>...</ol></li></ol> 标准HTML结构
-  //   修复策略: 移除fixSiblingNestedLists()调用，保持标准的嵌套结构不变
-  //   影响范围: 与para2html侧的fixListForUEditor()互为逆变换，已同步禁用
-  // para = fixSiblingNestedLists(para)  // 已禁用 - 2026-11-09
+  // 🔧 2026-11-11 P0修复: fixSiblingNestedLists已废弃
+  //   原因: html2para第663-734行的修复逻辑已完全替代此函数
+  //   新逻辑: 使用深度匹配算法，支持任意层嵌套，更准确更高效
+  //   此函数保留仅用于理解历史逻辑，不再调用
+  // para = fixSiblingNestedLists(para)  // 已废弃 - 2026-11-11
 
   // 兜底：若仍有残留<li>（异常嵌套），简单包裹避免数据丢失
   para = para.replace(/<li>([\s\S]*?)<\/li>/g, '<listItem><para>$1</para></listItem>')
@@ -587,12 +922,11 @@ export async function html2para(parent, html, projectParameters, allocatedUnique
   // 匹配不含deflist或caption标记的普通HTML table，直接删除
   const normalTables = para.match(/<table(?![^>]*(?:deflist|caption)="1")[^>]*>[\s\S]*?<\/table>/g)
   if (normalTables != null) {
-    console.warn('[html2para] 发现', normalTables.length, '个普通表格，将被删除（对标旧系统：Para不支持普通表格）')
-    normalTables.forEach((m, idx) => {
-      console.warn(`[html2para] 删除表格 ${idx + 1}/${normalTables.length}:`, m.substring(0, 100))
-      para = para.replace(m, '')
-    })
-    console.warn('[html2para] ⚠️ 提示：Para中应使用definitionList（定义列表）而不是普通表格')
+    // 🔧 2026-11-11 P0修复: 抛出异常而非静默删除，确保用户能感知数据丢失风险
+    throw new Error(
+      `Para 中不支持普通表格（共检测到 ${normalTables.length} 个）。\n` +
+      `请删除表格后重试，或改用"列表定义"按钮插入定义列表。`
+    )
   }
 
   // 同时删除自闭合的table标签

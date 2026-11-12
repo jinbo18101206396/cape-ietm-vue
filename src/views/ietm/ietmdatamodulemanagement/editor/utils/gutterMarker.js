@@ -97,6 +97,24 @@ export function makeDesignMarker(elemName, lineno, onClick, locale = 'en', en2cn
  * @param {Array} nodeList - 完整节点列表
  * @returns {boolean}
  */
+/**
+ * 向上查找祖先节点，判断是否存在指定元素名的祖先
+ * @param {Object} node - 当前节点
+ * @param {Array} nodeList - 完整节点列表
+ * @param {string[]} ancestorNames - 要查找的祖先元素名列表
+ * @returns {boolean}
+ */
+function hasAncestor(node, nodeList, ancestorNames) {
+  let current = node
+  while (current && current.pid) {
+    const parent = nodeList.find(n => n.id === current.pid)
+    if (!parent) break
+    if (ancestorNames.includes(parent.text)) return true
+    current = parent
+  }
+  return false
+}
+
 export function canShowDesignMarker(elemName, node, nodeList = []) {
   // 1. 元素类型必须在支持列表中
   if (!DESIGN_ELEMENTS.includes(elemName)) {
@@ -114,8 +132,24 @@ export function canShowDesignMarker(elemName, node, nodeList = []) {
     if (parent && NO_DESIGN_PARENT.includes(parent.text)) {
       return false
     }
-    // 4. para在table内部不显示铅笔图标
-    if (elemName === 'para' && parent && parent.text === 'table') {
+    // 4. para有任意祖先是table或levelledPara时不显示铅笔图标（由外层元素统一进入设计器）
+    if (elemName === 'para' && hasAncestor(node, nodeList, ['table', 'levelledPara'])) {
+      return false
+    }
+    // 4b. figure/multimedia/table有任意祖先是levelledPara时不显示铅笔图标（由外层levelledPara统一进入设计器）
+    if (['figure', 'multimedia', 'table'].includes(elemName) && hasAncestor(node, nodeList, ['levelledPara'])) {
+      return false
+    }
+    // 5. para在列表项容器内部不显示铅笔图标（嵌套列表中的para由外层para统一进入设计器）
+    if (elemName === 'para' && ['listItem', 'listItemDefinition'].includes(parent && parent.text)) {
+      return false
+    }
+    // 6. table嵌套在其他table的entry内时不显示铅笔图标（只保留最外层table）
+    if (elemName === 'table' && hasAncestor(node, nodeList, ['table'])) {
+      return false
+    }
+    // 7. levelledPara嵌套在其他levelledPara内时不显示铅笔图标（只保留最外层levelledPara）
+    if (elemName === 'levelledPara' && hasAncestor(node, nodeList, ['levelledPara'])) {
       return false
     }
   }

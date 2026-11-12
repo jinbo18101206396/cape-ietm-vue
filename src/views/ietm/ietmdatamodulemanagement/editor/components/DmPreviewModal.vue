@@ -74,17 +74,20 @@
         </div>
       </div>
 
-      <!-- 3D 模型渲染（使用Three.js） -->
+      <!-- 3D 模型渲染（使用Model3DViewer组件） -->
       <div v-else-if="multimediaInfo && multimediaInfo.is3DModel && multimediaUrl"
            class="multimedia-3d-container">
-        <div style="width:100%;height:560px;position:relative;background:#1a1a1a;padding:20px;box-sizing:border-box;">
-          <div ref="canvas3d" class="three-canvas" style="width:100%;height:100%;"></div>
-          <div class="loading-spinner" v-if="multimediaLoading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100;">
-            <a-spin size="large" tip="加载3D模型中..."/>
-          </div>
+        <div style="width:100%;height:560px;position:relative;">
+          <Model3DViewer
+            v-if="multimediaUrl"
+            :fileUrl="multimediaUrl"
+            :fileExt="getFileExtension(multimediaInfo.fileName)"
+            @loaded="handle3DLoaded"
+            @error="handle3DError"
+          />
         </div>
         <!-- 3D模型元数据 -->
-        <div v-if="!multimediaLoading" style="padding:12px;background:#f5f5f5;border-top:1px solid #333;">
+        <div v-if="!multimediaLoading" style="padding:12px;background:#f5f5f5;border-top:1px solid #e8e8e8;">
           <a-descriptions size="small" :column="3">
             <a-descriptions-item label="格式">{{ multimediaInfo.mimeType }}</a-descriptions-item>
             <a-descriptions-item label="大小">{{ formatFileSize(multimediaInfo.fileSize) }}</a-descriptions-item>
@@ -128,10 +131,7 @@
 </template>
 <script>
 import { postAction } from '@/api/manage'
-import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
-import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
-import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader'
+import Model3DViewer from '@/views/ietm/icnmanage/modules/Model3DViewer.vue'
 
 // 预览 iframe 加载时桩脚本（注入 <head>，在 body 内联 <script> 解析前就绪）
 // 覆盖所有 XSLT 生成的旧 IETM 阅读器全局函数/构造器/对象。纯 no-op + 自包含的滚动函数，
@@ -178,6 +178,9 @@ const STUB_SCRIPT_HEAD = [
 
 export default {
   name: 'DmPreviewModal',
+  components: {
+    Model3DViewer
+  },
   data() {
     return {
       visible: false,
@@ -192,12 +195,6 @@ export default {
       multimediaInfo: null, // { mimeType, isVideo, isAudio, isImage, fileSize, fileName }
       videoDuration: 0,     // 视频时长（秒）
       audioDuration: 0,     // 音频时长（秒）
-      // 🔧 2026-11-02 新增：3D模型渲染相关
-      three3dScene: null,          // Three.js 场景
-      three3dCamera: null,         // Three.js 摄像机
-      three3dRenderer: null,       // Three.js 渲染器
-      three3dModel: null,          // 加载的3D模型对象
-      three3dAnimationId: null,    // 动画帧 ID（用于取消）
       // 热点交互相关
       hotspotVisible: false,
       hotspotInfo: { id: '', description: '', coordinates: '' }
@@ -207,15 +204,6 @@ export default {
     multimediaVisible(val) {
       if (val && this.multimediaIcnIdent) {
         this.fetchIcnContent(this.multimediaIcnIdent)
-      }
-    },
-    // 🔧 2026-11-02 新增：当multimediaUrl改变时初始化3D渲染
-    multimediaUrl(newVal) {
-      if (newVal && this.multimediaInfo && this.multimediaInfo.is3DModel) {
-        this.$nextTick(() => {
-          this.init3dRenderer()
-          this.load3dModel(newVal)
-        })
       }
     }
   },
@@ -245,6 +233,12 @@ export default {
         // 处理后端XSLT输出的格式（优先）
         .replace(/<span class="superScript">/g, '<sup>')
         .replace(/<span class="subScript">/g, '<sub>')
+        // 🔧 2026-11-10 P0修复：处理后端XSLT输出的emphasis CSS类 → HTML标准标签
+        .replace(/<span class="boldemphasis">/g, '<strong>')
+        .replace(/<span class="italicemphasis">/g, '<em>')
+        .replace(/<span class="underlineemphasis">/g, '<u>')
+        .replace(/<span class="overlinemphasis">/g, '<mark>')
+        .replace(/<span class="strikethroughemphasis">/g, '<s>')
         // 处理可能存在的原始XML标签（向后兼容）
         .replace(/<superScript>/g, '<sup>')
         .replace(/<\/superScript>/g, '</sup>')
@@ -253,6 +247,9 @@ export default {
         // 处理其他格式标签
         .replace(/<emphasis>/g, '<strong>')
         .replace(/<\/emphasis>/g, '</strong>')
+        // 🔧 2026-11-10 修复删除线显示：将S1000D的<delete>标签转换为HTML的<s>标签
+        .replace(/<delete>/g, '<s>')
+        .replace(/<\/delete>/g, '</s>')
 
       // 🔍 调试：打印转换后的结果
       console.log('🔍 [Preview Debug] 转换后的body:', body.substring(0, 500))
@@ -354,6 +351,15 @@ export default {
             vertical-align: sub;
             font-size: 0.75em;
             line-height: 0;
+          }
+
+          /* 图片样式：限制最大尺寸，与figure设计视图保持一致 */
+          img {
+            max-width: 100% !important;
+            max-height: 560px !important;
+            object-fit: contain !important;
+            display: block !important;
+            margin: 20px auto !important;
           }
         </style>
       `
@@ -498,18 +504,22 @@ export default {
                 const src = img.getAttribute('src') || ''
 
                 // 🔧 2026-11-04 修复：排除所有多媒体类型，只保留真实图片
+                // 🔧 2026-11-12 修复：精确识别占位图标SVG，不排除真实SVG内容
                 // 多媒体类型：
                 // 1. 占位图标：.gif、avicit/路径
                 // 2. 3D模型：data:model/gltf-binary、data:model/gltf+json
                 // 3. 视频/音频：data:video/、data:audio/
-                // 4. SVG占位图标：data:image/svg+xml（已替换的占位图标）
+                // 4. SVG占位图标：仅识别包含emoji的占位图标（🎵🎬⚡🧊），不排除真实SVG图片
+                const isPlaceholderSvg = src.includes('data:image/svg+xml') &&
+                  (src.includes('🎵') || src.includes('🎬') || src.includes('⚡') || src.includes('🧊'))
+
                 const isMultimedia =
                   src.includes('.gif') ||
                   src.includes('avicit/') ||
                   src.includes('data:model/') ||
                   src.includes('data:video/') ||
                   src.includes('data:audio/') ||
-                  src.includes('data:image/svg+xml')
+                  isPlaceholderSvg
 
                 const keep = !isMultimedia
 
@@ -521,8 +531,16 @@ export default {
               const apiBaseUrl = process.env.VUE_APP_API_BASE_URL || 'http://localhost:9999/jeecg-boot'
 
               const loadPromises = Array.from(icnImages).map(async (img) => {
-                const icnCode = img.getAttribute('data-icn-code') || img.getAttribute('boardno')
-                if (!icnCode) return
+                // 🔧 2026-11-12 修复：处理data-icn-code为空字符串的情况
+                // 后端XSLT可能设置了data-icn-code=""（旧标准使用boardno），需要fallback到boardno
+                const dataIcnCode = img.getAttribute('data-icn-code')
+                const boardno = img.getAttribute('boardno')
+                const icnCode = (dataIcnCode && dataIcnCode.trim()) || boardno
+
+                if (!icnCode || !icnCode.trim()) {
+                  console.warn('⚠️  图片缺少ICN代码，跳过加载')
+                  return
+                }
 
                 try {
                   // 先尝试判断是公式还是图符
@@ -579,16 +597,21 @@ export default {
                     console.log('📦 Blob大小:', blob.size, '类型:', blob.type)
 
                     // 使用FileReader转换为base64 data URL
-                    const reader = new FileReader()
-                    reader.onload = () => {
-                      img.src = reader.result
-                      img.title = '图符: ' + icnCode
-                      console.log('✅ 图符加载成功:', icnCode)
-                    }
-                    reader.onerror = () => {
-                      console.error('❌ FileReader错误:', icnCode)
-                    }
-                    reader.readAsDataURL(blob)
+                    // 🔧 2026-11-12 修复：将FileReader包装为Promise，确保图片完全加载后才resolve
+                    await new Promise((resolve, reject) => {
+                      const reader = new FileReader()
+                      reader.onload = () => {
+                        img.src = reader.result
+                        img.title = '图符: ' + icnCode
+                        console.log('✅ 图符加载成功:', icnCode)
+                        resolve()
+                      }
+                      reader.onerror = () => {
+                        console.error('❌ FileReader错误:', icnCode)
+                        reject(new Error('FileReader错误'))
+                      }
+                      reader.readAsDataURL(blob)
+                    })
                   } else {
                     console.error('❌ fetch失败:', response.status)
                     throw new Error(`HTTP ${response.status}`)
@@ -761,9 +784,6 @@ export default {
         audio.currentTime = 0
       }
 
-      // 清理3D渲染器
-      this.dispose3dRenderer()
-
       // 清理Blob URL（3D模型）
       if (this.multimediaUrl && this.multimediaUrl.startsWith('blob:')) {
         URL.revokeObjectURL(this.multimediaUrl)
@@ -854,382 +874,36 @@ export default {
     },
 
     /**
+     * 获取文件扩展名
+     * @param {String} fileName - 文件名
+     * @returns {String} 扩展名（带点号）
+     */
+    getFileExtension(fileName) {
+      if (!fileName) return ''
+      const match = fileName.match(/\.([a-z0-9]+)$/i)
+      return match ? match[0].toLowerCase() : ''
+    },
+
+    /**
+     * 3D模型加载成功回调
+     */
+    handle3DLoaded(modelInfo) {
+      console.log('✅ 3D模型加载成功:', modelInfo)
+    },
+
+    /**
+     * 3D模型加载错误回调
+     */
+    handle3DError(error) {
+      console.error('❌ 3D模型加载失败:', error)
+      this.$message.error('3D模型加载失败: ' + (error.message || '未知错误'))
+    },
+
+    /**
      * 关闭多媒体预览弹框
      * 停止播放并清理资源
      */
 
-    /**
-     * 3D模型动画循环
-     */
-    animate3dModel() {
-      if (!this.three3dRenderer) return
-
-      this.three3dAnimationId = requestAnimationFrame(() => this.animate3dModel())
-
-      // 自动旋转模型
-      if (this.three3dModel) {
-        this.three3dModel.rotation.x += 0.003
-        this.three3dModel.rotation.y += 0.005
-      }
-
-      this.three3dRenderer.render(this.three3dScene, this.three3dCamera)
-    },
-
-    /**
-     * 清理Three.js资源
-     * 释放渲染器、场景、模型等占用的内存
-     */
-    dispose3dRenderer() {
-      // 停止动画循环
-      if (this.three3dAnimationId) {
-        cancelAnimationFrame(this.three3dAnimationId)
-        this.three3dAnimationId = null
-      }
-
-      // 清理模型
-      if (this.three3dModel) {
-        this.three3dModel.traverse((child) => {
-          if (child.geometry) child.geometry.dispose()
-          if (child.material) {
-            if (Array.isArray(child.material)) {
-              child.material.forEach(m => m.dispose())
-            } else {
-              child.material.dispose()
-            }
-          }
-        })
-        this.three3dModel = null
-      }
-
-      // 清理渲染器
-      if (this.three3dRenderer) {
-        this.three3dRenderer.dispose()
-        this.three3dRenderer.domElement.remove()
-        this.three3dRenderer = null
-      }
-
-      this.three3dScene = null
-      this.three3dCamera = null
-    },
-    /**
-     * 支持拖拽旋转、滚轮缩放
-     */
-    setupMouseControl() {
-      const container = this.$refs.canvas3d
-      if (!container) return
-
-      let isMouseDown = false
-      let previousMousePosition = { x: 0, y: 0 }
-
-      container.addEventListener('mousedown', (e) => {
-        isMouseDown = true
-        previousMousePosition = { x: e.clientX, y: e.clientY }
-      })
-
-      container.addEventListener('mousemove', (e) => {
-        if (isMouseDown && this.three3dModel) {
-          const deltaX = e.clientX - previousMousePosition.x
-          const deltaY = e.clientY - previousMousePosition.y
-
-          this.three3dModel.rotation.y += deltaX * 0.01
-          this.three3dModel.rotation.x += deltaY * 0.01
-
-          previousMousePosition = { x: e.clientX, y: e.clientY }
-        }
-      })
-
-      container.addEventListener('mouseup', () => {
-        isMouseDown = false
-      })
-
-      container.addEventListener('mouseleave', () => {
-        isMouseDown = false
-      })
-
-      // 滚轮缩放
-      container.addEventListener('wheel', (e) => {
-        e.preventDefault()
-        if (this.three3dModel) {
-          const zoomSpeed = 0.1
-          if (e.deltaY > 0) {
-            this.three3dModel.scale.multiplyScalar(1 - zoomSpeed)
-          } else {
-            this.three3dModel.scale.multiplyScalar(1 + zoomSpeed)
-          }
-        }
-      }, { passive: false })
-    },
-
-    /**
-     * 加载3D模型（支持.glb/.gltf/.stl/.wrl格式）
-     * @param {string} modelUrl - 模型的Blob URL
-     */
-    async load3dModel(modelUrl) {
-      try {
-        // 🔧 2026-11-04 修复P0：优先使用文件扩展名判断格式，MIME类型作为降级
-        // 根本原因：后端MIME类型检测可能不准确（例如.wrl文件被错误识别为model/stl）
-        // 文件扩展名是用户上传时的原始格式，更可靠
-        const mimeType = this.multimediaInfo?.mimeType || ''
-        const fileName = this.multimediaInfo?.fileName || ''
-        const fileExt = fileName.toLowerCase()
-
-        console.log('🔧 加载3D模型:', { mimeType, fileName, modelUrl })
-
-        // 优先根据文件扩展名判断
-        if (fileExt.endsWith('.wrl')) {
-          // VRML 格式
-          await this.loadVRMLModel(modelUrl)
-        } else if (fileExt.endsWith('.stl')) {
-          // STL 格式
-          await this.loadSTLModel(modelUrl)
-        } else if (fileExt.endsWith('.gltf') || fileExt.endsWith('.glb')) {
-          // GLTF/GLB 格式
-          await this.loadGLTFModel(modelUrl)
-        } else {
-          // 降级：根据 MIME 类型判断
-          if (mimeType === 'model/vrml' || mimeType === 'model/x-world') {
-            await this.loadVRMLModel(modelUrl)
-          } else if (mimeType === 'model/stl') {
-            await this.loadSTLModel(modelUrl)
-          } else {
-            // 默认使用 GLTF 加载器（支持 .gltf 和 .glb）
-            await this.loadGLTFModel(modelUrl)
-          }
-        }
-      } catch (err) {
-        console.error('❌ 3D模型加载异常:', err)
-        this.$message.error('3D模型加载异常: ' + err.message)
-      }
-    },
-
-    /**
-     * 加载 GLTF/GLB 模型
-     */
-    async loadGLTFModel(modelUrl) {
-      const loader = new GLTFLoader()
-
-      loader.load(
-        modelUrl,
-        (gltf) => {
-          // 清理旧模型
-          if (this.three3dModel) {
-            this.three3dScene.remove(this.three3dModel)
-          }
-
-          const model = gltf.scene
-          this.three3dModel = model
-
-          // 计算模型包围盒
-          const box = new THREE.Box3().setFromObject(model)
-          const size = box.getSize(new THREE.Vector3())
-          const maxDim = Math.max(size.x, size.y, size.z)
-          const scale = 4 / maxDim
-          model.scale.multiplyScalar(scale)
-
-          // 居中模型
-          const center = box.getCenter(new THREE.Vector3())
-          model.position.x = -center.x * scale
-          model.position.y = -center.y * scale
-          model.position.z = -center.z * scale
-
-          // 调整摄像机
-          this.three3dCamera.position.z = 5
-          this.three3dCamera.lookAt(0, 0, 0)
-
-          this.three3dScene.add(model)
-
-          console.log('✅ GLTF模型加载成功')
-        },
-        (progress) => {
-          console.log('📦 模型加载进度:', (progress.loaded / progress.total * 100).toFixed(2) + '%')
-        },
-        (error) => {
-          console.error('❌ 加载GLTF模型失败:', error)
-          this.$message.error('加载GLTF模型失败: ' + error.message)
-        }
-      )
-    },
-
-    /**
-     * 加载 STL 模型
-     */
-    async loadSTLModel(modelUrl) {
-      const loader = new STLLoader()
-
-      loader.load(
-        modelUrl,
-        (geometry) => {
-          // 清理旧模型
-          if (this.three3dModel) {
-            this.three3dScene.remove(this.three3dModel)
-          }
-
-          // 创建材质
-          const material = new THREE.MeshPhongMaterial({
-            color: 0x00a8ff,
-            specular: 0x111111,
-            shininess: 200
-          })
-
-          // 创建网格
-          const mesh = new THREE.Mesh(geometry, material)
-          this.three3dModel = mesh
-
-          // 计算模型包围盒
-          geometry.computeBoundingBox()
-          const box = geometry.boundingBox
-          const size = new THREE.Vector3()
-          box.getSize(size)
-          const maxDim = Math.max(size.x, size.y, size.z)
-          const scale = 4 / maxDim
-          mesh.scale.multiplyScalar(scale)
-
-          // 居中模型
-          const center = new THREE.Vector3()
-          box.getCenter(center)
-          mesh.position.x = -center.x * scale
-          mesh.position.y = -center.y * scale
-          mesh.position.z = -center.z * scale
-
-          // 调整摄像机
-          this.three3dCamera.position.z = 5
-          this.three3dCamera.lookAt(0, 0, 0)
-
-          this.three3dScene.add(mesh)
-
-          console.log('✅ STL模型加载成功')
-        },
-        (progress) => {
-          console.log('📦 STL模型加载进度:', (progress.loaded / progress.total * 100).toFixed(2) + '%')
-        },
-        (error) => {
-          console.error('❌ 加载STL模型失败:', error)
-          this.$message.error('加载STL模型失败: ' + error.message)
-        }
-      )
-    },
-
-    /**
-     * 加载 VRML 模型
-     */
-    async loadVRMLModel(modelUrl) {
-      const loader = new VRMLLoader()
-
-      loader.load(
-        modelUrl,
-        (scene) => {
-          // 清理旧模型
-          if (this.three3dModel) {
-            this.three3dScene.remove(this.three3dModel)
-          }
-
-          this.three3dModel = scene
-
-          // 计算模型包围盒
-          const box = new THREE.Box3().setFromObject(scene)
-          const size = box.getSize(new THREE.Vector3())
-          const maxDim = Math.max(size.x, size.y, size.z)
-          const scale = 4 / maxDim
-          scene.scale.multiplyScalar(scale)
-
-          // 居中模型
-          const center = box.getCenter(new THREE.Vector3())
-          scene.position.x = -center.x * scale
-          scene.position.y = -center.y * scale
-          scene.position.z = -center.z * scale
-
-          // 调整摄像机
-          this.three3dCamera.position.z = 5
-          this.three3dCamera.lookAt(0, 0, 0)
-
-          this.three3dScene.add(scene)
-
-          console.log('✅ VRML模型加载成功')
-        },
-        (progress) => {
-          console.log('📦 VRML模型加载进度:', (progress.loaded / progress.total * 100).toFixed(2) + '%')
-        },
-        (error) => {
-          console.error('❌ 加载VRML模型失败:', error)
-          this.$message.error('加载VRML模型失败: ' + error.message)
-        }
-      )
-    },
-
-    /**
-     * 初始化Three.js渲染器
-     * 创建场景、摄像机、渲染器，设置灯光和环境
-     * 🔧 2026-11-04 修复P0：复用渲染器，避免重复创建WebGL上下文导致资源耗尽
-     */
-    init3dRenderer() {
-      try {
-        const container = this.$refs.canvas3d
-        if (!container) {
-          console.error('❌ 3D容器不存在')
-          return
-        }
-
-        const width = container.clientWidth
-        const height = container.clientHeight
-
-        // 🔧 修复：只在渲染器不存在时创建，避免重复创建导致WebGL上下文耗尽
-        if (!this.three3dRenderer) {
-          // 创建渲染器（只创建一次）
-          this.three3dRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-          this.three3dRenderer.setPixelRatio(window.devicePixelRatio)
-          container.innerHTML = ''
-          container.appendChild(this.three3dRenderer.domElement)
-          console.log('✅ Three.js渲染器创建成功')
-        }
-
-        // 更新渲染器尺寸
-        this.three3dRenderer.setSize(width, height)
-
-        // 清理旧场景
-        if (this.three3dScene) {
-          // 移除所有子对象（灯光、模型等）
-          while (this.three3dScene.children.length > 0) {
-            this.three3dScene.remove(this.three3dScene.children[0])
-          }
-        } else {
-          // 创建新场景
-          this.three3dScene = new THREE.Scene()
-        }
-        this.three3dScene.background = new THREE.Color(0x1a1a1a)
-
-        // 重置摄像机
-        this.three3dCamera = new THREE.PerspectiveCamera(75, width / height, 0.1, 10000)
-        this.three3dCamera.position.z = 5
-
-        // 添加灯光
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
-        this.three3dScene.add(ambientLight)
-
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
-        directionalLight.position.set(5, 10, 7)
-        this.three3dScene.add(directionalLight)
-
-        // 清理旧模型引用
-        this.three3dModel = null
-
-        // 停止旧的动画循环
-        if (this.three3dAnimationId) {
-          cancelAnimationFrame(this.three3dAnimationId)
-          this.three3dAnimationId = null
-        }
-
-        // 启用鼠标控制旋转（简单实现）
-        this.setupMouseControl()
-
-        // 开始渲染循环
-        this.animate3dModel()
-
-        console.log('✅ Three.js场景初始化成功')
-      } catch (err) {
-        console.error('❌ 初始化Three.js失败:', err)
-        this.$message.error('3D模型渲染初始化失败: ' + err.message)
-      }
-    },
     /**
      * 遍历所有带有热点的图片，在图片上方叠加SVG层，绘制热点区域
      * @param {Document} iframeDoc - iframe文档对象
@@ -1564,14 +1238,11 @@ export default {
     }
   },
   beforeDestroy() {
-    // 🔧 修复P1-内存泄漏: 组件销毁时清理 blob URL 和 Three.js 资源
+    // 🔧 修复P1-内存泄漏: 组件销毁时清理 blob URL
     // 问题: URL.createObjectURL() 创建的 blob URL 没有在组件销毁时释放
     // 根因: 用户打开预览但不关闭对话框直接离开页面时，onClose不会触发
     // 影响: 长时间使用会累积大量未释放的 blob 对象，导致内存泄漏
     // 解决: 在 beforeDestroy 中调用 URL.revokeObjectURL() 释放资源
-
-    // 清理3D渲染资源
-    this.dispose3dRenderer()
 
     // 清理主预览的 blob URL
     if (this.blobUrl) {
@@ -1592,3 +1263,14 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+/* 隐藏3D预览弹出框中的控制提示和模型信息 */
+.multimedia-3d-container >>> .controls-hint {
+  display: none !important;
+}
+
+.multimedia-3d-container >>> .model-info {
+  display: none !important;
+}
+</style>

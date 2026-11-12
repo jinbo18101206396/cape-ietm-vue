@@ -653,18 +653,36 @@ export default {
       // 等待ParaDesigner组件挂载并初始化UEditor
       this.$nextTick(() => {
         if (this.$refs.paraDesigner) {
-          // 轮询等待UEditor初始化完成
+          // 轮询等待UEditor和CodeMirror都初始化完成
+          let attempts = 0
+          const maxAttempts = 100 // 最多等待5秒 (50ms * 100)
+
           const checkReady = () => {
+            attempts++
+
             // 🔧 修复：检查组件是否还存在（防止组件销毁后继续轮询）
             if (!this.$refs.paraDesigner) {
               console.warn('[DmContentEditor] ParaDesigner组件已销毁，停止轮询')
               return
             }
 
-            if (this.$refs.paraDesigner.ueditorReady) {
+            // 🔧 修复：同时检查 UEditor 和 CodeMirror 是否就绪
+            // 根因：this.editor (CodeMirror) 可能在 UEditor 就绪后仍未初始化，导致 getLine() 报错
+            const editorReady = this.$refs.editor && this.$refs.editor.getEditor()
+            const ueditorReady = this.$refs.paraDesigner.ueditorReady
+
+            if (ueditorReady && editorReady) {
+              console.log('[DmContentEditor] 编辑器就绪，加载内容')
               this.$refs.paraDesigner.setcontent()
+            } else if (attempts >= maxAttempts) {
+              console.error('[DmContentEditor] 编辑器初始化超时', {
+                ueditorReady,
+                editorReady: !!editorReady,
+                attempts
+              })
+              this.$message.error('编辑器初始化超时，请刷新页面重试')
             } else {
-              // 每50ms检查一次，最多等待5秒
+              // 每50ms检查一次
               setTimeout(checkReady, 50)
             }
           }
