@@ -172,7 +172,7 @@ export async function htmlToTableXml(html, tableTitle = '', tableId = '', locale
  */
 function getRowEntries($row, colCount) {
   let entries = ''
-  const $tds = $row.find('td')
+  const $tds = $row.find('td, th')
 
   $tds.each((colIndex, td) => {
     const $td = $(td)
