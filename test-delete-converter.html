@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>删除线转换测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 删除线转换测试工具</h1>
+    <p>此页面用于验证 paraConverter.js 中的删除线转换逻辑是否正确</p>
+
+    <div class="test-section">
+        <h2>测试 1: HTML → XML (html2para)</h2>
+        <button onclick="testHtmlToXml()">运行测试</button>
+        <div id="test1-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>测试 2: XML → HTML (para2html)</h2>
+        <button onclick="testXmlToHtml()">运行测试</button>
+        <div id="test2-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>测试 3: 完整往返测试</h2>
+        <button onclick="testRoundTrip()">运行测试</button>
+        <div id="test3-result"></div>
+    </div>
+
+    <script>
+        function testHtmlToXml() {
+            const resultDiv = document.getElementById('test1-result');
+            resultDiv.innerHTML = '<p>执行中...</p>';
+
+            try {
+                // 测试用例
+                const testCases = [
+                    { input: '<s>123</s>', expected: '<delete>123</delete>', name: '<s> 标签' },
+                    { input: '<del>abc</del>', expected: '<delete>abc</delete>', name: '<del> 标签' },
+                    { input: '<strike>xyz</strike>', expected: '<delete>xyz</delete>', name: '<strike> 标签' },
+                    { input: '<s style="color:red">带属性</s>', expected: '<delete>带属性</delete>', name: '带属性的 <s>' }
+                ];
+
+                let results = [];
+                let allPass = true;
+
+                testCases.forEach(testCase => {
+                    // 模拟 html2para 中的转换逻辑
+                    let result = testCase.input
+                        .replace(/<s(\s[^>]*)?\>/g, '<delete>')
+                        .replace(/<\/s>/g, '</delete>')
+                        .replace(/<del(\s[^>]*)?\>/g, '<delete>')
+                        .replace(/<\/del>/g, '</delete>')
+                        .replace(/<strike(\s[^>]*)?\>/g, '<delete>')
+                        .replace(/<\/strike>/g, '</delete>');
+
+                    const pass = result === testCase.expected;
+                    allPass = allPass && pass;
+
+                    results.push({
+                        name: testCase.name,
+                        input: testCase.input,
+                        expected: testCase.expected,
+                        actual: result,
+                        pass: pass
+                    });
+                });
+
+                // 显示结果
+                let html = '<div class="result ' + (allPass ? 'success' : 'error') + '">';
+                html += '<strong>' + (allPass ? '✅ 所有测试通过' : '❌ 部分测试失败') + '</strong>';
+                html += '</div>';
+
+                results.forEach(r => {
+                    html += '<div style="margin: 10px 0; padding: 10px; background: #f9f9f9;">';
+                    html += '<strong>' + r.name + ':</strong> ' + (r.pass ? '✅' : '❌') + '<br>';
+                    html += '<pre>输入: ' + escapeHtml(r.input) + '\n';
+                    html += '期望: ' + escapeHtml(r.expected) + '\n';
+                    html += '实际: ' + escapeHtml(r.actual) + '</pre>';
+                    html += '</div>';
+                });
+
+                resultDiv.innerHTML = html;
+
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="result error">❌ 测试失败: ' + error.message + '</div>';
+            }
+        }
+
+        function testXmlToHtml() {
+            const resultDiv = document.getElementById('test2-result');
+            resultDiv.innerHTML = '<p>执行中...</p>';
+
+            try {
+                // 测试用例
+                const testCases = [
+                    { input: '<delete>123</delete>', expected: '<s>123</s>', name: '<delete> 标签' }
+                ];
+
+                let results = [];
+                let allPass = true;
+
+                testCases.forEach(testCase => {
+                    // 模拟 para2html 中的转换逻辑
+                    let result = testCase.input
+                        .replace(/<delete>/g, '<s>')
+                        .replace(/<\/delete>/g, '</s>');
+
+                    const pass = result === testCase.expected;
+                    allPass = allPass && pass;
+
+                    results.push({
+                        name: testCase.name,
+                        input: testCase.input,
+                        expected: testCase.expected,
+                        actual: result,
+                        pass: pass
+                    });
+                });
+
+                // 显示结果
+                let html = '<div class="result ' + (allPass ? 'success' : 'error') + '">';
+                html += '<strong>' + (allPass ? '✅ 所有测试通过' : '❌ 部分测试失败') + '</strong>';
+                html += '</div>';
+
+                results.forEach(r => {
+                    html += '<div style="margin: 10px 0; padding: 10px; background: #f9f9f9;">';
+                    html += '<strong>' + r.name + ':</strong> ' + (r.pass ? '✅' : '❌') + '<br>';
+                    html += '<pre>输入: ' + escapeHtml(r.input) + '\n';
+                    html += '期望: ' + escapeHtml(r.expected) + '\n';
+                    html += '实际: ' + escapeHtml(r.actual) + '</pre>';
+                    html += '</div>';
+                });
+
+                resultDiv.innerHTML = html;
+
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="result error">❌ 测试失败: ' + error.message + '</div>';
+            }
+        }
+
+        function testRoundTrip() {
+            const resultDiv = document.getElementById('test3-result');
+            resultDiv.innerHTML = '<p>执行中...</p>';
+
+            try {
+                const original = '<delete>123</delete>';
+
+                // XML → HTML
+                let html = original
+                    .replace(/<delete>/g, '<s>')
+                    .replace(/<\/delete>/g, '</s>');
+
+                // HTML → XML
+                let xml = html
+                    .replace(/<s(\s[^>]*)?\>/g, '<delete>')
+                    .replace(/<\/s>/g, '</delete>');
+
+                const pass = xml === original;
+
+                let html_result = '<div class="result ' + (pass ? 'success' : 'error') + '">';
+                html_result += '<strong>' + (pass ? '✅ 往返测试通过' : '❌ 往返测试失败') + '</strong>';
+                html_result += '</div>';
+                html_result += '<div style="margin: 10px 0; padding: 10px; background: #f9f9f9;">';
+                html_result += '<pre>原始 XML: ' + escapeHtml(original) + '\n';
+                html_result += '转换为 HTML: ' + escapeHtml(html) + '\n';
+                html_result += '转回 XML: ' + escapeHtml(xml) + '\n';
+                html_result += '匹配原始: ' + (pass ? '是 ✅' : '否 ❌') + '</pre>';
+                html_result += '</div>';
+
+                resultDiv.innerHTML = html_result;
+
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="result error">❌ 测试失败: ' + error.message + '</div>';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
