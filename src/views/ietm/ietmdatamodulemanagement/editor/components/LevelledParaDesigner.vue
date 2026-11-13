@@ -270,60 +270,6 @@
                 </a-table>
               </div>
             </a-tab-pane>
-
-            <!-- 折叠 (S1000D 4.0) -->
-            <a-tab-pane key="foldout" :tab="`折叠(${getItemCount('foldout')})`">
-              <div class="tab-content">
-                <div class="tab-toolbar">
-                  <a-button icon="plus" size="small" @click="addItem('foldout')" :disabled="!selectedNode || readonly">增加</a-button>
-                  <a-button icon="edit" size="small" @click="editItem('foldout')" :disabled="!canEditItem('foldout')">编辑</a-button>
-                  <a-button icon="delete" size="small" @click="deleteItem('foldout')" :disabled="!canDeleteItem('foldout')">删除</a-button>
-                  <a-button icon="arrow-up" size="small" @click="moveItemUp('foldout')" :disabled="!canMoveItemUp('foldout')">上移</a-button>
-                  <a-button icon="arrow-down" size="small" @click="moveItemDown('foldout')" :disabled="!canMoveItemDown('foldout')">下移</a-button>
-                </div>
-                <a-table
-                  :columns="getContentColumns('foldout')"
-                  :data-source="getContentData('foldout')"
-                  :pagination="false"
-                  :row-selection="getRowSelection('foldout')"
-                  size="small"
-                  bordered
-                >
-                  <template slot="content" slot-scope="text, record">
-                    <ConvertedContent v-if="text && (text.includes('<dmRef') || text.includes('<internalRef'))" :content="text" :parent="Parent" />
-                    <div v-else-if="text && text.includes('<symbol')" v-html="convertSymbolsToHtml(text)" style="max-width: 800px; overflow: auto;"></div>
-                    <div v-else v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
-                  </template>
-                </a-table>
-              </div>
-            </a-tab-pane>
-
-            <!-- 图说 (S1000D 4.0) -->
-            <a-tab-pane key="caption" :tab="`图说(${getItemCount('caption')})`">
-              <div class="tab-content">
-                <div class="tab-toolbar">
-                  <a-button icon="plus" size="small" @click="addItem('caption')" :disabled="!selectedNode || readonly">增加</a-button>
-                  <a-button icon="edit" size="small" @click="editItem('caption')" :disabled="!canEditItem('caption')">编辑</a-button>
-                  <a-button icon="delete" size="small" @click="deleteItem('caption')" :disabled="!canDeleteItem('caption')">删除</a-button>
-                  <a-button icon="arrow-up" size="small" @click="moveItemUp('caption')" :disabled="!canMoveItemUp('caption')">上移</a-button>
-                  <a-button icon="arrow-down" size="small" @click="moveItemDown('caption')" :disabled="!canMoveItemDown('caption')">下移</a-button>
-                </div>
-                <a-table
-                  :columns="getContentColumns('caption')"
-                  :data-source="getContentData('caption')"
-                  :pagination="false"
-                  :row-selection="getRowSelection('caption')"
-                  size="small"
-                  bordered
-                >
-                  <template slot="content" slot-scope="text, record">
-                    <ConvertedContent v-if="text && (text.includes('<dmRef') || text.includes('<internalRef'))" :content="text" :parent="Parent" />
-                    <div v-else-if="text && text.includes('<symbol')" v-html="convertSymbolsToHtml(text)" style="max-width: 800px; overflow: auto;"></div>
-                    <div v-else v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
-                  </template>
-                </a-table>
-              </div>
-            </a-tab-pane>
           </a-tabs>
           </div>
         </div>
@@ -446,6 +392,105 @@
       </div>
     </a-modal>
 
+    <!-- 图形/多媒体预览弹窗 -->
+    <a-modal
+      title="图形/多媒体预览"
+      :visible="multimediaModalVisible"
+      :footer="null"
+      :width="900"
+      @cancel="handleMultimediaClose"
+    >
+      <!-- 加载中 -->
+      <div v-if="multimediaLoading" style="text-align:center;padding:60px;">
+        <a-spin size="large" tip="加载中..."/>
+      </div>
+
+      <!-- 视频播放器 -->
+      <div v-else-if="multimediaInfo && multimediaInfo.isVideo" style="background:#000;">
+        <video
+          :src="multimediaUrl"
+          controls
+          style="width:100%;max-height:600px;"
+          @loadedmetadata="handleVideoMetadata"
+          @error="handleMediaError">
+          您的浏览器不支持视频播放
+        </video>
+        <!-- 视频元数据 -->
+        <div style="padding:12px;background:#f5f5f5;">
+          <a-descriptions size="small" :column="3">
+            <a-descriptions-item label="格式">{{ multimediaInfo.mimeType }}</a-descriptions-item>
+            <a-descriptions-item label="大小">{{ formatFileSize(multimediaInfo.fileSize) }}</a-descriptions-item>
+            <a-descriptions-item label="文件名">{{ multimediaInfo.fileName }}</a-descriptions-item>
+          </a-descriptions>
+        </div>
+      </div>
+
+      <!-- 音频播放器 -->
+      <div v-else-if="multimediaInfo && multimediaInfo.isAudio" style="text-align:center;padding:40px;">
+        <!-- 音频图标 -->
+        <div style="font-size:80px;margin-bottom:20px;">🎵</div>
+        <audio
+          :src="multimediaUrl"
+          controls
+          style="width:100%;max-width:500px;"
+          @loadedmetadata="handleAudioMetadata"
+          @error="handleMediaError">
+          您的浏览器不支持音频播放
+        </audio>
+        <!-- 音频元数据 -->
+        <div style="padding:12px;background:#f5f5f5;margin-top:20px;">
+          <a-descriptions size="small" :column="3">
+            <a-descriptions-item label="格式">{{ multimediaInfo.mimeType }}</a-descriptions-item>
+            <a-descriptions-item label="大小">{{ formatFileSize(multimediaInfo.fileSize) }}</a-descriptions-item>
+            <a-descriptions-item label="文件名" :span="2">{{ multimediaInfo.fileName }}</a-descriptions-item>
+          </a-descriptions>
+        </div>
+      </div>
+
+      <!-- 3D模型查看器 -->
+      <div v-else-if="multimediaInfo && multimediaInfo.is3DModel && multimediaUrl"
+        class="multimedia-3d-container">
+        <div style="width:100%;height:560px;position:relative;">
+          <Model3DViewer
+            v-if="multimediaUrl"
+            :fileUrl="multimediaUrl"
+            :fileExt="getFileExtension(multimediaInfo.fileName)"
+            @loaded="handle3DLoaded"
+            @error="handle3DError"
+          />
+        </div>
+        <!-- 3D模型元数据 -->
+        <div v-if="!multimediaLoading" style="padding:12px;background:#f5f5f5;border-top:1px solid #e8e8e8;">
+          <a-descriptions size="small" :column="3">
+            <a-descriptions-item label="格式">{{ multimediaInfo.mimeType }}</a-descriptions-item>
+            <a-descriptions-item label="大小">{{ formatFileSize(multimediaInfo.fileSize) }}</a-descriptions-item>
+            <a-descriptions-item label="文件名">{{ multimediaInfo.fileName }}</a-descriptions-item>
+          </a-descriptions>
+        </div>
+      </div>
+
+      <!-- 图片显示 -->
+      <div v-else-if="multimediaUrl">
+        <div style="text-align:center;background:#f5f5f5;padding:20px;">
+          <img :src="multimediaUrl" style="max-width:100%;max-height:560px;object-fit:contain;" @error="handleImageError"/>
+        </div>
+        <!-- 图片元数据 -->
+        <div v-if="multimediaInfo" style="padding:12px;background:#fff;border-top:1px solid #e8e8e8;">
+          <a-descriptions size="small" :column="3">
+            <a-descriptions-item label="格式">{{ multimediaInfo.mimeType }}</a-descriptions-item>
+            <a-descriptions-item label="大小">{{ formatFileSize(multimediaInfo.fileSize) }}</a-descriptions-item>
+            <a-descriptions-item label="文件名">{{ multimediaInfo.fileName }}</a-descriptions-item>
+          </a-descriptions>
+        </div>
+      </div>
+
+      <!-- 加载失败 -->
+      <div v-else style="text-align:center;padding:60px;color:#999;">
+        <a-icon type="file-unknown" style="font-size:64px;margin-bottom:16px;"/>
+        <div>无法加载此多媒体文件</div>
+      </div>
+    </a-modal>
+
     <!-- 对话框组件 -->
     <ietm-interref-dialog ref="interrefDialog" :visible.sync="interrefDialogVisible" :node-list="nodeList" @insert="insertInterref"/>
     <ietm-dm-ref-dialog ref="dmrefDialog" :visible.sync="dmrefDialogVisible" @insert="insertDmRef"/>
@@ -521,6 +566,7 @@ import IetmSymbolDialog from './IetmSymbolDialog'
 import FigureDesigner from './FigureDesigner'
 import MultimediaDesigner from './MultimediaDesigner'
 import TableDesigner from './TableDesigner'
+import Model3DViewer from '@/views/ietm/icnmanage/modules/Model3DViewer.vue'
 
 export default {
   name: 'LevelledParaDesigner',
@@ -531,7 +577,8 @@ export default {
     IetmSymbolDialog,
     FigureDesigner,
     MultimediaDesigner,
-    TableDesigner
+    TableDesigner,
+    Model3DViewer
   },
 
   props: {
@@ -605,6 +652,15 @@ export default {
       dmrefDialogVisible: false,
       symbolDialogVisible: false,
 
+      // 多媒体预览弹窗状态
+      multimediaModalVisible: false,
+      multimediaIcnIdent: '',
+      multimediaUrl: null,
+      multimediaLoading: false,
+      multimediaInfo: null,
+      videoDuration: 0,
+      audioDuration: 0,
+
       endline: -1,
       saving: false
     }
@@ -626,6 +682,15 @@ export default {
         toEnXml: this.toEnXml,
         toCnXml: this.toCnXml,
         formateXml: this.formateXml
+      }
+    }
+  },
+
+  watch: {
+    // 监听多媒体预览弹窗打开，加载 ICN 内容
+    multimediaModalVisible(val) {
+      if (val && this.multimediaIcnIdent) {
+        this.fetchIcnContent(this.multimediaIcnIdent)
       }
     }
   },
@@ -856,9 +921,7 @@ export default {
         note: '注',
         figure: '插图',
         multimedia: '多媒体',
-        foldout: '折叠',    // 🔑 S1000D 符合性
-        table: '表格',
-        caption: '图说'     // 🔑 S1000D 符合性
+        table: '表格'
       }
       const label = labelMap[type] || type
       return [
@@ -1008,8 +1071,7 @@ export default {
       try {
         return data.map((item, index) => {
           // 区分文本类和结构化类内容
-          // 🔑 Bug 修复：添加 foldout 和 caption 到结构化类型列表
-          const isStructured = type === 'figure' || type === 'multimedia' || type === 'table' || type === 'foldout' || type === 'caption'
+          const isStructured = type === 'figure' || type === 'multimedia' || type === 'table'
           const contentField = isStructured ? 'xml' : 'content'
 
           let displayContent = item[contentField] || ''
@@ -1089,9 +1151,9 @@ export default {
                 // 统计多媒体对象数量
                 const objectCount = multimediaElement.querySelectorAll('multimediaObject').length
 
-                // 生成显示内容：标题 + 对象数量
+                // 生成显示内容：只显示标题和预览图
                 if (objectCount > 0) {
-                  displayContent = `<div><strong>标题：</strong>${title}</div><div style="color: #666; margin-top: 4px;">多媒体对象：${objectCount} 个</div>`
+                  displayContent = `<div><strong>标题：</strong>${title}</div>`
 
                   // 如果有ICN，显示预览图
                   if (icn) {
@@ -1117,81 +1179,6 @@ export default {
             } catch (e) {
               console.error('[getContentData] 解析multimedia XML失败:', e)
               displayContent = '无法解析多媒体数据'
-            }
-          }
-          // 🔑 新增修复：foldout类型需要解析XML并显示内部内容
-          else if (type === 'foldout' && displayContent) {
-            try {
-              const parser = new DOMParser()
-              const doc = parser.parseFromString(displayContent, 'text/xml')
-
-              console.log('[getContentData] 解析foldout XML:', displayContent.substring(0, 200))
-
-              if (!doc.querySelector('parsererror')) {
-                const foldoutElement = doc.documentElement
-
-                // 🔑 foldout 结构：<foldout>内部是para/warning/figure等内容元素，提取所有文本内容
-                const serializer = new XMLSerializer()
-                let innerContent = ''
-
-                // 遍历所有子节点，提取文本内容
-                for (let i = 0; i < foldoutElement.childNodes.length; i++) {
-                  const child = foldoutElement.childNodes[i]
-                  if (child.nodeType === Node.ELEMENT_NODE) {
-                    // 如果是元素节点，提取其文本内容
-                    innerContent += child.textContent + ' '
-                  } else if (child.nodeType === Node.TEXT_NODE) {
-                    innerContent += child.textContent
-                  }
-                }
-
-                innerContent = innerContent.trim()
-
-                // 如果内容太长，截断显示
-                if (innerContent.length > 100) {
-                  displayContent = `<div style="color: #262626;">${innerContent.substring(0, 100)}...</div>`
-                } else if (innerContent.length > 0) {
-                  displayContent = `<div style="color: #262626;">${innerContent}</div>`
-                } else {
-                  displayContent = `<div style="color: #999;">（空折叠内容）</div>`
-                }
-              } else {
-                console.error('[getContentData] 折叠XML解析错误')
-                displayContent = '无法解析折叠数据'
-              }
-            } catch (e) {
-              console.error('[getContentData] 解析foldout XML失败:', e)
-              displayContent = '无法解析折叠数据'
-            }
-          }
-          // 🔑 新增修复：caption类型需要解析XML并显示内部内容
-          else if (type === 'caption' && displayContent) {
-            try {
-              const parser = new DOMParser()
-              const doc = parser.parseFromString(displayContent, 'text/xml')
-
-              console.log('[getContentData] 解析caption XML:', displayContent.substring(0, 200))
-
-              if (!doc.querySelector('parsererror')) {
-                const captionElement = doc.documentElement
-
-                // caption 通常包含简单的文本或para，提取文本内容
-                const textContent = captionElement.textContent.trim()
-
-                if (textContent.length > 100) {
-                  displayContent = `<div style="color: #262626;">${textContent.substring(0, 100)}...</div>`
-                } else if (textContent.length > 0) {
-                  displayContent = `<div style="color: #262626;">${textContent}</div>`
-                } else {
-                  displayContent = `<div style="color: #999;">（空图说）</div>`
-                }
-              } else {
-                console.error('[getContentData] 图说XML解析错误')
-                displayContent = '无法解析图说数据'
-              }
-            } catch (e) {
-              console.error('[getContentData] 解析caption XML失败:', e)
-              displayContent = '无法解析图说数据'
             }
           }
           // 🔑 关键修复：如果 content/xml 是完整的 XML 标签，需要提取内部内容用于显示
@@ -1351,118 +1338,48 @@ export default {
 
     async _loadMultimediaPreview(previewId, icn, multimediaType) {
       try {
-        const apiBaseUrl = window._CONFIG?.domianURL || '/jeecg-boot'
-        const token = localStorage.getItem('pro__Access-Token') ? JSON.parse(localStorage.getItem('pro__Access-Token')).value : ''
-
-        // 第一步：查询 ICN 信息获取 ICN ID
-        const icnInfo = await fetch(`${apiBaseUrl}/icnmanage/ietmIcnManage/queryByIcnCode?icn=${encodeURIComponent(icn)}`, {
-          headers: { 'X-Access-Token': token }
-        }).then(r => r.json())
-
-        console.log('[_loadMultimediaPreview] ICN查询结果:', icnInfo)
-
-        if (!icnInfo.success || !icnInfo.result || !icnInfo.result.id) {
-          console.error('[_loadMultimediaPreview] 未找到ICN:', icn)
-          this._showPreviewError(previewId, '未找到文件')
-          return
+        // 🔑 使用与 DmPreviewModal 相同的标准占位符图标
+        // 使用 encodeURIComponent 正确编码 SVG
+        const MEDIA_ICONS = {
+          'audio': 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" rx="8" fill="#e6f4ff" stroke="#4096ff" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="24">🎵</text></svg>'),
+          'video': 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" rx="8" fill="#e6f4ff" stroke="#4096ff" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="24">🎬</text></svg>'),
+          'flash': 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" rx="8" fill="#fff7e6" stroke="#fa8c16" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="24">⚡</text></svg>'),
+          '3d': 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" rx="8" fill="#f6ffed" stroke="#52c41a" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="24">🧊</text></svg>')
         }
 
-        const icnId = icnInfo.result.id
-        const attachment = icnInfo.result.ietmAttachment
-        const fileName = attachment?.fileName || ''
-        const fileExt = fileName ? fileName.substring(fileName.lastIndexOf('.')).toLowerCase() : ''
+        // 根据 multimediaType 获取对应的图标
+        const typeKey = (multimediaType || '').toLowerCase()
+        const iconSrc = MEDIA_ICONS[typeKey] || MEDIA_ICONS['3d'] // 默认使用3D图标
 
-        // 第二步：调用预览 API 获取预览信息（视频封面图、音频图标、3D 缩略图等）
-        const previewRes = await fetch(`${apiBaseUrl}/icnmanage/ietmIcnManage/preview/${icnId}`, {
-          headers: { 'X-Access-Token': token }
-        }).then(r => r.json())
-
-        console.log('[_loadMultimediaPreview] 预览API结果:', previewRes)
-
-        if (!previewRes.success || !previewRes.result || !previewRes.result.fileUrl) {
-          console.error('[_loadMultimediaPreview] 无法获取预览:', previewRes.message)
-          this._showPreviewError(previewId, '无法生成预览')
-          return
-        }
-
-        const previewInfo = previewRes.result
-        const previewType = previewInfo.previewType || ''
-        const previewFileUrl = previewInfo.fileUrl
-
-        console.log('[_loadMultimediaPreview] 预览类型:', previewType, '文件扩展名:', fileExt, '文件URL:', previewFileUrl)
-
-        // 第三步：使用 fetch 携带 token 加载 blob URL
-        const fullUrl = apiBaseUrl + previewFileUrl
-        const response = await fetch(fullUrl, {
-          method: 'GET',
-          headers: { 'X-Access-Token': token }
-        })
-
-        if (!response.ok) {
-          console.error('[_loadMultimediaPreview] 加载预览文件失败:', response.status)
-          this._showPreviewError(previewId, '加载失败')
-          return
-        }
-
-        // 检查 Content-Type
-        const contentType = response.headers.get('content-type') || ''
-        if (contentType.includes('application/json')) {
-          const json = await response.json()
-          console.error('[_loadMultimediaPreview] 服务器返回错误:', json)
-          this._showPreviewError(previewId, json.message || '加载失败')
-          return
-        }
-
-        const blob = await response.blob()
-        if (blob.size === 0) {
-          console.error('[_loadMultimediaPreview] 文件为空')
-          this._showPreviewError(previewId, '文件为空')
-          return
-        }
-
-        // 创建 Blob URL
-        const blobUrl = URL.createObjectURL(blob)
-
-        // 根据预览类型生成不同的播放器 HTML
-        let previewHtml = ''
-
-        if (previewType === 'VIDEO') {
-          // 视频播放器
-          previewHtml = `
-            <video controls style="max-width: 200px; max-height: 150px; border: 1px solid #ddd;">
-              <source src="${blobUrl}" type="video/mp4">
-              您的浏览器不支持视频播放
-            </video>`
-        } else if (previewType === 'AUDIO') {
-          // 音频播放器
-          previewHtml = `
-            <div style="width: 200px; border: 1px solid #ddd; padding: 8px; background: #f5f5f5;">
-              <audio controls style="width: 100%;">
-                <source src="${blobUrl}" type="audio/mpeg">
-                您的浏览器不支持音频播放
-              </audio>
-            </div>`
-        } else if (previewType === 'IMAGE') {
-          // 图像显示
-          previewHtml = `<img src="${blobUrl}" style="max-width: 200px; max-height: 150px; border: 1px solid #ddd; padding: 2px;" />`
-        } else if (previewType === '3D') {
-          // 3D模型 - 显示缩略图 + 提示（完整3D查看器需要 Vue 组件，在列表中难以实现）
-          previewHtml = `
-            <div style="width: 200px; height: 150px; border: 1px solid #ddd; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f0f0f0; cursor: pointer;" onclick="alert('请点击编辑按钮查看完整3D模型')">
-              <img src="${blobUrl}" style="max-width: 180px; max-height: 120px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
-              <div style="display: none; font-size: 48px; color: #722ed1;">📦</div>
-              <div style="font-size: 11px; color: #666; margin-top: 4px;">点击查看3D模型</div>
-            </div>`
-        } else {
-          // 其他类型 - 尝试显示图片
-          previewHtml = `<img src="${blobUrl}" style="max-width: 200px; max-height: 150px; border: 1px solid #ddd; padding: 2px;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width: 200px; height: 150px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; background: #f0f0f0;\\'>无法显示此类型</div>';" />`
-        }
+        console.log('[_loadMultimediaPreview] ICN:', icn, 'Type:', multimediaType)
 
         this.$nextTick(() => {
           const previewElement = document.getElementById(previewId)
           if (previewElement) {
-            previewElement.innerHTML = previewHtml
-            console.log('[_loadMultimediaPreview] 预览已更新:', previewId, '类型:', previewType)
+            // 清空元素
+            previewElement.innerHTML = ''
+
+            // 创建DOM元素而不是使用innerHTML（避免HTML转义问题）
+            const containerDiv = document.createElement('div')
+            containerDiv.style.cssText = 'cursor: pointer; text-align: left; padding: 12px;'
+            containerDiv.setAttribute('data-icn', icn)
+            containerDiv.className = 'multimedia-preview-item'
+            containerDiv.setAttribute('title', '点击预览多媒体')  // 添加鼠标悬停提示
+
+            const img = document.createElement('img')
+            img.src = iconSrc
+            img.style.cssText = 'width: 48px; height: 48px;'
+
+            containerDiv.appendChild(img)
+            previewElement.appendChild(containerDiv)
+
+            // 🔑 关键：添加点击事件监听器
+            containerDiv.addEventListener('click', () => {
+              console.log('[多媒体预览] 点击预览，ICN:', icn)
+              this.handleMultimediaClick(icn)
+            })
+
+            console.log('[_loadMultimediaPreview] 预览已更新:', previewId, '类型:', multimediaType)
           }
         })
 
@@ -1694,8 +1611,7 @@ export default {
         this.selectedNode.html = createEmptyHtmlContent()
       }
 
-      // 🔑 关键修复：foldout 和 caption 也是结构化类型
-      const isStructured = type === 'figure' || type === 'multimedia' || type === 'table' || type === 'foldout' || type === 'caption'
+      const isStructured = type === 'figure' || type === 'multimedia' || type === 'table'
 
       // 🔑 关键修复：直接操作原始数据，创建完整 XML 格式的项
       lines.forEach((line, idx) => {
@@ -1775,8 +1691,6 @@ export default {
         return
       }
 
-      // 🔧 特殊处理：foldout和caption也是结构化类型，但使用通用编辑器
-      // 注意：虽然它们是结构化类型，但编辑时仍使用富文本编辑器
 
       this.contentEditorType = type
       this.contentEditorIndex = index
@@ -2167,8 +2081,7 @@ export default {
             this.selectedNode.html = createEmptyHtmlContent()
           }
 
-          // 🔑 关键修复：foldout 和 caption 也是结构化类型
-          const isStructured = type === 'figure' || type === 'multimedia' || type === 'table' || type === 'foldout' || type === 'caption'
+          const isStructured = type === 'figure' || type === 'multimedia' || type === 'table'
 
           if (index >= 0) {
             // 编辑现有项：更新原始数据中的 content/xml 字段
@@ -2183,39 +2096,8 @@ export default {
             const originalItem = this.selectedNode.html[type][index]
             const itemId = originalItem.id || `${type}-${Date.now()}`
 
-            // 🔑 特殊处理：foldout 和 caption 虽然是结构化类型，但使用富文本编辑器
-            // 需要将富文本内容转换为 S1000D XML 格式并包装成完整的 XML 标签
-            if (type === 'foldout' || type === 'caption') {
-              // 步骤1：将 HTML 转换为 S1000D XML（<p> → <para>）
-              let s1000dContent = processedContent
-
-              // 🔑 关键：html2para 会剥离外层<p>标签，所以需要确保内容被正确转换
-              // 策略：先转换，如果结果是纯文本，则包装成<para>
-              try {
-                console.log(`[编辑${type}] 原始HTML:`, processedContent)
-
-                // 调用 html2para 进行转换
-                const converted = await html2para(this.Parent, processedContent, this.projectParameters, [])
-                console.log(`[编辑${type}] html2para返回:`, converted)
-
-                // 如果返回的内容不包含XML标签（纯文本），则包装成<para>
-                if (converted && !converted.includes('<')) {
-                  s1000dContent = `<para>${converted}</para>`
-                } else {
-                  s1000dContent = converted || ''
-                }
-
-                console.log(`[编辑${type}] 最终S1000D XML:`, s1000dContent)
-              } catch (e) {
-                console.error(`[编辑${type}] html2para转换失败:`, e.message)
-                // 如果转换失败，尝试简单替换 <p> → <para>
-                s1000dContent = processedContent.replace(/<p>/g, '<para>').replace(/<\/p>/g, '</para>')
-              }
-
-              // 步骤2：包装成完整的 XML 结构
-              originalItem.xml = `<${type} id="${itemId}">${s1000dContent}</${type}>`
-            } else if (isStructured) {
-              // 其他结构化类型（figure、multimedia、table），由专门设计器处理，保持原样
+            // 结构化类型，由专门设计器处理，保持原样
+            if (isStructured) {
               originalItem.xml = processedContent
             } else {
               // 文本类型，需要包装成完整 XML
@@ -2266,9 +2148,17 @@ export default {
                 }
               }
 
-              if (hasImage || hasDmOrInternalRef) {
+              // 🔧 2026-11-13 P0修复：warning/caution/note/para 必须调用 html2para 以生成正确的子元素标签
+              // 根因：S1000D 4.0 标准要求：
+              //   - warning/caution 使用 <warningAndCautionPara>
+              //   - note 使用 <notePara>
+              //   - para 不能包含 <p> 子元素，只能包含内联内容（文本、emphasis、symbol等）
+              // 但 UEditor 输出的是普通 <p> 标签，必须通过 html2para 转换
+              const needsHtml2Para = hasImage || hasDmOrInternalRef || type === 'warning' || type === 'caution' || type === 'note' || type === 'para'
+
+              if (needsHtml2Para) {
                 // 异步调用 html2para 进行转换
-                // 处理：图片→symbol、公式→symbol、<a>标签→dmRef/internalRef
+                // 处理：图片→symbol、公式→symbol、<a>标签→dmRef/internalRef、<p>→type特定标签
                 try {
                   console.log('[编辑项] 直接传递给 html2para:', processedContent)
 
@@ -2283,9 +2173,47 @@ export default {
                 }
               }
 
+              // 🔧 2026-11-13 P0修复：类型特定的后处理，确保符合 S1000D 标准
+              // 问题：html2para 会剥离外层 <p> 标签并返回纯文本或内联元素
+              // 修复：根据 type 包装为正确的 S1000D 子元素标签
+              if (type === 'warning' || type === 'caution') {
+                // warning/caution 必须使用 <warningAndCautionPara> 子元素
+                if (!finalContent.includes('<warningAndCautionPara>')) {
+                  // 剥离可能存在的 <para> 标签
+                  let textContent = finalContent.replace(/<\/?para>/g, '').trim()
+                  // 如果是纯文本，包装为 warningAndCautionPara
+                  if (textContent && !textContent.startsWith('<')) {
+                    finalContent = `<warningAndCautionPara>${textContent}</warningAndCautionPara>`
+                  } else if (textContent) {
+                    // 如果包含其他 XML 标签（如 symbol），包装为 warningAndCautionPara
+                    finalContent = `<warningAndCautionPara>${textContent}</warningAndCautionPara>`
+                  } else {
+                    // 空内容
+                    finalContent = '<warningAndCautionPara></warningAndCautionPara>'
+                  }
+                }
+              } else if (type === 'note') {
+                // note 必须使用 <notePara> 子元素
+                if (!finalContent.includes('<notePara>')) {
+                  let textContent = finalContent.replace(/<\/?para>/g, '').trim()
+                  if (textContent && !textContent.startsWith('<')) {
+                    finalContent = `<notePara>${textContent}</notePara>`
+                  } else if (textContent) {
+                    finalContent = `<notePara>${textContent}</notePara>`
+                  } else {
+                    finalContent = '<notePara></notePara>'
+                  }
+                }
+              } else if (type === 'para') {
+                // 🔧 2026-11-13 P0修复：para 不能包含 <p> 子元素
+                // S1000D 标准：<para> 只能包含内联内容（文本、emphasis、symbol等），不能包含块级元素
+                // html2para 已经剥离了外层 <p>，但可能返回了 <para> 标签，需要再次剥离
+                finalContent = finalContent.replace(/<\/?para>/g, '').trim()
+              }
+
               // 🔑 P0修复：html2para 返回的内容已经是有效的 XML，不应再转义
               // 只对未经过 html2para 转换的纯文本内容进行转义
-              const escapedContent = (hasImage || hasDmOrInternalRef)
+              const escapedContent = needsHtml2Para
                 ? finalContent  // html2para 的输出是 XML，直接使用
                 : this.escapeXmlContent(finalContent)  // 纯文本需要转义
 
@@ -2300,39 +2228,8 @@ export default {
               id: newId
             }
 
-            // 🔑 特殊处理：foldout 和 caption 虽然是结构化类型，但使用富文本编辑器
-            // 需要将富文本内容转换为 S1000D XML 格式并包装成完整的 XML 标签
-            if (type === 'foldout' || type === 'caption') {
-              // 步骤1：将 HTML 转换为 S1000D XML（<p> → <para>）
-              let s1000dContent = processedContent
-
-              // 🔑 关键：html2para 会剥离外层<p>标签，所以需要确保内容被正确转换
-              // 策略：先转换，如果结果是纯文本，则包装成<para>
-              try {
-                console.log(`[添加${type}] 原始HTML:`, processedContent)
-
-                // 调用 html2para 进行转换
-                const converted = await html2para(this.Parent, processedContent, this.projectParameters, [])
-                console.log(`[添加${type}] html2para返回:`, converted)
-
-                // 如果返回的内容不包含XML标签（纯文本），则包装成<para>
-                if (converted && !converted.includes('<')) {
-                  s1000dContent = `<para>${converted}</para>`
-                } else {
-                  s1000dContent = converted || ''
-                }
-
-                console.log(`[添加${type}] 最终S1000D XML:`, s1000dContent)
-              } catch (e) {
-                console.error(`[添加${type}] html2para转换失败:`, e.message)
-                // 如果转换失败，尝试简单替换 <p> → <para>
-                s1000dContent = processedContent.replace(/<p>/g, '<para>').replace(/<\/p>/g, '</para>')
-              }
-
-              // 步骤2：包装成完整的 XML 结构
-              newItem.xml = `<${type} id="${newId}">${s1000dContent}</${type}>`
-            } else if (isStructured) {
-              // 其他结构化类型（figure、multimedia、table），由专门设计器处理，保持原样
+            // 结构化类型，由专门设计器处理，保持原样
+            if (isStructured) {
               newItem.xml = processedContent
             } else {
               // 🔧 修复SYMBOL-INCONSISTENCY: 检测 <img> 或 &lt;img（HTML转义）并转换为 <symbol>
@@ -2380,7 +2277,15 @@ export default {
                 }
               }
 
-              if (hasImage || hasDmOrInternalRef) {
+              // 🔧 2026-11-13 P0修复：warning/caution/note/para 必须调用 html2para 以生成正确的子元素标签
+              // 根因：S1000D 4.0 标准要求：
+              //   - warning/caution 使用 <warningAndCautionPara>
+              //   - note 使用 <notePara>
+              //   - para 不能包含 <p> 子元素，只能包含内联内容（文本、emphasis、symbol等）
+              // 但 UEditor 输出的是普通 <p> 标签，必须通过 html2para 转换
+              const needsHtml2Para = hasImage || hasDmOrInternalRef || type === 'warning' || type === 'caution' || type === 'note' || type === 'para'
+
+              if (needsHtml2Para) {
                 // 异步调用 html2para 进行转换
                 try {
                   console.log('[添加项] 直接传递给 html2para:', processedContent)
@@ -2396,9 +2301,47 @@ export default {
                 }
               }
 
+              // 🔧 2026-11-13 P0修复：类型特定的后处理，确保符合 S1000D 标准
+              // 问题：html2para 会剥离外层 <p> 标签并返回纯文本或内联元素
+              // 修复：根据 type 包装为正确的 S1000D 子元素标签
+              if (type === 'warning' || type === 'caution') {
+                // warning/caution 必须使用 <warningAndCautionPara> 子元素
+                if (!finalContent.includes('<warningAndCautionPara>')) {
+                  // 剥离可能存在的 <para> 标签
+                  let textContent = finalContent.replace(/<\/?para>/g, '').trim()
+                  // 如果是纯文本，包装为 warningAndCautionPara
+                  if (textContent && !textContent.startsWith('<')) {
+                    finalContent = `<warningAndCautionPara>${textContent}</warningAndCautionPara>`
+                  } else if (textContent) {
+                    // 如果包含其他 XML 标签（如 symbol），包装为 warningAndCautionPara
+                    finalContent = `<warningAndCautionPara>${textContent}</warningAndCautionPara>`
+                  } else {
+                    // 空内容
+                    finalContent = '<warningAndCautionPara></warningAndCautionPara>'
+                  }
+                }
+              } else if (type === 'note') {
+                // note 必须使用 <notePara> 子元素
+                if (!finalContent.includes('<notePara>')) {
+                  let textContent = finalContent.replace(/<\/?para>/g, '').trim()
+                  if (textContent && !textContent.startsWith('<')) {
+                    finalContent = `<notePara>${textContent}</notePara>`
+                  } else if (textContent) {
+                    finalContent = `<notePara>${textContent}</notePara>`
+                  } else {
+                    finalContent = '<notePara></notePara>'
+                  }
+                }
+              } else if (type === 'para') {
+                // 🔧 2026-11-13 P0修复：para 不能包含 <p> 子元素
+                // S1000D 标准：<para> 只能包含内联内容（文本、emphasis、symbol等），不能包含块级元素
+                // html2para 已经剥离了外层 <p>，但可能返回了 <para> 标签，需要再次剥离
+                finalContent = finalContent.replace(/<\/?para>/g, '').trim()
+              }
+
               // 🔑 P0修复：html2para 返回的内容已经是有效的 XML，不应再转义
               // 只对未经过 html2para 转换的纯文本内容进行转义
-              const escapedContent = (hasImage || hasDmOrInternalRef)
+              const escapedContent = needsHtml2Para
                 ? finalContent  // html2para 的输出是 XML，直接使用
                 : this.escapeXmlContent(finalContent)  // 纯文本需要转义
 
@@ -2570,8 +2513,7 @@ export default {
 
       let hasContent = false
       if (this.selectedNode.html) {
-        // 🔑 S1000D 符合性：添加 foldout 和 caption
-        const contentTypes = ['para', 'warning', 'caution', 'note', 'figure', 'multimedia', 'foldout', 'table', 'caption']
+        const contentTypes = ['para', 'warning', 'caution', 'note', 'figure', 'multimedia', 'table']
         for (const type of contentTypes) {
           // 🔑 关键修复：html[type] 现在是数组对象，不是 JSON 字符串
           const data = this.selectedNode.html[type]
@@ -2653,12 +2595,12 @@ export default {
 
         // 2. 添加直接内容（para/warning/figure 等）
         // 🔑 P0修复问题2：item.content 已经是完整的 XML 节点（如 <warning id="...">内容</warning>），直接使用
-        const contentTypes = ['warning', 'caution', 'note', 'para', 'figure', 'multimedia', 'table', 'foldout', 'caption']
+        const contentTypes = ['warning', 'caution', 'note', 'para', 'figure', 'multimedia', 'table']
         for (const type of contentTypes) {
           const items = node.html?.[type]
           if (Array.isArray(items) && items.length > 0) {
             items.forEach(item => {
-              const isStructured = ['figure', 'multimedia', 'table', 'foldout', 'caption'].includes(type)
+              const isStructured = ['figure', 'multimedia', 'table'].includes(type)
               let content = isStructured ? item.xml : item.content
 
               // 🔑 P0修复：如果 content 包含 xlink: 但没有命名空间声明，添加它
@@ -2963,6 +2905,156 @@ export default {
       if (parts.length <= 1) return ''
       parts.pop()
       return parts.join('.')
+    },
+
+    // ==================== 多媒体预览弹窗 ====================
+
+    /**
+     * 打开多媒体预览弹窗
+     * @param {string} icn - ICN 编码
+     */
+    handleMultimediaClick(icn) {
+      this.multimediaIcnIdent = (icn || '').trim()
+      this.multimediaModalVisible = true
+    },
+
+    /**
+     * 关闭多媒体预览弹窗
+     */
+    handleMultimediaClose() {
+      this.multimediaModalVisible = false
+      // 清理 Blob URL
+      if (this.multimediaUrl && this.multimediaUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(this.multimediaUrl)
+      }
+      this.multimediaUrl = null
+      this.multimediaInfo = null
+      this.multimediaIcnIdent = ''
+      this.videoDuration = 0
+      this.audioDuration = 0
+    },
+
+    /**
+     * 加载 ICN 内容（从 DmPreviewModal 复制）
+     * @param {string} icnIdent - ICN 编码
+     */
+    async fetchIcnContent(icnIdent) {
+      this.multimediaLoading = true
+      this.multimediaUrl = null
+      this.multimediaInfo = null
+      this.videoDuration = 0
+      this.audioDuration = 0
+
+      try {
+        if (!icnIdent || !icnIdent.trim()) {
+          this.$message.warning('ICN编码为空')
+          return
+        }
+
+        const icnCode = icnIdent.trim()
+
+        // 先获取ICN元数据
+        const metaRes = await this.$http.get(`/ietm/icn/metadata/${icnCode}`)
+        if (metaRes.success) {
+          this.multimediaInfo = metaRes.result
+        } else {
+          throw new Error(metaRes.message || 'ICN元数据获取失败')
+        }
+
+        // 判断文件类型
+        const mimeType = this.multimediaInfo.mimeType || ''
+        this.multimediaInfo.isVideo = mimeType.startsWith('video/')
+        this.multimediaInfo.isAudio = mimeType.startsWith('audio/')
+        this.multimediaInfo.isImage = mimeType.startsWith('image/')
+
+        // 处理3D模型
+        const is3DModel = /\.(gltf|glb)$/i.test(this.multimediaInfo.fileName || '')
+        if (is3DModel) {
+          try {
+            const apiBaseUrl = process.env.VUE_APP_API_BASE_URL || 'http://localhost:9999/jeecg-boot'
+            const modelRes = await this.$http.get(
+              `${apiBaseUrl}/ietm/icn/view/${icnCode}`,
+              { responseType: 'blob' }
+            )
+            if (modelRes) {
+              this.multimediaUrl = URL.createObjectURL(modelRes)
+              this.multimediaInfo.is3DModel = true
+              console.log('✅ 3D模型加载成功:', icnCode)
+            }
+          } catch (err) {
+            console.error('3D模型加载失败:', err)
+            throw new Error('无法加载3D模型数据: ' + err.message)
+          }
+        } else {
+          // 普通图符/多媒体：使用绝对URL
+          const apiBaseUrl = process.env.VUE_APP_API_BASE_URL || 'http://localhost:9999/jeecg-boot'
+          this.multimediaUrl = `${apiBaseUrl}/ietm/icn/view/${icnCode}`
+        }
+
+      } catch (err) {
+        console.error('fetchIcnContent 失败:', err)
+        this.$message.error(err.message || '加载多媒体内容失败')
+      } finally {
+        this.multimediaLoading = false
+      }
+    },
+
+    /**
+     * 格式化文件大小
+     * @param {number} bytes - 字节数
+     * @returns {string} 格式化后的文件大小
+     */
+    formatFileSize(bytes) {
+      if (!bytes || bytes === 0) return '0 B'
+      const k = 1024
+      const sizes = ['B', 'KB', 'MB', 'GB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
+    },
+
+    /**
+     * 视频元数据加载完成
+     */
+    handleVideoMetadata(e) {
+      this.videoDuration = e.target.duration
+    },
+
+    /**
+     * 音频元数据加载完成
+     */
+    handleAudioMetadata(e) {
+      this.audioDuration = e.target.duration
+    },
+
+    /**
+     * 多媒体文件加载错误
+     */
+    handleMediaError(e) {
+      this.$message.error('多媒体文件加载失败')
+      console.error('Media load error:', e)
+    },
+
+    /**
+     * 图片加载错误
+     */
+    handleImageError(e) {
+      this.$message.error('图片加载失败')
+      console.error('Image load error:', e)
+    },
+
+    getFileExtension(fileName) {
+      if (!fileName) return ''
+      const match = fileName.match(/\.([a-z0-9]+)$/i)
+      return match ? match[0].toLowerCase() : ''
+    },
+
+    handle3DLoaded(modelInfo) {
+      console.log('✅ 3D模型加载成功:', modelInfo)
+    },
+
+    handle3DError(error) {
+      console.error('❌ 3D模型加载失败:', error)
+      this.$message.error('3D模型加载失败: ' + (error.message || '未知错误'))
     }
   }
 }
@@ -3390,5 +3482,14 @@ export default {
       }
     }
   }
+}
+
+/* 隐藏3D预览弹出框中的控制提示和模型信息 */
+.multimedia-3d-container /deep/ .controls-hint {
+  display: none !important;
+}
+
+.multimedia-3d-container /deep/ .model-info {
+  display: none !important;
 }
 </style>

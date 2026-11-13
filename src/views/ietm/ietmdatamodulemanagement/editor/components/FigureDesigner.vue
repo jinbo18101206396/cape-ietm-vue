@@ -787,21 +787,22 @@ export default {
             align-items: center;
             justify-content: center;
             padding: 20px;
-            overflow: hidden;
+            overflow: auto;
             text-align: center;
             background: #f5f5f5;
             min-height: 400px;
+            max-height: 600px;
 
             /deep/ .ant-spin-container {
               display: flex;
               align-items: center;
               justify-content: center;
-              min-height: 400px;
+              width: 100%;
             }
 
             .preview-image {
               max-width: 100%;
-              max-height: 560px;
+              max-height: 400px;
               object-fit: contain;
               display: block;
             }

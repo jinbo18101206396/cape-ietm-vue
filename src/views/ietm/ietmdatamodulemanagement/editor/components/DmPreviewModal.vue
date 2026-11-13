@@ -361,6 +361,17 @@ export default {
             display: block !important;
             margin: 20px auto !important;
           }
+
+          /* 警告、注意、注等模块之间的间距 */
+          .wcBorderSpacing {
+            margin-bottom: 16px !important;
+          }
+
+          /* 针对特定的警告和注意样式 */
+          .warningBGImage,
+          .cautionBGImage {
+            margin-bottom: 16px !important;
+          }
         </style>
       `
 

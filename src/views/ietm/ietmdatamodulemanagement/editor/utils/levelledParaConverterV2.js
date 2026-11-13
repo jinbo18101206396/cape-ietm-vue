@@ -9,8 +9,8 @@
  */
 
 // 定义常量（不需要从 TypeScript 导入）
-// 🔑 S1000D 4.0 符合性修复：添加 foldout 和 caption
-const CONTENT_TYPES = ['warning', 'caution', 'note', 'para', 'figure', 'multimedia', 'foldout', 'table', 'caption']
+// 🔑 S1000D 4.0 符合性：移除 foldout 和 caption（不符合标准的实现）
+const CONTENT_TYPES = ['warning', 'caution', 'note', 'para', 'figure', 'multimedia', 'table']
 const S1000D_ORDER = {
   warning: 0,
   caution: 1,
@@ -18,9 +18,7 @@ const S1000D_ORDER = {
   para: 3,
   figure: 4,
   multimedia: 5,
-  foldout: 6,      // 🔑 新增：S1000D 标准要求
-  table: 7,
-  caption: 8       // 🔑 新增：S1000D 标准要求
+  table: 6
 }
 
 /**
@@ -167,16 +165,8 @@ export function getRowhtml(element) {
       case 'multimedia':
         html.multimedia.push(serializeStructuredBlock(child))
         break
-      case 'foldout':
-        // 🔑 S1000D 符合性：foldout 是结构化元素
-        html.foldout.push(serializeStructuredBlock(child))
-        break
       case 'table':
         html.table.push(serializeStructuredBlock(child))
-        break
-      case 'caption':
-        // 🔑 S1000D 符合性：caption 是结构化元素
-        html.caption.push(serializeStructuredBlock(child))
         break
       default:
         break
@@ -265,9 +255,7 @@ export function createEmptyHtmlContent() {
     para: [],
     figure: [],
     multimedia: [],
-    foldout: [],    // 🔑 S1000D 符合性：添加 foldout
-    table: [],
-    caption: []     // 🔑 S1000D 符合性：添加 caption
+    table: []
   }
 }
 
@@ -312,12 +300,6 @@ function extractTitle(element, type) {
       const title = element.querySelector('title')
       return title ? title.textContent.trim() : 'Table'
     }
-
-    case 'foldout':
-      return 'Foldout'
-
-    case 'caption':
-      return 'Caption'
 
     default:
       return type
@@ -410,7 +392,7 @@ function nodeToXml(node, depth) {
 
           // 🔑 P0修复：对结构化元素（multimedia/figure/table），直接使用原始 XML 内容
           // 避免双重序列化导致属性变化和格式错误
-          const structuredElements = ['figure', 'multimedia', 'table', 'foldout', 'caption']
+          const structuredElements = ['figure', 'multimedia', 'table']
 
           if (structuredElements.includes(childTagName)) {
             // 直接序列化结构化元素，确保属性完整且格式正确
@@ -470,9 +452,9 @@ function nodeToXml(node, depth) {
       const element = doc.documentElement
       const tagName = element.nodeName
 
-      // 🔑 关键修复：结构化元素（figure/multimedia/table/foldout/caption）直接使用原始XML
+      // 🔑 关键修复：结构化元素（figure/multimedia/table）直接使用原始XML
       // 这些元素的XML已由各自的converter生成，不需要二次解析和格式化
-      const structuredElements = ['figure', 'multimedia', 'table', 'foldout', 'caption']
+      const structuredElements = ['figure', 'multimedia', 'table']
       if (structuredElements.includes(tagName.toLowerCase())) {
         // 直接返回原始XML，添加当前层级的缩进
         const lines = node.content.split('\n').filter(line => line.trim())
@@ -480,7 +462,19 @@ function nodeToXml(node, depth) {
         return indentedLines.join('\n') + '\n'
       }
 
-      // 🔑 非结构化元素（para/warning/caution/note）：需要重新格式化
+      // 🔑 P0修复：warning/caution/note 元素直接使用原始内容
+      // 原因：这些元素的 node.content 已经包含了完整且正确的子元素结构
+      // （如 <notePara>、<warningAndCautionPara>），不需要二次序列化
+      // 二次序列化会导致双重嵌套，例如：<notePara><notepara>...</notepara></notePara>
+      const directContentElements = ['warning', 'caution', 'note']
+      if (directContentElements.includes(tagName.toLowerCase())) {
+        // 直接返回原始XML，添加当前层级的缩进
+        const lines = node.content.split('\n').filter(line => line.trim())
+        const indentedLines = lines.map(line => `${indent}${line.trim()}`)
+        return indentedLines.join('\n') + '\n'
+      }
+
+      // 🔑 非结构化元素（para）：需要重新格式化
       const serializer = new XMLSerializer()
 
       // 提取标签名和属性（转义属性值）
@@ -556,7 +550,7 @@ function getDirectTextContent(element) {
  */
 export function createEmptyNode(type, id) {
   const templates = {
-    para: `<para id="${id}"><para>新段落</para></para>`,
+    para: `<para id="${id}">新段落</para>`,
     warning: `<warning id="${id}"><warningAndCautionPara>新警告</warningAndCautionPara></warning>`,
     caution: `<caution id="${id}"><warningAndCautionPara>新注意</warningAndCautionPara></caution>`,
     note: `<note id="${id}"><notePara>新提醒</notePara></note>`,
@@ -596,7 +590,7 @@ export function createEmptyNode(type, id) {
  */
 export function validateTree(treeData) {
   const errors = []
-  const contentTypes = ['warning', 'caution', 'note', 'para', 'figure', 'multimedia', 'table', 'foldout', 'caption']
+  const contentTypes = ['warning', 'caution', 'note', 'para', 'figure', 'multimedia', 'table']
 
   function validateNode(node, depth = 1, path = '', isRoot = false) {
     const currentPath = path ? `${path}.${node.id}` : node.id
