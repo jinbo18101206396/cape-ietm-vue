@@ -106,6 +106,19 @@
                   :node-list="nodeList"
                   @save="onLevelledParaSave"
                 />
+                <!-- CloseRqmts设计器 -->
+                <CloseRqmtsDesigner
+                  v-else-if="closeRqmtsDesignerVisible"
+                  :key="closeRqmtsDesignerVisible ? Math.random() : 'hidden'"
+                  ref="closeRqmtsDesigner"
+                  :lineno="closeRqmtsLineno"
+                  :editor="$refs.editor ? $refs.editor.getEditor() : null"
+                  :locale="locale"
+                  :cmnodeid="id"
+                  :ifedit="readonly ? '0' : '1'"
+                  save="1"
+                  @save="onCloseRqmtsSave"
+                />
                 <!-- 空状态提示 -->
                 <div v-else class="design-placeholder">
                   <a-icon type="file-text" class="dp-icon"/>
@@ -273,6 +286,7 @@ import FigureDesigner     from './components/FigureDesigner'
 import MultimediaDesigner from './components/MultimediaDesigner'
 import TableDesigner      from './components/TableDesigner'
 import LevelledParaDesigner from './components/LevelledParaDesigner'
+import CloseRqmtsDesigner from './components/CloseRqmtsDesigner'
 import { getTreeNodesfromXml, buildCnNodeList, extractRootContent, getnodeBylineno, formatXml } from './utils/xmlTree'
 import { toEnXml, toCnXml } from './utils/enCnConvert'
 import { getDmcByLineno } from './utils/refsBuilder'
@@ -298,7 +312,8 @@ export default {
     FigureDesigner,
     MultimediaDesigner,
     TableDesigner,
-    LevelledParaDesigner
+    LevelledParaDesigner,
+    CloseRqmtsDesigner
   },
   data() {
     return {
@@ -354,7 +369,10 @@ export default {
       tableLineno: 0,
       // LevelledPara设计器相关
       levelledParaDesignerVisible: false,
-      levelledParaLineno: 0
+      levelledParaLineno: 0,
+      // CloseRqmts设计器相关
+      closeRqmtsDesignerVisible: false,
+      closeRqmtsLineno: 0
     }
   },
   computed: {
@@ -394,6 +412,7 @@ export default {
           this.levelledParaDesignerVisible = false
           this.multimediaDesignerVisible = false
           this.tableDesignerVisible = false
+          this.closeRqmtsDesignerVisible = false
           this.viewMode = 'source'
 
           // 更新组件数据
@@ -585,6 +604,10 @@ export default {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
         this._openLevelledParaDesigner(editorLine)
+      } else if (elemName === 'closeRqmts') {
+        const linenoOffset = this.$refs.editor.getLinenoOffset()
+        const editorLine = node.attributes.lineno + linenoOffset - 2
+        this._openCloseRqmtsDesigner(editorLine)
       } else if (elemName === 'figure') {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
@@ -621,6 +644,8 @@ export default {
         this._openParaDesigner(line)
       } else if (enElemName === 'levelledPara') {
         this._openLevelledParaDesigner(line)
+      } else if (enElemName === 'closeRqmts') {
+        this._openCloseRqmtsDesigner(line)
       } else if (enElemName === 'figure') {
         this._openFigureDesigner(line)
       } else if (enElemName === 'multimedia') {
@@ -787,10 +812,33 @@ export default {
       this.multimediaDesignerVisible = false
       this.tableDesignerVisible = false
       this.levelledParaDesignerVisible = false
+      this.closeRqmtsDesignerVisible = false
 
       // 强制销毁旧组件，创建新实例
       this.$nextTick(() => {
         this.levelledParaDesignerVisible = true
+      })
+
+      // 进入设计视图时自动隐藏左侧导航树和属性面板
+      this.treeVisible = false
+      this.attrVisible = false
+    },
+    _openCloseRqmtsDesigner(lineno) {
+      // 统一的CloseRqmts设计器打开逻辑
+      this.viewMode = 'design'
+      this.closeRqmtsLineno = lineno
+
+      // 关闭其他设计器
+      this.paraDesignerVisible = false
+      this.figureDesignerVisible = false
+      this.multimediaDesignerVisible = false
+      this.tableDesignerVisible = false
+      this.levelledParaDesignerVisible = false
+      this.closeRqmtsDesignerVisible = false
+
+      // 强制销毁旧组件，创建新实例
+      this.$nextTick(() => {
+        this.closeRqmtsDesignerVisible = true
       })
 
       // 进入设计视图时自动隐藏左侧导航树和属性面板
@@ -937,6 +985,26 @@ export default {
 
       // 使用公共方法清理样式并刷新布局
       this._cleanupDesignViewAndRefreshLayout('LevelledPara')
+
+      // 刷新树（数据可能变化）
+      this.$nextTick(() => {
+        this.refreshTree()
+      })
+    },
+    async onCloseRqmtsSave() {
+      this.dirty = true
+      await this.doSave()
+
+      // 保存成功后，自动切换回源码视图
+      this.viewMode = 'source'
+      this.closeRqmtsDesignerVisible = false
+      this.treeVisible = true
+      if (!this.readonly) {
+        this.attrVisible = true
+      }
+
+      // 使用公共方法清理样式并刷新布局
+      this._cleanupDesignViewAndRefreshLayout('CloseRqmts')
 
       // 刷新树（数据可能变化）
       this.$nextTick(() => {

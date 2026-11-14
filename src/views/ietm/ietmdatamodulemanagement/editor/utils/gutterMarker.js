@@ -121,8 +121,8 @@ export function canShowDesignMarker(elemName, node, nodeList = []) {
     return false
   }
 
-  // 2. 支持para、levelledPara、table、figure和multimedia元素（其他元素二期再扩展）
-  if (!['para', 'levelledPara', 'table', 'figure', 'multimedia'].includes(elemName)) {
+  // 2. 支持para、levelledPara、table、figure、multimedia和closeRqmts元素（其他元素二期再扩展）
+  if (!['para', 'levelledPara', 'table', 'figure', 'multimedia', 'closeRqmts'].includes(elemName)) {
     return false
   }
 
