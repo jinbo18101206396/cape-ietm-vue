@@ -230,6 +230,9 @@ export default {
       // 后端XSLT (symbols.xsl) 将 <superScript> 转为 <span class="superScript">
       // 前端需要转换为标准HTML的 <sup> 标签以应用浏览器默认样式
       body = body
+        // 🔧 2026-11-15 问题1修复：文本替换（操作准备→准备工作，消耗品→耗材）
+        .replace(/操作准备/g, '准备工作')
+        .replace(/消耗品（件）、材料/g, '耗材')
         // 处理后端XSLT输出的格式（优先）
         .replace(/<span class="superScript">/g, '<sup>')
         .replace(/<span class="subScript">/g, '<sub>')
@@ -372,6 +375,12 @@ export default {
           .cautionBGImage {
             margin-bottom: 16px !important;
           }
+
+          /* 🔧 2026-11-15 问题1修复：准备工作标题居中对齐 */
+          .preparationWorkTitle {
+            text-align: center !important;
+            font-weight: bold !important;
+          }
         </style>
       `
 
@@ -396,6 +405,13 @@ export default {
             try {
               const iframeDoc = iframe.contentDocument || iframe.contentWindow.document
               const iframeWin = iframe.contentWindow
+
+              // 🔧 2026-11-15 问题1修复：处理"准备工作"标题居中对齐
+              const allElems = iframeDoc.querySelectorAll('.prelreqTitle')
+              allElems.forEach(el => {
+                el.style.textAlign = 'center'
+                el.style.fontWeight = 'bold'
+              })
 
               // 注入 getPos：XSLT生成的所有目录/交叉引用链接均调用此函数
               // 加载时桩函数（getPos/JumpToRow/构造器/各类 no-op）已在 <head> 的 STUB_SCRIPT_HEAD

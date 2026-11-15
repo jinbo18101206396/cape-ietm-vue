@@ -119,6 +119,19 @@
                   save="1"
                   @save="onCloseRqmtsSave"
                 />
+                <!-- PreliminaryRqmts设计器 -->
+                <PreliminaryRqmtsDesigner
+                  v-else-if="preliminaryRqmtsDesignerVisible"
+                  :key="preliminaryRqmtsDesignerVisible ? Math.random() : 'hidden'"
+                  ref="preliminaryRqmtsDesigner"
+                  :lineno="preliminaryRqmtsLineno"
+                  :editor="$refs.editor ? $refs.editor.getEditor() : null"
+                  :locale="locale"
+                  :cmnodeid="id"
+                  :ifedit="readonly ? '0' : '1'"
+                  save="1"
+                  @save="onPreliminaryRqmtsSave"
+                />
                 <!-- 空状态提示 -->
                 <div v-else class="design-placeholder">
                   <a-icon type="file-text" class="dp-icon"/>
@@ -287,6 +300,7 @@ import MultimediaDesigner from './components/MultimediaDesigner'
 import TableDesigner      from './components/TableDesigner'
 import LevelledParaDesigner from './components/LevelledParaDesigner'
 import CloseRqmtsDesigner from './components/CloseRqmtsDesigner'
+import PreliminaryRqmtsDesigner from './components/PreliminaryRqmtsDesigner'
 import { getTreeNodesfromXml, buildCnNodeList, extractRootContent, getnodeBylineno, formatXml } from './utils/xmlTree'
 import { toEnXml, toCnXml } from './utils/enCnConvert'
 import { getDmcByLineno } from './utils/refsBuilder'
@@ -313,7 +327,8 @@ export default {
     MultimediaDesigner,
     TableDesigner,
     LevelledParaDesigner,
-    CloseRqmtsDesigner
+    CloseRqmtsDesigner,
+    PreliminaryRqmtsDesigner
   },
   data() {
     return {
@@ -372,7 +387,10 @@ export default {
       levelledParaLineno: 0,
       // CloseRqmts设计器相关
       closeRqmtsDesignerVisible: false,
-      closeRqmtsLineno: 0
+      closeRqmtsLineno: 0,
+      // PreliminaryRqmts设计器相关
+      preliminaryRqmtsDesignerVisible: false,
+      preliminaryRqmtsLineno: 0
     }
   },
   computed: {
@@ -392,7 +410,9 @@ export default {
       },
       toEnXml: (xml) => toEnXml(xml, this.cn2enElem),
       toCnXml: (xml) => toCnXml(xml, this.en2cnElem),
-      formateXml: (xml, indent = 0) => formatXml(xml, indent)
+      formateXml: (xml, indent = 0) => formatXml(xml, indent),
+      // 通过函数传递 designerSett，确保始终是最新值（供 PreliminaryRqmtsDesigner 注入）
+      getDesignerSett: () => this.designerSett
     }
   },
   // ✅ 修复：监听路由变化，重新加载不同历史版本的XML内容
@@ -413,6 +433,7 @@ export default {
           this.multimediaDesignerVisible = false
           this.tableDesignerVisible = false
           this.closeRqmtsDesignerVisible = false
+          this.preliminaryRqmtsDesignerVisible = false
           this.viewMode = 'source'
 
           // 更新组件数据
@@ -608,6 +629,10 @@ export default {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
         this._openCloseRqmtsDesigner(editorLine)
+      } else if (elemName === 'preliminaryRqmts') {
+        const linenoOffset = this.$refs.editor.getLinenoOffset()
+        const editorLine = node.attributes.lineno + linenoOffset - 2
+        this._openPreliminaryRqmtsDesigner(editorLine)
       } else if (elemName === 'figure') {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
@@ -646,6 +671,8 @@ export default {
         this._openLevelledParaDesigner(line)
       } else if (enElemName === 'closeRqmts') {
         this._openCloseRqmtsDesigner(line)
+      } else if (enElemName === 'preliminaryRqmts') {
+        this._openPreliminaryRqmtsDesigner(line)
       } else if (enElemName === 'figure') {
         this._openFigureDesigner(line)
       } else if (enElemName === 'multimedia') {
@@ -845,6 +872,29 @@ export default {
       this.treeVisible = false
       this.attrVisible = false
     },
+    _openPreliminaryRqmtsDesigner(lineno) {
+      // 统一的 PreliminaryRqmts 设计器打开逻辑（参照 _openCloseRqmtsDesigner）
+      this.viewMode = 'design'
+      this.preliminaryRqmtsLineno = lineno
+
+      // 关闭所有其他设计器
+      this.paraDesignerVisible = false
+      this.figureDesignerVisible = false
+      this.multimediaDesignerVisible = false
+      this.tableDesignerVisible = false
+      this.levelledParaDesignerVisible = false
+      this.closeRqmtsDesignerVisible = false
+      this.preliminaryRqmtsDesignerVisible = false
+
+      // 强制销毁旧组件，创建新实例
+      this.$nextTick(() => {
+        this.preliminaryRqmtsDesignerVisible = true
+      })
+
+      // 进入设计视图时自动隐藏左侧导航树和属性面板
+      this.treeVisible = false
+      this.attrVisible = false
+    },
     onContentChange(val) {
       this.content = val
       this.dirty = (val !== this.originalContent)
@@ -1005,6 +1055,26 @@ export default {
 
       // 使用公共方法清理样式并刷新布局
       this._cleanupDesignViewAndRefreshLayout('CloseRqmts')
+
+      // 刷新树（数据可能变化）
+      this.$nextTick(() => {
+        this.refreshTree()
+      })
+    },
+    async onPreliminaryRqmtsSave() {
+      this.dirty = true
+      await this.doSave()
+
+      // 保存成功后，自动切换回源码视图
+      this.viewMode = 'source'
+      this.preliminaryRqmtsDesignerVisible = false
+      this.treeVisible = true
+      if (!this.readonly) {
+        this.attrVisible = true
+      }
+
+      // 使用公共方法清理样式并刷新布局
+      this._cleanupDesignViewAndRefreshLayout('PreliminaryRqmts')
 
       // 刷新树（数据可能变化）
       this.$nextTick(() => {

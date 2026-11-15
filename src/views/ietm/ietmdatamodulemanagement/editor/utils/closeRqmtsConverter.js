@@ -553,6 +553,9 @@ function escapeXml(str) {
     .replace(/'/g, '&apos;')
 }
 
+// 【v2.0新增】具名导出，供 preliminaryRqmtsConverter 复用（DM/PM引用XML构建、XML转义）
+export { buildDmRefXml, buildPmRefXml, escapeXml }
+
 export default {
   closeRqmts2object,
   object2closeRqmts
