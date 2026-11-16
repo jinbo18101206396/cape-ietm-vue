@@ -1,9 +1,9 @@
 <template>
   <div class="multimedia-designer">
     <!-- 工具栏 -->
-    <div class="multimedia-toolbar" v-if="showSaveBtn">
+    <div class="multimedia-toolbar">
       <!-- 标题行 -->
-      <div class="toolbar-header">
+      <div class="toolbar-header" v-if="showSaveBtn">
         <span class="toolbar-title">◤多媒体◢</span>
       </div>
 
@@ -11,7 +11,7 @@
       <div class="toolbar-controls">
         <label class="control-item"><span style="color: red;">*</span>标题：<input type="text" v-model="multimediaTitle" class="multimedia-input" :disabled="readonly" placeholder="多媒体标题（必填）"/></label>
         <label class="control-item">ID：<input type="text" v-model="multimediaId" class="multimedia-input" :disabled="readonly" placeholder="多媒体ID（可选）"/></label>
-        <a-button type="primary" icon="save" @click="handleSave" :loading="saving" class="save-btn">保存</a-button>
+        <a-button v-if="showSaveBtn" type="primary" icon="save" @click="handleSave" :loading="saving" class="save-btn">保存</a-button>
       </div>
     </div>
 
@@ -855,6 +855,15 @@ export default {
   text-align: center;
   color: #999;
   font-size: 13px;
+}
+
+/* 隐藏3D模型查看器的控制提示和模型信息 */
+::v-deep .model-3d-viewer .controls-hint {
+  display: none !important;
+}
+
+::v-deep .model-3d-viewer .model-info {
+  display: none !important;
 }
 </style>
 

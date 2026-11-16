@@ -19,7 +19,11 @@
     "test:prepare": "node scripts/prepare-test-data.js",
     "test:dmimport": "node scripts/run-dmimport-tests.js",
     "test:dmimport:headed": "playwright test tests/dmimport-p0-p1-verification.spec.js --headed",
-    "test:dmimport:debug": "playwright test tests/dmimport-p0-p1-verification.spec.js --debug"
+    "test:dmimport:debug": "playwright test tests/dmimport-p0-p1-verification.spec.js --debug",
+    "test:mainprocedure": "playwright test tests/mainprocedure-dialog-regression.spec.js --config playwright.config.js",
+    "test:mainprocedure:headed": "playwright test tests/mainprocedure-dialog-regression.spec.js --config playwright.config.js --headed",
+    "test:mainprocedure:debug": "playwright test tests/mainprocedure-dialog-regression.spec.js --config playwright.config.js --debug",
+    "test:mainprocedure:run": "node scripts/run-mainprocedure-tests.js"
   },
   "dependencies": {
     "@antv/data-set": "^0.11.4",
@@ -99,6 +103,8 @@
     "jest-serializer-vue": "^3.1.0",
     "less": "^3.9.0",
     "less-loader": "^4.1.0",
+    "sass": "^1.108.2",
+    "sass-loader": "^10.5.2",
     "vue-jest": "^3.0.7",
     "vue-template-compiler": "^2.6.10",
     "xml2js": "^0.6.2",

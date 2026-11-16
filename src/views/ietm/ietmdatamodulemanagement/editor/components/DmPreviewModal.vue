@@ -381,6 +381,12 @@ export default {
             text-align: center !important;
             font-weight: bold !important;
           }
+
+          /* 🔧 2026-11-16 问题修复：程序、后续工作标题居中对齐、加粗显示 */
+          .secondTitle {
+            text-align: center !important;
+            font-weight: bold !important;
+          }
         </style>
       `
 
@@ -409,6 +415,13 @@ export default {
               // 🔧 2026-11-15 问题1修复：处理"准备工作"标题居中对齐
               const allElems = iframeDoc.querySelectorAll('.prelreqTitle')
               allElems.forEach(el => {
+                el.style.textAlign = 'center'
+                el.style.fontWeight = 'bold'
+              })
+
+              // 🔧 2026-11-16 问题修复：处理"程序"和"后续工作"标题居中对齐、加粗显示
+              const secondTitleElems = iframeDoc.querySelectorAll('.secondTitle')
+              secondTitleElems.forEach(el => {
                 el.style.textAlign = 'center'
                 el.style.fontWeight = 'bold'
               })

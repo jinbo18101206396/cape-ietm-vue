@@ -178,10 +178,8 @@
           :row-selection="equipRowSelection" :pagination="false" size="small" bordered
           :row-key="(r, i) => i">
           <template slot="equipName"    slot-scope="text, record, index"><a-input v-if="!readonly" v-model="equips[index].name"            size="small"/><span v-else>{{ text }}</span></template>
-          <template slot="equipNato"    slot-scope="text, record, index"><a-input v-if="!readonly" v-model="equips[index].natoStockNumber"  size="small"/><span v-else>{{ text }}</span></template>
           <template slot="equipManuf"   slot-scope="text, record, index"><a-input v-if="!readonly" v-model="equips[index].manufacturerCode" size="small"/><span v-else>{{ text }}</span></template>
           <template slot="equipPart"    slot-scope="text, record, index"><a-input v-if="!readonly" v-model="equips[index].partNumber"       size="small"/><span v-else>{{ text }}</span></template>
-          <template slot="equipSerial"  slot-scope="text, record, index"><a-input v-if="!readonly" v-model="equips[index].serialNumber"     size="small"/><span v-else>{{ text }}</span></template>
           <template slot="equipQty"     slot-scope="text, record, index"><a-input v-if="!readonly" v-model="equips[index].reqQuantity"      size="small"/><span v-else>{{ text }}</span></template>
           <template slot="equipUom"     slot-scope="text, record, index"><a-input v-if="!readonly" v-model="equips[index].unitOfMeasure"    size="small"/><span v-else>{{ text }}</span></template>
           <template slot="equipRemarks" slot-scope="text, record, index"><a-input v-if="!readonly" v-model="equips[index].remarks"          size="small"/><span v-else>{{ text }}</span></template>
@@ -210,10 +208,8 @@
           :row-selection="supplyRowSelection" :pagination="false" size="small" bordered
           :row-key="(r, i) => i">
           <template slot="supplyName"    slot-scope="text, record, index"><a-input v-if="!readonly" v-model="supplies[index].name"            size="small"/><span v-else>{{ text }}</span></template>
-          <template slot="supplyNato"    slot-scope="text, record, index"><a-input v-if="!readonly" v-model="supplies[index].natoStockNumber"  size="small"/><span v-else>{{ text }}</span></template>
           <template slot="supplyManuf"   slot-scope="text, record, index"><a-input v-if="!readonly" v-model="supplies[index].manufacturerCode" size="small"/><span v-else>{{ text }}</span></template>
           <template slot="supplyPart"    slot-scope="text, record, index"><a-input v-if="!readonly" v-model="supplies[index].partNumber"       size="small"/><span v-else>{{ text }}</span></template>
-          <template slot="supplySerial"  slot-scope="text, record, index"><a-input v-if="!readonly" v-model="supplies[index].serialNumber"     size="small"/><span v-else>{{ text }}</span></template>
           <template slot="supplyQty"     slot-scope="text, record, index"><a-input v-if="!readonly" v-model="supplies[index].reqQuantity"      size="small"/><span v-else>{{ text }}</span></template>
           <template slot="supplyUom"     slot-scope="text, record, index"><a-input v-if="!readonly" v-model="supplies[index].unitOfMeasure"    size="small"/><span v-else>{{ text }}</span></template>
           <template slot="supplyRemarks" slot-scope="text, record, index"><a-input v-if="!readonly" v-model="supplies[index].remarks"          size="small"/><span v-else>{{ text }}</span></template>
@@ -242,10 +238,8 @@
           :row-selection="spareRowSelection" :pagination="false" size="small" bordered
           :row-key="(r, i) => i">
           <template slot="spareName"    slot-scope="text, record, index"><a-input v-if="!readonly" v-model="spares[index].name"            size="small"/><span v-else>{{ text }}</span></template>
-          <template slot="spareNato"    slot-scope="text, record, index"><a-input v-if="!readonly" v-model="spares[index].natoStockNumber"  size="small"/><span v-else>{{ text }}</span></template>
           <template slot="spareManuf"   slot-scope="text, record, index"><a-input v-if="!readonly" v-model="spares[index].manufacturerCode" size="small"/><span v-else>{{ text }}</span></template>
           <template slot="sparePart"    slot-scope="text, record, index"><a-input v-if="!readonly" v-model="spares[index].partNumber"       size="small"/><span v-else>{{ text }}</span></template>
-          <template slot="spareSerial"  slot-scope="text, record, index"><a-input v-if="!readonly" v-model="spares[index].serialNumber"     size="small"/><span v-else>{{ text }}</span></template>
           <template slot="spareQty"     slot-scope="text, record, index"><a-input v-if="!readonly" v-model="spares[index].reqQuantity"      size="small"/><span v-else>{{ text }}</span></template>
           <template slot="spareUom"     slot-scope="text, record, index"><a-input v-if="!readonly" v-model="spares[index].unitOfMeasure"    size="small"/><span v-else>{{ text }}</span></template>
           <template slot="spareRemarks" slot-scope="text, record, index"><a-input v-if="!readonly" v-model="spares[index].remarks"          size="small"/><span v-else>{{ text }}</span></template>
@@ -454,21 +448,19 @@ export default {
       ],
 
       personColumns: [
-        { title: '使用标签',  dataIndex: 'elemname',      width: 130, scopedSlots: { customRender: 'personElemname' } },
-        { title: '专业',      dataIndex: 'trade',         width: 200, scopedSlots: { customRender: 'personTrade'     } },
+        { title: '使用标签',  dataIndex: 'elemname',       width: 130, scopedSlots: { customRender: 'personElemname'  } },
+        { title: '专业',      dataIndex: 'trade',          width: 200, scopedSlots: { customRender: 'personTrade'     } },
         { title: '技术等级',  dataIndex: 'skillLevelCode', width: 130, scopedSlots: { customRender: 'personSkillLevel' } },
-        { title: '人数',      dataIndex: 'personqty',    width: 60,  scopedSlots: { customRender: 'personQty'      } },
-        { title: '工时',      dataIndex: 'estimatedTime', width: 80,  scopedSlots: { customRender: 'personTime'      } },
-        { title: '工时单位',  dataIndex: 'unitOfMeasure', width: 80,  scopedSlots: { customRender: 'personUom'       } },
-        { title: '备注',      dataIndex: 'note',          width: 160, scopedSlots: { customRender: 'personNote'      } }
+        { title: '人数',      dataIndex: 'personqty',      width: 60,  scopedSlots: { customRender: 'personQty'       } },
+        { title: '工时',      dataIndex: 'estimatedTime',  width: 80,  scopedSlots: { customRender: 'personTime'      } },
+        { title: '工时单位',  dataIndex: 'unitOfMeasure',  width: 80,  scopedSlots: { customRender: 'personUom'       } },
+        { title: '备注',      dataIndex: 'note',           width: 160, scopedSlots: { customRender: 'personNote'      } }
       ],
 
       equipColumns: [
         { title: '设施/设备名称', dataIndex: 'name',             width: 200, scopedSlots: { customRender: 'equipName'    } },
-        { title: '北约码',        dataIndex: 'natoStockNumber',   width: 120, _hidden: false, scopedSlots: { customRender: 'equipNato'    } },
         { title: '厂商码',        dataIndex: 'manufacturerCode',  width: 120, _hidden: false, scopedSlots: { customRender: 'equipManuf'   } },
         { title: '部件码',        dataIndex: 'partNumber',        width: 120, _hidden: false, scopedSlots: { customRender: 'equipPart'    } },
-        { title: '序列码',        dataIndex: 'serialNumber',      width: 120, _hidden: false, scopedSlots: { customRender: 'equipSerial'  } },
         { title: '数量',          dataIndex: 'reqQuantity',       width: 60,  scopedSlots: { customRender: 'equipQty'     } },
         { title: '单位',          dataIndex: 'unitOfMeasure',     width: 60,  scopedSlots: { customRender: 'equipUom'     } },
         { title: '备注',          dataIndex: 'remarks',           width: 160, scopedSlots: { customRender: 'equipRemarks' } }
@@ -476,10 +468,8 @@ export default {
 
       supplyColumns: [
         { title: '耗材名称', dataIndex: 'name',              width: 200, scopedSlots: { customRender: 'supplyName'    } },
-        { title: '北约码',   dataIndex: 'natoStockNumber',   width: 120, _hidden: false, scopedSlots: { customRender: 'supplyNato'    } },
         { title: '厂商码',   dataIndex: 'manufacturerCode',  width: 120, _hidden: false, scopedSlots: { customRender: 'supplyManuf'   } },
         { title: '部件码',   dataIndex: 'partNumber',        width: 120, _hidden: false, scopedSlots: { customRender: 'supplyPart'    } },
-        { title: '序列码',   dataIndex: 'serialNumber',      width: 120, _hidden: false, scopedSlots: { customRender: 'supplySerial'  } },
         { title: '数量',     dataIndex: 'reqQuantity',       width: 100, scopedSlots: { customRender: 'supplyQty'     } },
         { title: '单位',     dataIndex: 'unitOfMeasure',     width: 80,  scopedSlots: { customRender: 'supplyUom'     } },
         { title: '备注',     dataIndex: 'remarks',           width: 160, scopedSlots: { customRender: 'supplyRemarks' } }
@@ -487,10 +477,8 @@ export default {
 
       spareColumns: [
         { title: '备件名称', dataIndex: 'name',              width: 200, scopedSlots: { customRender: 'spareName'    } },
-        { title: '北约码',   dataIndex: 'natoStockNumber',   width: 120, _hidden: false, scopedSlots: { customRender: 'spareNato'    } },
         { title: '厂商码',   dataIndex: 'manufacturerCode',  width: 120, _hidden: false, scopedSlots: { customRender: 'spareManuf'   } },
         { title: '部件码',   dataIndex: 'partNumber',        width: 120, _hidden: false, scopedSlots: { customRender: 'sparePart'    } },
-        { title: '序列码',   dataIndex: 'serialNumber',      width: 120, _hidden: false, scopedSlots: { customRender: 'spareSerial'  } },
         { title: '数量',     dataIndex: 'reqQuantity',       width: 100, scopedSlots: { customRender: 'spareQty'     } },
         { title: '单位',     dataIndex: 'unitOfMeasure',     width: 80,  scopedSlots: { customRender: 'spareUom'     } },
         { title: '备注',     dataIndex: 'remarks',           width: 160, scopedSlots: { customRender: 'spareRemarks' } }
@@ -526,14 +514,14 @@ export default {
     visibleSpareColumns()  { return this.spareColumns.filter(c  => !c._hidden) },
 
     // ── rowSelection（8套） ──
-    taskRowSelection()    { return this._mkRowSel('selectedTaskIndex') },
-    zoneRowSelection()    { return this._mkRowSel('selectedZoneIndex') },
-    accessRowSelection()  { return this._mkRowSel('selectedAccessIndex') },
-    personRowSelection()  { return this._mkRowSel('selectedPersonIndex') },
-    equipRowSelection()   { return this._mkRowSel('selectedEquipIndex') },
-    supplyRowSelection()  { return this._mkRowSel('selectedSupplyIndex') },
-    spareRowSelection()   { return this._mkRowSel('selectedSpareIndex') },
-    safetyRowSelection()  { return this._mkRowSel('selectedSafetyIndex') }
+    taskRowSelection()    { return { ...this._mkRowSel('selectedTaskIndex'), columnWidth: 50 } },
+    zoneRowSelection()    { return { ...this._mkRowSel('selectedZoneIndex'), columnWidth: 50 } },
+    accessRowSelection()  { return { ...this._mkRowSel('selectedAccessIndex'), columnWidth: 50 } },
+    personRowSelection()  { return { ...this._mkRowSel('selectedPersonIndex'), columnWidth: 50 } },
+    equipRowSelection()   { return { ...this._mkRowSel('selectedEquipIndex'), columnWidth: 50 } },
+    supplyRowSelection()  { return { ...this._mkRowSel('selectedSupplyIndex'), columnWidth: 50 } },
+    spareRowSelection()   { return { ...this._mkRowSel('selectedSpareIndex'), columnWidth: 50 } },
+    safetyRowSelection()  { return { ...this._mkRowSel('selectedSafetyIndex'), columnWidth: 50 } }
   },
 
   inject: {
@@ -860,6 +848,7 @@ export default {
     _mkRowSel(stateKey) {
       return {
         type: 'radio',
+        columnWidth: 50,
         selectedRowKeys: this[stateKey] !== null ? [this[stateKey]] : [],
         onChange: (keys) => {
           this[stateKey] = keys[0] !== undefined ? keys[0] : null
@@ -1024,21 +1013,21 @@ export default {
 
     // ── 设备 ──
     onEquipsTypeChange(e) { this._onTypeChange(e, 'equips', 'selectedEquipIndex', 'reqEquipsType', '设备') },
-    addEquip()   { this._addRow('equips', { name: '', natoStockNumber: '', manufacturerCode: '', partNumber: '', serialNumber: '', reqQuantity: '', unitOfMeasure: '', remarks: '' }, 'selectedEquipIndex') },
+    addEquip()   { this._addRow('equips', { name: '', manufacturerCode: '', partNumber: '', reqQuantity: '', unitOfMeasure: '', remarks: '' }, 'selectedEquipIndex') },
     deleteEquip() { this._deleteRow('equips', 'selectedEquipIndex', '设备需求') },
     moveEquipUp()   { this._moveUp('equips', 'selectedEquipIndex') },
     moveEquipDown() { this._moveDown('equips', 'selectedEquipIndex') },
 
     // ── 耗材 ──
     onSuppliesTypeChange(e) { this._onTypeChange(e, 'supplies', 'selectedSupplyIndex', 'reqSuppliesType', '耗材') },
-    addSupply()   { this._addRow('supplies', { name: '', natoStockNumber: '', manufacturerCode: '', partNumber: '', serialNumber: '', reqQuantity: '', unitOfMeasure: '', remarks: '' }, 'selectedSupplyIndex') },
+    addSupply()   { this._addRow('supplies', { name: '', manufacturerCode: '', partNumber: '', reqQuantity: '', unitOfMeasure: '', remarks: '' }, 'selectedSupplyIndex') },
     deleteSupply() { this._deleteRow('supplies', 'selectedSupplyIndex', '耗材需求') },
     moveSupplyUp()   { this._moveUp('supplies', 'selectedSupplyIndex') },
     moveSupplyDown() { this._moveDown('supplies', 'selectedSupplyIndex') },
 
     // ── 备件 ──
     onSparesTypeChange(e) { this._onTypeChange(e, 'spares', 'selectedSpareIndex', 'reqSparesType', '备件') },
-    addSpare()   { this._addRow('spares', { name: '', natoStockNumber: '', manufacturerCode: '', partNumber: '', serialNumber: '', reqQuantity: '', unitOfMeasure: '', remarks: '' }, 'selectedSpareIndex') },
+    addSpare()   { this._addRow('spares', { name: '', manufacturerCode: '', partNumber: '', reqQuantity: '', unitOfMeasure: '', remarks: '' }, 'selectedSpareIndex') },
     deleteSpare() { this._deleteRow('spares', 'selectedSpareIndex', '备件需求') },
     moveSpareUp()   { this._moveUp('spares', 'selectedSpareIndex') },
     moveSpareDown() { this._moveDown('spares', 'selectedSpareIndex') },

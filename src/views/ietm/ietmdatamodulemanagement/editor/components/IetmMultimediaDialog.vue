@@ -209,7 +209,7 @@ export default {
 
 <style lang="less" scoped>
 .multimedia-dialog-body {
-  height: 500px;
+  height: 700px;
   display: flex;
   flex-direction: column;
 }

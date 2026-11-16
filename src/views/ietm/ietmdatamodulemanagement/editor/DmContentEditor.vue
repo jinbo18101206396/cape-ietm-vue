@@ -132,6 +132,23 @@
                   save="1"
                   @save="onPreliminaryRqmtsSave"
                 />
+                <!-- MainProcedure设计器 -->
+                <MainProcedureDesigner
+                  v-else-if="mainProcedureDesignerVisible"
+                  :key="mainProcedureDesignerVisible ? Math.random() : 'hidden'"
+                  ref="mainProcedureDesigner"
+                  :lineno="mainProcedureLineno"
+                  :editor="$refs.editor ? $refs.editor.getEditor() : null"
+                  :locale="locale"
+                  :cmnodeid="id"
+                  :ifedit="readonly ? '0' : '1'"
+                  save="1"
+                  :project-parameters="JSON.stringify(designerSett)"
+                  :uniqueid="String(maxUniqueId || 0)"
+                  :dm-code="dmc"
+                  :node-list="nodeList"
+                  @save="onMainProcedureSave"
+                />
                 <!-- 空状态提示 -->
                 <div v-else class="design-placeholder">
                   <a-icon type="file-text" class="dp-icon"/>
@@ -301,6 +318,7 @@ import TableDesigner      from './components/TableDesigner'
 import LevelledParaDesigner from './components/LevelledParaDesigner'
 import CloseRqmtsDesigner from './components/CloseRqmtsDesigner'
 import PreliminaryRqmtsDesigner from './components/PreliminaryRqmtsDesigner'
+import MainProcedureDesigner from './components/MainProcedureDesigner'
 import { getTreeNodesfromXml, buildCnNodeList, extractRootContent, getnodeBylineno, formatXml } from './utils/xmlTree'
 import { toEnXml, toCnXml } from './utils/enCnConvert'
 import { getDmcByLineno } from './utils/refsBuilder'
@@ -328,7 +346,8 @@ export default {
     TableDesigner,
     LevelledParaDesigner,
     CloseRqmtsDesigner,
-    PreliminaryRqmtsDesigner
+    PreliminaryRqmtsDesigner,
+    MainProcedureDesigner
   },
   data() {
     return {
@@ -390,7 +409,10 @@ export default {
       closeRqmtsLineno: 0,
       // PreliminaryRqmts设计器相关
       preliminaryRqmtsDesignerVisible: false,
-      preliminaryRqmtsLineno: 0
+      preliminaryRqmtsLineno: 0,
+      // MainProcedure设计器相关
+      mainProcedureDesignerVisible: false,
+      mainProcedureLineno: 0
     }
   },
   computed: {
@@ -633,6 +655,10 @@ export default {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
         this._openPreliminaryRqmtsDesigner(editorLine)
+      } else if (elemName === 'mainProcedure') {
+        const linenoOffset = this.$refs.editor.getLinenoOffset()
+        const editorLine = node.attributes.lineno + linenoOffset - 2
+        this._openMainProcedureDesigner(editorLine)
       } else if (elemName === 'figure') {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
@@ -673,6 +699,8 @@ export default {
         this._openCloseRqmtsDesigner(line)
       } else if (enElemName === 'preliminaryRqmts') {
         this._openPreliminaryRqmtsDesigner(line)
+      } else if (enElemName === 'mainProcedure') {
+        this._openMainProcedureDesigner(line)
       } else if (enElemName === 'figure') {
         this._openFigureDesigner(line)
       } else if (enElemName === 'multimedia') {
@@ -751,8 +779,11 @@ export default {
       this.paraDesignerVisible = false
       this.figureDesignerVisible = false
       this.multimediaDesignerVisible = false
-      this.multimediaDesignerVisible = false
       this.tableDesignerVisible = false
+      this.levelledParaDesignerVisible = false
+      this.closeRqmtsDesignerVisible = false
+      this.preliminaryRqmtsDesignerVisible = false
+      this.mainProcedureDesignerVisible = false
 
       // 强制销毁旧组件，创建新实例
       this.figureDesignerVisible = false
@@ -775,6 +806,10 @@ export default {
       this.figureDesignerVisible = false
       this.multimediaDesignerVisible = false
       this.tableDesignerVisible = false
+      this.levelledParaDesignerVisible = false
+      this.closeRqmtsDesignerVisible = false
+      this.preliminaryRqmtsDesignerVisible = false
+      this.mainProcedureDesignerVisible = false
 
       // 强制销毁旧组件，创建新实例
       this.multimediaDesignerVisible = false
@@ -796,6 +831,11 @@ export default {
       this.paraDesignerVisible = false
       this.figureDesignerVisible = false
       this.multimediaDesignerVisible = false
+      this.tableDesignerVisible = false
+      this.levelledParaDesignerVisible = false
+      this.closeRqmtsDesignerVisible = false
+      this.preliminaryRqmtsDesignerVisible = false
+      this.mainProcedureDesignerVisible = false
 
       // 强制销毁旧组件，创建新实例
       this.tableDesignerVisible = false
@@ -840,6 +880,8 @@ export default {
       this.tableDesignerVisible = false
       this.levelledParaDesignerVisible = false
       this.closeRqmtsDesignerVisible = false
+      this.preliminaryRqmtsDesignerVisible = false
+      this.mainProcedureDesignerVisible = false
 
       // 强制销毁旧组件，创建新实例
       this.$nextTick(() => {
@@ -862,6 +904,8 @@ export default {
       this.tableDesignerVisible = false
       this.levelledParaDesignerVisible = false
       this.closeRqmtsDesignerVisible = false
+      this.preliminaryRqmtsDesignerVisible = false
+      this.mainProcedureDesignerVisible = false
 
       // 强制销毁旧组件，创建新实例
       this.$nextTick(() => {
@@ -889,6 +933,30 @@ export default {
       // 强制销毁旧组件，创建新实例
       this.$nextTick(() => {
         this.preliminaryRqmtsDesignerVisible = true
+      })
+
+      // 进入设计视图时自动隐藏左侧导航树和属性面板
+      this.treeVisible = false
+      this.attrVisible = false
+    },
+    _openMainProcedureDesigner(lineno) {
+      // 统一的 MainProcedure 设计器打开逻辑（参照 _openPreliminaryRqmtsDesigner）
+      this.viewMode = 'design'
+      this.mainProcedureLineno = lineno
+
+      // 关闭所有其他设计器
+      this.paraDesignerVisible = false
+      this.figureDesignerVisible = false
+      this.multimediaDesignerVisible = false
+      this.tableDesignerVisible = false
+      this.levelledParaDesignerVisible = false
+      this.closeRqmtsDesignerVisible = false
+      this.preliminaryRqmtsDesignerVisible = false
+      this.mainProcedureDesignerVisible = false
+
+      // 强制销毁旧组件，创建新实例
+      this.$nextTick(() => {
+        this.mainProcedureDesignerVisible = true
       })
 
       // 进入设计视图时自动隐藏左侧导航树和属性面板
@@ -1075,6 +1143,26 @@ export default {
 
       // 使用公共方法清理样式并刷新布局
       this._cleanupDesignViewAndRefreshLayout('PreliminaryRqmts')
+
+      // 刷新树（数据可能变化）
+      this.$nextTick(() => {
+        this.refreshTree()
+      })
+    },
+    async onMainProcedureSave() {
+      this.dirty = true
+      await this.doSave()
+
+      // 保存成功后，自动切换回源码视图
+      this.viewMode = 'source'
+      this.mainProcedureDesignerVisible = false
+      this.treeVisible = true
+      if (!this.readonly) {
+        this.attrVisible = true
+      }
+
+      // 使用公共方法清理样式并刷新布局
+      this._cleanupDesignViewAndRefreshLayout('MainProcedure')
 
       // 刷新树（数据可能变化）
       this.$nextTick(() => {

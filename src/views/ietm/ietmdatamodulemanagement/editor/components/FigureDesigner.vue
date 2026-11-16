@@ -1,9 +1,9 @@
 <template>
   <div class="figure-designer">
     <!-- 工具栏（与表格设计视图风格一致） -->
-    <div class="figure-toolbar" v-if="showSaveBtn">
+    <div class="figure-toolbar">
       <!-- 标题行 -->
-      <div class="toolbar-header">
+      <div class="toolbar-header" v-if="showSaveBtn">
         <span class="toolbar-title">◤插图◢</span>
       </div>
 
@@ -11,7 +11,7 @@
       <div class="toolbar-controls">
         <label class="control-item"><span style="color: red;">*</span>标题：<input type="text" v-model="figureTitle" class="figure-input" :disabled="readonly" placeholder="图形标题（必填）"/></label>
         <label class="control-item">ID：<input type="text" v-model="figureId" class="figure-input" :disabled="readonly" placeholder="图形ID（可选）"/></label>
-        <a-button type="primary" icon="save" @click="handleSave" :loading="saving" class="save-btn">保存</a-button>
+        <a-button v-if="showSaveBtn" type="primary" icon="save" @click="handleSave" :loading="saving" class="save-btn">保存</a-button>
       </div>
     </div>
 

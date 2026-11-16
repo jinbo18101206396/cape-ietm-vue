@@ -121,8 +121,8 @@ export function canShowDesignMarker(elemName, node, nodeList = []) {
     return false
   }
 
-  // 2. 支持para、levelledPara、table、figure、multimedia、closeRqmts和preliminaryRqmts元素
-  if (!['para', 'levelledPara', 'table', 'figure', 'multimedia', 'closeRqmts', 'preliminaryRqmts'].includes(elemName)) {
+  // 2. 支持para、levelledPara、table、figure、multimedia、closeRqmts、preliminaryRqmts和mainProcedure元素
+  if (!['para', 'levelledPara', 'table', 'figure', 'multimedia', 'closeRqmts', 'preliminaryRqmts', 'mainProcedure'].includes(elemName)) {
     return false
   }
 
@@ -132,12 +132,12 @@ export function canShowDesignMarker(elemName, node, nodeList = []) {
     if (parent && NO_DESIGN_PARENT.includes(parent.text)) {
       return false
     }
-    // 4. para有任意祖先是table或levelledPara时不显示铅笔图标（由外层元素统一进入设计器）
-    if (elemName === 'para' && hasAncestor(node, nodeList, ['table', 'levelledPara'])) {
+    // 4. para有任意祖先是table或levelledPara或mainProcedure时不显示铅笔图标（由外层元素统一进入设计器）
+    if (elemName === 'para' && hasAncestor(node, nodeList, ['table', 'levelledPara', 'mainProcedure'])) {
       return false
     }
-    // 4b. figure/multimedia/table有任意祖先是levelledPara时不显示铅笔图标（由外层levelledPara统一进入设计器）
-    if (['figure', 'multimedia', 'table'].includes(elemName) && hasAncestor(node, nodeList, ['levelledPara'])) {
+    // 4b. figure/multimedia/table有任意祖先是levelledPara或mainProcedure时不显示铅笔图标（由外层元素统一进入设计器）
+    if (['figure', 'multimedia', 'table'].includes(elemName) && hasAncestor(node, nodeList, ['levelledPara', 'mainProcedure'])) {
       return false
     }
     // 5. para在列表项容器内部不显示铅笔图标（嵌套列表中的para由外层para统一进入设计器）

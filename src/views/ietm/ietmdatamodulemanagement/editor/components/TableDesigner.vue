@@ -171,11 +171,13 @@ export default {
           await loadUEditor()
         }
 
-        // 第2步：获取UEditor基础配置
-        const config = getUEditorConfig({ locale: this.locale })
+        // 第2步：获取UEditor基础配置，直接传入表格专用工具栏
+        const config = getUEditorConfig({
+          locale: this.locale,
+          toolbars: this.getTableToolbars()  // 直接传入工具栏配置，确保不使用默认工具栏
+        })
 
-        // 第3步：为表格特化配置 - 覆盖工具栏为30个表格专用按钮
-        config.toolbars = this.getTableToolbars()
+        // 第3步：为表格特化配置
         config.autoHeightEnabled = false
         config.autoFloatEnabled = false
         config.initialContent = '<table><tr><td></td></tr></table>'
@@ -604,11 +606,11 @@ export default {
 
         .table-input {
           margin-left: 4px;
-          padding: 4px 6px;
+          padding: 6px 8px;
           border: 1px solid #d9d9d9;
           border-radius: 2px;
-          width: 150px;
-          font-size: 12px;
+          width: 250px;
+          font-size: 13px;
 
           &:focus {
             border-color: #40a9ff;
