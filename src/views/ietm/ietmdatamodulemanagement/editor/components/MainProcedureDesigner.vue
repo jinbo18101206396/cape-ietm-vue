@@ -16,17 +16,20 @@
     <div class="mainprocedure-main">
       <div class="main-layout">
         <!-- 左侧：步骤树 -->
-        <div class="left-tree">
-          <div class="tree-toolbar">
-            <a-button icon="plus" @click="handleAddStep" :disabled="readonly || !selectedNode" size="small">
-              添加子步骤
-            </a-button>
-            <a-button icon="delete" @click="handleDeleteStep" :disabled="readonly || !selectedNode || selectedNode.id === '0'" size="small">
-              删除步骤
-            </a-button>
-            <a-button icon="bars" @click="batchGenerate" :disabled="readonly || !selectedNode" size="small">
-              批量生成
-            </a-button>
+        <div class="left-tree" :style="{ width: leftTreeWidth + 'px' }">
+          <div class="tree-header">
+            <span class="tree-title">步骤树</span>
+            <div class="tree-actions">
+              <a-button icon="plus" @click="handleAddStep" :disabled="readonly || !selectedNode" size="small" title="添加子步骤">
+                添加
+              </a-button>
+              <a-button icon="delete" @click="handleDeleteStep" :disabled="readonly || !selectedNode || selectedNode.id === '0'" size="small" title="删除步骤">
+                删除
+              </a-button>
+              <a-button icon="bars" @click="batchGenerate" :disabled="readonly || !selectedNode" size="small" title="批量生成">
+                批量
+              </a-button>
+            </div>
           </div>
           <div class="tree-wrapper">
             <a-tree
@@ -48,36 +51,34 @@
           </div>
         </div>
 
+        <!-- 拖拽分割条 -->
+        <div class="resizer" @mousedown="startResize"></div>
+
         <!-- 右侧：步骤编辑器 -->
         <div class="right-editor">
           <!-- 标题编辑区 -->
           <div class="title-edit-area" v-if="selectedNode && selectedNode.id !== '0'">
-            <table class="title-table">
-              <tr>
-                <td class="title-label">
-                  <a @click="openTitleEditor" :disabled="readonly" class="title-link">标题</a>
-                </td>
-                <td class="title-input">
-                  <a-input
-                    v-model="currentTitle"
-                    placeholder="当前步骤标题"
-                    :disabled="readonly"
-                    @change="handleTitleChange"
-                  />
-                </td>
-                <td class="title-save">
-                  <a-button
-                    type="danger"
-                    @click="handleSaveStep"
-                    :disabled="!selectedNode || readonly"
-                    size="small"
-                    class="save-level-btn"
-                  >
-                    保存步骤信息
-                  </a-button>
-                </td>
-              </tr>
-            </table>
+            <div class="title-row">
+              <label class="title-label">
+                <a @click="openTitleEditor" :disabled="readonly" class="title-link">标题</a>
+              </label>
+              <a-input
+                v-model="currentTitle"
+                placeholder="当前步骤标题"
+                :disabled="readonly"
+                @change="handleTitleChange"
+                class="title-input"
+              />
+              <a-button
+                type="danger"
+                @click="handleSaveStep"
+                :disabled="!selectedNode || readonly"
+                size="small"
+                class="save-btn"
+              >
+                保存步骤
+              </a-button>
+            </div>
           </div>
 
           <!-- Tab 切换内容编辑器 -->
@@ -116,7 +117,6 @@
                     :row-selection="getRowSelection('warning')"
                     size="small"
                     bordered
-                    :scroll="{ y: 400 }"
                   >
                     <template slot="content" slot-scope="text">
                       <div v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
@@ -158,7 +158,6 @@
                     :row-selection="getRowSelection('caution')"
                     size="small"
                     bordered
-                    :scroll="{ y: 400 }"
                   >
                     <template slot="content" slot-scope="text">
                       <div v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
@@ -200,7 +199,6 @@
                     :row-selection="getRowSelection('para')"
                     size="small"
                     bordered
-                    :scroll="{ y: 400 }"
                   >
                     <template slot="content" slot-scope="text">
                       <div v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
@@ -242,7 +240,6 @@
                     :row-selection="getRowSelection('note')"
                     size="small"
                     bordered
-                    :scroll="{ y: 400 }"
                   >
                     <template slot="content" slot-scope="text">
                       <div v-html="text" style="max-width: 800px; word-break: break-all; text-align: left;"></div>
@@ -281,7 +278,6 @@
                     :row-selection="getRowSelection('figure')"
                     size="small"
                     bordered
-                    :scroll="{ y: 400 }"
                   >
                     <template slot="xmlTitle" slot-scope="text">
                       <span>{{ text }}</span>
@@ -320,7 +316,6 @@
                     :row-selection="getRowSelection('multimedia')"
                     size="small"
                     bordered
-                    :scroll="{ y: 400 }"
                   >
                     <template slot="xmlTitle" slot-scope="text">
                       <span>{{ text }}</span>
@@ -359,7 +354,6 @@
                     :row-selection="getRowSelection('table')"
                     size="small"
                     bordered
-                    :scroll="{ y: 400 }"
                   >
                     <template slot="xmlTitle" slot-scope="text">
                       <span>{{ text }}</span>
@@ -545,6 +539,10 @@ export default {
       selectedKeys: [],
       selectedNode: null,
 
+      // 左侧树宽度（支持拖拽调整）
+      leftTreeWidth: 350,
+      isResizing: false,
+
       // 编辑状态
       activeTab: 'warning',
       currentTitle: '',
@@ -656,9 +654,47 @@ export default {
     if (window.$MAINPROCEDURE_DESIGNER_INSTANCES) {
       delete window.$MAINPROCEDURE_DESIGNER_INSTANCES[this.contentEditorId]
     }
+
+    // 清理拖拽事件监听
+    document.removeEventListener('mousemove', this.handleResize)
+    document.removeEventListener('mouseup', this.stopResize)
   },
 
   methods: {
+    /**
+     * 开始拖拽调整宽度
+     */
+    startResize(e) {
+      this.isResizing = true
+      document.addEventListener('mousemove', this.handleResize)
+      document.addEventListener('mouseup', this.stopResize)
+      e.preventDefault()
+    },
+
+    /**
+     * 处理拖拽
+     */
+    handleResize(e) {
+      if (!this.isResizing) return
+
+      // 计算新宽度（限制在200-600px之间）
+      const containerRect = this.$el.querySelector('.main-layout').getBoundingClientRect()
+      const newWidth = e.clientX - containerRect.left
+
+      if (newWidth >= 250 && newWidth <= 600) {
+        this.leftTreeWidth = newWidth
+      }
+    },
+
+    /**
+     * 停止拖拽
+     */
+    stopResize() {
+      this.isResizing = false
+      document.removeEventListener('mousemove', this.handleResize)
+      document.removeEventListener('mouseup', this.stopResize)
+    },
+
     /**
      * 加载mainProcedure内容
      */
@@ -1208,24 +1244,37 @@ export default {
 
   // ==================== 左侧树形区域 ====================
   .left-tree {
-    width: 400px;
-    min-width: 300px;
-    border-right: 1px solid #e8e8e8;
+    min-width: 250px;
+    max-width: 600px;
     display: flex;
     flex-direction: column;
+    background: #fafafa;
 
-    .tree-toolbar {
-      padding: 12px;
+    .tree-header {
+      padding: 12px 16px;
       border-bottom: 1px solid #e8e8e8;
       display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      background: #fff;
+
+      .tree-title {
+        font-weight: 600;
+        font-size: 14px;
+        color: #333;
+      }
+
+      .tree-actions {
+        display: flex;
+        gap: 6px;
+      }
     }
 
     .tree-wrapper {
       flex: 1;
       overflow-y: auto;
       padding: 12px;
+      background: #fff;
 
       .tree-node-title {
         display: flex;
@@ -1236,6 +1285,7 @@ export default {
           font-weight: 500;
           color: #1890ff;
           white-space: nowrap;
+          font-size: 12px;
         }
 
         .node-text {
@@ -1244,8 +1294,31 @@ export default {
           text-overflow: ellipsis;
           white-space: nowrap;
           color: #333;
+          font-size: 13px;
         }
       }
+    }
+  }
+
+  // ==================== 拖拽分割条 ====================
+  .resizer {
+    width: 4px;
+    cursor: col-resize;
+    background: #e8e8e8;
+    transition: background 0.2s;
+    position: relative;
+
+    &:hover {
+      background: #1890ff;
+    }
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: -2px;
+      right: -2px;
+      top: 0;
+      bottom: 0;
     }
   }
 
@@ -1255,30 +1328,30 @@ export default {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-width: 0;
 
     // 标题编辑区
     .title-edit-area {
-      padding: 12px;
+      padding: 12px 16px;
       border-bottom: 1px solid #e8e8e8;
       background: #fafafa;
 
-      .title-table {
-        width: 100%;
-        border-collapse: collapse;
-
-        td {
-          padding: 4px 8px;
-          vertical-align: middle;
-        }
+      .title-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
 
         .title-label {
-          width: 60px;
-          white-space: nowrap;
+          width: 50px;
+          flex-shrink: 0;
+          margin: 0;
 
           .title-link {
             color: #1890ff;
             text-decoration: none;
             cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
 
             &:hover {
               text-decoration: underline;
@@ -1292,16 +1365,12 @@ export default {
         }
 
         .title-input {
-          width: auto;
+          flex: 1;
+          min-width: 0;
         }
 
-        .title-save {
-          width: 120px;
-          text-align: right;
-
-          .save-level-btn {
-            white-space: nowrap;
-          }
+        .save-btn {
+          flex-shrink: 0;
         }
       }
     }
@@ -1310,12 +1379,16 @@ export default {
     .right-tabs {
       flex: 1;
       overflow: hidden;
-      padding: 12px;
+      padding: 8px 12px 12px 12px;
 
       ::v-deep .ant-tabs {
         height: 100%;
         display: flex;
         flex-direction: column;
+
+        .ant-tabs-bar {
+          margin-bottom: 8px;
+        }
 
         .ant-tabs-content {
           flex: 1;
@@ -1336,26 +1409,49 @@ export default {
         height: 100%;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
 
         .tab-toolbar {
           padding: 8px 0;
           border-bottom: 1px solid #e8e8e8;
-          margin-bottom: 12px;
+          margin-bottom: 8px;
           display: flex;
-          gap: 8px;
+          gap: 6px;
           flex-wrap: wrap;
+          flex-shrink: 0;
         }
 
         ::v-deep .ant-table-wrapper {
           flex: 1;
           overflow: hidden;
+          display: flex;
+          flex-direction: column;
 
           .ant-table {
-            height: 100%;
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+          }
+
+          .ant-table-content {
+            flex: 1;
+            overflow: hidden;
           }
 
           .ant-table-body {
+            max-height: 100%;
             overflow-y: auto;
+          }
+
+          .ant-spin-nested-loading {
+            height: 100%;
+          }
+
+          .ant-spin-container {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
           }
         }
       }
@@ -1403,11 +1499,30 @@ export default {
     }
 
     .left-tree {
-      width: 100%;
-      min-height: 300px;
+      width: 100% !important;
+      max-width: none;
+      min-height: 250px;
+      max-height: 40vh;
       border-right: none;
       border-bottom: 1px solid #e8e8e8;
     }
+
+    .resizer {
+      display: none;
+    }
+
+    .right-editor {
+      height: 60vh;
+    }
+  }
+
+  // ==================== 用户选中状态 ====================
+  ::v-deep .ant-tree .ant-tree-node-selected {
+    background-color: #e6f7ff;
+  }
+
+  ::v-deep .ant-tree .ant-tree-node-content-wrapper:hover {
+    background-color: #f5f5f5;
   }
 }
 </style>

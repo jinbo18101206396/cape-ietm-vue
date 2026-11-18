@@ -108,8 +108,10 @@
       <!-- ═══ 面板2：必要条件 ═══ -->
       <a-collapse-panel key="2">
         <template slot="header">
-          <span style="color:red;margin-right:2px">*</span><span>必要条件</span>
-          <span v-if="reqCondCount > 0" style="color:#888;font-size:12px">({{ reqCondCount }})</span>
+          <span class="panel-header-content">
+            <span class="required-mark">*</span><span>必要条件</span>
+            <span v-if="reqCondCount > 0" class="panel-count">({{ reqCondCount }})</span>
+          </span>
         </template>
         <req-cond-group-designer ref="reqCondDesigner" :ifedit="ifedit" @change="onReqCondChange"/>
       </a-collapse-panel>
@@ -117,20 +119,24 @@
       <!-- ═══ 面板3：人员需求 ═══ -->
       <a-collapse-panel key="3">
         <template slot="header">
-          <span>人员需求</span>
-          <span v-if="reqPersonCount > 0" style="color:#888;font-size:12px">({{ reqPersonCount }})</span>
+          <span class="panel-header-content">
+            <span>人员需求</span>
+            <span v-if="reqPersonCount > 0" class="panel-count">({{ reqPersonCount }})</span>
+          </span>
         </template>
-        <div class="panel-radio-group">
-          <a-radio-group v-model="reqPersonsType" @change="onPersonsTypeChange" :disabled="readonly">
-            <a-radio :value="0">无人员需求</a-radio>
-            <a-radio :value="1">人员需求列表</a-radio>
-          </a-radio-group>
-        </div>
-        <div class="toolbar">
-          <a-button size="small" @click="addPerson"       :disabled="readonly || reqPersonsType === 0"><a-icon type="plus"/>增加</a-button>
-          <a-button size="small" @click="deletePerson"    :disabled="readonly || reqPersonsType === 0 || selectedPersonIndex === null"><a-icon type="delete"/>删除</a-button>
-          <a-button size="small" @click="movePersonUp"    :disabled="readonly || reqPersonsType === 0 || selectedPersonIndex === null || selectedPersonIndex === 0"><a-icon type="arrow-up"/>上移</a-button>
-          <a-button size="small" @click="movePersonDown"  :disabled="readonly || reqPersonsType === 0 || selectedPersonIndex === null || selectedPersonIndex === persons.length - 1"><a-icon type="arrow-down"/>下移</a-button>
+        <div class="panel-actions">
+          <div class="panel-radio-group">
+            <a-radio-group v-model="reqPersonsType" @change="onPersonsTypeChange" :disabled="readonly">
+              <a-radio :value="0">无人员需求</a-radio>
+              <a-radio :value="1">人员需求列表</a-radio>
+            </a-radio-group>
+          </div>
+          <div class="toolbar">
+            <a-button size="small" @click="addPerson"       :disabled="readonly || reqPersonsType === 0"><a-icon type="plus"/>增加</a-button>
+            <a-button size="small" @click="deletePerson"    :disabled="readonly || reqPersonsType === 0 || selectedPersonIndex === null"><a-icon type="delete"/>删除</a-button>
+            <a-button size="small" @click="movePersonUp"    :disabled="readonly || reqPersonsType === 0 || selectedPersonIndex === null || selectedPersonIndex === 0"><a-icon type="arrow-up"/>上移</a-button>
+            <a-button size="small" @click="movePersonDown"  :disabled="readonly || reqPersonsType === 0 || selectedPersonIndex === null || selectedPersonIndex === persons.length - 1"><a-icon type="arrow-down"/>下移</a-button>
+          </div>
         </div>
         <a-table :columns="personColumns" :data-source="persons"
           :row-selection="personRowSelection" :pagination="false" size="small" bordered
@@ -159,20 +165,24 @@
       <!-- ═══ 面板4：设备需求 ═══ -->
       <a-collapse-panel key="4">
         <template slot="header">
-          <span style="color:red;margin-right:2px">*</span><span>设备需求</span>
-          <span v-if="reqEquipCount > 0" style="color:#888;font-size:12px">({{ reqEquipCount }})</span>
+          <span class="panel-header-content">
+            <span class="required-mark">*</span><span>设备需求</span>
+            <span v-if="reqEquipCount > 0" class="panel-count">({{ reqEquipCount }})</span>
+          </span>
         </template>
-        <div class="panel-radio-group">
-          <a-radio-group v-model="reqEquipsType" @change="onEquipsTypeChange" :disabled="readonly">
-            <a-radio :value="0">无设备需求</a-radio>
-            <a-radio :value="1">设备需求列表</a-radio>
-          </a-radio-group>
-        </div>
-        <div class="toolbar">
-          <a-button size="small" @click="addEquip"       :disabled="readonly || reqEquipsType === 0"><a-icon type="plus"/>增加</a-button>
-          <a-button size="small" @click="deleteEquip"    :disabled="readonly || reqEquipsType === 0 || selectedEquipIndex === null"><a-icon type="delete"/>删除</a-button>
-          <a-button size="small" @click="moveEquipUp"    :disabled="readonly || reqEquipsType === 0 || selectedEquipIndex === null || selectedEquipIndex === 0"><a-icon type="arrow-up"/>上移</a-button>
-          <a-button size="small" @click="moveEquipDown"  :disabled="readonly || reqEquipsType === 0 || selectedEquipIndex === null || selectedEquipIndex === equips.length - 1"><a-icon type="arrow-down"/>下移</a-button>
+        <div class="panel-actions">
+          <div class="panel-radio-group">
+            <a-radio-group v-model="reqEquipsType" @change="onEquipsTypeChange" :disabled="readonly">
+              <a-radio :value="0">无设备需求</a-radio>
+              <a-radio :value="1">设备需求列表</a-radio>
+            </a-radio-group>
+          </div>
+          <div class="toolbar">
+            <a-button size="small" @click="addEquip"       :disabled="readonly || reqEquipsType === 0"><a-icon type="plus"/>增加</a-button>
+            <a-button size="small" @click="deleteEquip"    :disabled="readonly || reqEquipsType === 0 || selectedEquipIndex === null"><a-icon type="delete"/>删除</a-button>
+            <a-button size="small" @click="moveEquipUp"    :disabled="readonly || reqEquipsType === 0 || selectedEquipIndex === null || selectedEquipIndex === 0"><a-icon type="arrow-up"/>上移</a-button>
+            <a-button size="small" @click="moveEquipDown"  :disabled="readonly || reqEquipsType === 0 || selectedEquipIndex === null || selectedEquipIndex === equips.length - 1"><a-icon type="arrow-down"/>下移</a-button>
+          </div>
         </div>
         <a-table :columns="visibleEquipColumns" :data-source="equips"
           :row-selection="equipRowSelection" :pagination="false" size="small" bordered
@@ -189,20 +199,24 @@
       <!-- ═══ 面板5：耗材需求 ═══ -->
       <a-collapse-panel key="5">
         <template slot="header">
-          <span style="color:red;margin-right:2px">*</span><span>耗材需求</span>
-          <span v-if="reqSupplyCount > 0" style="color:#888;font-size:12px">({{ reqSupplyCount }})</span>
+          <span class="panel-header-content">
+            <span class="required-mark">*</span><span>耗材需求</span>
+            <span v-if="reqSupplyCount > 0" class="panel-count">({{ reqSupplyCount }})</span>
+          </span>
         </template>
-        <div class="panel-radio-group">
-          <a-radio-group v-model="reqSuppliesType" @change="onSuppliesTypeChange" :disabled="readonly">
-            <a-radio :value="0">无耗材需求</a-radio>
-            <a-radio :value="1">耗材需求列表</a-radio>
-          </a-radio-group>
-        </div>
-        <div class="toolbar">
-          <a-button size="small" @click="addSupply"       :disabled="readonly || reqSuppliesType === 0"><a-icon type="plus"/>增加</a-button>
-          <a-button size="small" @click="deleteSupply"    :disabled="readonly || reqSuppliesType === 0 || selectedSupplyIndex === null"><a-icon type="delete"/>删除</a-button>
-          <a-button size="small" @click="moveSupplyUp"    :disabled="readonly || reqSuppliesType === 0 || selectedSupplyIndex === null || selectedSupplyIndex === 0"><a-icon type="arrow-up"/>上移</a-button>
-          <a-button size="small" @click="moveSupplyDown"  :disabled="readonly || reqSuppliesType === 0 || selectedSupplyIndex === null || selectedSupplyIndex === supplies.length - 1"><a-icon type="arrow-down"/>下移</a-button>
+        <div class="panel-actions">
+          <div class="panel-radio-group">
+            <a-radio-group v-model="reqSuppliesType" @change="onSuppliesTypeChange" :disabled="readonly">
+              <a-radio :value="0">无耗材需求</a-radio>
+              <a-radio :value="1">耗材需求列表</a-radio>
+            </a-radio-group>
+          </div>
+          <div class="toolbar">
+            <a-button size="small" @click="addSupply"       :disabled="readonly || reqSuppliesType === 0"><a-icon type="plus"/>增加</a-button>
+            <a-button size="small" @click="deleteSupply"    :disabled="readonly || reqSuppliesType === 0 || selectedSupplyIndex === null"><a-icon type="delete"/>删除</a-button>
+            <a-button size="small" @click="moveSupplyUp"    :disabled="readonly || reqSuppliesType === 0 || selectedSupplyIndex === null || selectedSupplyIndex === 0"><a-icon type="arrow-up"/>上移</a-button>
+            <a-button size="small" @click="moveSupplyDown"  :disabled="readonly || reqSuppliesType === 0 || selectedSupplyIndex === null || selectedSupplyIndex === supplies.length - 1"><a-icon type="arrow-down"/>下移</a-button>
+          </div>
         </div>
         <a-table :columns="visibleSupplyColumns" :data-source="supplies"
           :row-selection="supplyRowSelection" :pagination="false" size="small" bordered
@@ -219,20 +233,24 @@
       <!-- ═══ 面板6：备件需求 ═══ -->
       <a-collapse-panel key="6">
         <template slot="header">
-          <span style="color:red;margin-right:2px">*</span><span>备件需求</span>
-          <span v-if="reqSpareCount > 0" style="color:#888;font-size:12px">({{ reqSpareCount }})</span>
+          <span class="panel-header-content">
+            <span class="required-mark">*</span><span>备件需求</span>
+            <span v-if="reqSpareCount > 0" class="panel-count">({{ reqSpareCount }})</span>
+          </span>
         </template>
-        <div class="panel-radio-group">
-          <a-radio-group v-model="reqSparesType" @change="onSparesTypeChange" :disabled="readonly">
-            <a-radio :value="0">无备件需求</a-radio>
-            <a-radio :value="1">备件需求列表</a-radio>
-          </a-radio-group>
-        </div>
-        <div class="toolbar">
-          <a-button size="small" @click="addSpare"       :disabled="readonly || reqSparesType === 0"><a-icon type="plus"/>增加</a-button>
-          <a-button size="small" @click="deleteSpare"    :disabled="readonly || reqSparesType === 0 || selectedSpareIndex === null"><a-icon type="delete"/>删除</a-button>
-          <a-button size="small" @click="moveSpareUp"    :disabled="readonly || reqSparesType === 0 || selectedSpareIndex === null || selectedSpareIndex === 0"><a-icon type="arrow-up"/>上移</a-button>
-          <a-button size="small" @click="moveSpareDown"  :disabled="readonly || reqSparesType === 0 || selectedSpareIndex === null || selectedSpareIndex === spares.length - 1"><a-icon type="arrow-down"/>下移</a-button>
+        <div class="panel-actions">
+          <div class="panel-radio-group">
+            <a-radio-group v-model="reqSparesType" @change="onSparesTypeChange" :disabled="readonly">
+              <a-radio :value="0">无备件需求</a-radio>
+              <a-radio :value="1">备件需求列表</a-radio>
+            </a-radio-group>
+          </div>
+          <div class="toolbar">
+            <a-button size="small" @click="addSpare"       :disabled="readonly || reqSparesType === 0"><a-icon type="plus"/>增加</a-button>
+            <a-button size="small" @click="deleteSpare"    :disabled="readonly || reqSparesType === 0 || selectedSpareIndex === null"><a-icon type="delete"/>删除</a-button>
+            <a-button size="small" @click="moveSpareUp"    :disabled="readonly || reqSparesType === 0 || selectedSpareIndex === null || selectedSpareIndex === 0"><a-icon type="arrow-up"/>上移</a-button>
+            <a-button size="small" @click="moveSpareDown"  :disabled="readonly || reqSparesType === 0 || selectedSpareIndex === null || selectedSpareIndex === spares.length - 1"><a-icon type="arrow-down"/>下移</a-button>
+          </div>
         </div>
         <a-table :columns="visibleSpareColumns" :data-source="spares"
           :row-selection="spareRowSelection" :pagination="false" size="small" bordered
@@ -249,20 +267,24 @@
       <!-- ═══ 面板7：安全条件 ═══ -->
       <a-collapse-panel key="7">
         <template slot="header">
-          <span style="color:red;margin-right:2px">*</span><span>安全条件</span>
-          <span v-if="reqSafetyCount > 0" style="color:#888;font-size:12px">({{ reqSafetyCount }})</span>
+          <span class="panel-header-content">
+            <span class="required-mark">*</span><span>安全条件</span>
+            <span v-if="reqSafetyCount > 0" class="panel-count">({{ reqSafetyCount }})</span>
+          </span>
         </template>
-        <div class="panel-radio-group">
-          <a-radio-group v-model="reqSafetyType" @change="onSafetyTypeChange" :disabled="readonly">
-            <a-radio :value="0">无安全条件</a-radio>
-            <a-radio :value="1">安全条件列表</a-radio>
-          </a-radio-group>
-        </div>
-        <div class="toolbar">
-          <a-button size="small" @click="addSafety"       :disabled="readonly || reqSafetyType === 0"><a-icon type="plus"/>增加</a-button>
-          <a-button size="small" @click="deleteSafety"    :disabled="readonly || reqSafetyType === 0 || selectedSafetyIndex === null"><a-icon type="delete"/>删除</a-button>
-          <a-button size="small" @click="moveSafetyUp"    :disabled="readonly || reqSafetyType === 0 || selectedSafetyIndex === null || selectedSafetyIndex === 0"><a-icon type="arrow-up"/>上移</a-button>
-          <a-button size="small" @click="moveSafetyDown"  :disabled="readonly || reqSafetyType === 0 || selectedSafetyIndex === null || selectedSafetyIndex === safetyItems.length - 1"><a-icon type="arrow-down"/>下移</a-button>
+        <div class="panel-actions">
+          <div class="panel-radio-group">
+            <a-radio-group v-model="reqSafetyType" @change="onSafetyTypeChange" :disabled="readonly">
+              <a-radio :value="0">无安全条件</a-radio>
+              <a-radio :value="1">安全条件列表</a-radio>
+            </a-radio-group>
+          </div>
+          <div class="toolbar">
+            <a-button size="small" @click="addSafety"       :disabled="readonly || reqSafetyType === 0"><a-icon type="plus"/>增加</a-button>
+            <a-button size="small" @click="deleteSafety"    :disabled="readonly || reqSafetyType === 0 || selectedSafetyIndex === null"><a-icon type="delete"/>删除</a-button>
+            <a-button size="small" @click="moveSafetyUp"    :disabled="readonly || reqSafetyType === 0 || selectedSafetyIndex === null || selectedSafetyIndex === 0"><a-icon type="arrow-up"/>上移</a-button>
+            <a-button size="small" @click="moveSafetyDown"  :disabled="readonly || reqSafetyType === 0 || selectedSafetyIndex === null || selectedSafetyIndex === safetyItems.length - 1"><a-icon type="arrow-down"/>下移</a-button>
+          </div>
         </div>
         <a-table :columns="safetyColumns" :data-source="safetyItems"
           :row-selection="safetyRowSelection" :pagination="false" size="small" bordered
@@ -1225,10 +1247,44 @@ export default {
       font-weight: 500;
     }
 
+    // 面板标题：必填标记 / 计数角标
+    .panel-header-content {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .required-mark {
+      color: #ff4d4f;
+      margin-right: 2px;
+    }
+
+    .panel-count {
+      color: #8c8c8c;
+      font-size: 12px;
+      margin-left: 4px;
+    }
+
+    // 控制区块：单选组 + 操作栏合并为一个浅灰盒子，与下方表格形成层次
+    .panel-actions {
+      background: #fafafa;
+      border: 1px solid #f0f0f0;
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin-bottom: 10px;
+
+      .panel-radio-group {
+        margin-bottom: 8px;
+        padding-bottom: 6px;
+        border-bottom: 1px dashed #e8e8e8;
+      }
+
+      .toolbar {
+        margin-bottom: 0;
+      }
+    }
+
     .panel-radio-group {
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #f0f0f0;
+      margin-bottom: 8px;
     }
 
     .toolbar {

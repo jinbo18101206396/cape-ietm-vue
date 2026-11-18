@@ -225,8 +225,9 @@ export async function object2preliminaryRqmts(Parent, preliminaryRqmtsObj) {
         if (zone.name) xml += `      <name>${escapeXml(zone.name)}</name>\n`
         if ((zone.dm && zone.dm.length > 0) || (zone.pm && zone.pm.length > 0)) {
           xml += '      <refs>\n'
-          ;(zone.dm || []).forEach(d => { xml += '        ' + (d.xml || buildDmRefXml(d)) + '\n' })
-          ;(zone.pm || []).forEach(p => { xml += '        ' + (p.xml || buildPmRefXml(p)) + '\n' })
+          // 始终调用 buildDmRefXml/buildPmRefXml，让它们处理 xlink 属性清理
+          ;(zone.dm || []).forEach(d => { xml += '        ' + buildDmRefXml(d) + '\n' })
+          ;(zone.pm || []).forEach(p => { xml += '        ' + buildPmRefXml(p) + '\n' })
           xml += '      </refs>\n'
         }
         xml += '    </zoneRef>\n'
@@ -240,8 +241,9 @@ export async function object2preliminaryRqmts(Parent, preliminaryRqmtsObj) {
         if (access.name) xml += `      <name>${escapeXml(access.name)}</name>\n`
         if ((access.dm && access.dm.length > 0) || (access.pm && access.pm.length > 0)) {
           xml += '      <refs>\n'
-          ;(access.dm || []).forEach(d => { xml += '        ' + (d.xml || buildDmRefXml(d)) + '\n' })
-          ;(access.pm || []).forEach(p => { xml += '        ' + (p.xml || buildPmRefXml(p)) + '\n' })
+          // 始终调用 buildDmRefXml/buildPmRefXml，让它们处理 xlink 属性清理
+          ;(access.dm || []).forEach(d => { xml += '        ' + buildDmRefXml(d) + '\n' })
+          ;(access.pm || []).forEach(p => { xml += '        ' + buildPmRefXml(p) + '\n' })
           xml += '      </refs>\n'
         }
         xml += '    </accessPointRef>\n'

@@ -6,8 +6,13 @@
  * - object2closeRqmts: JavaScript对象 → XML
  *
  * @author IETM Team
- * @date 2026-11-14
- * @version 1.1
+ * @date 2026-11-17
+ * @version 1.3
+ *
+ * 版本历史:
+ * - v1.3 (2026-11-17): 扩展清理逻辑，同时移除下划线版本（xlink_type）和冒号版本（xlink:type）的 xlink 属性
+ * - v1.2 (2026-11-17): 修复 buildDmRefXml 生成的 dmRef 包含 xlink 属性导致 S1000D Schema 校验失败问题
+ * - v1.1 (2026-11-14): 完整实现 dmRef/pmRef 构建逻辑
  */
 
 import $ from 'jquery'
@@ -436,7 +441,12 @@ function extractPmRefData($pmRef) {
 }
 
 /**
- * 【v1.1完整实现】根据 refData 构建 <dmRef> XML
+ * 【v1.2修复】根据 refData 构建 <dmRef> XML
+ *
+ * 修复日期: 2026-11-17
+ * 修复问题: S1000D Schema (cvc-complex-type-3.2.2) 不允许 <dmRef> 元素携带 xlink:* 属性
+ * 修复内容: 移除 xlink:type / xlink:show / xlink:actuate 属性，并清理原始 XML 中的 xlink 属性
+ *
  * @private
  * @param {Object} refData - DM引用数据对象
  * @returns {String} dmRef XML字符串
@@ -449,8 +459,16 @@ function buildDmRefXml(refData) {
   }
 
   // 优先使用原始 dmRef XML（由 onDmRefInsert 从对话框回调直接保存）
+  // 🔑 v1.2修复：如果原始 XML 包含 xlink 属性，需要移除以符合 S1000D Schema
+  // 🔑 v1.3修复：同时清理下划线版本（xlink_type）和冒号版本（xlink:type）
   if (refData.xml) {
     return refData.xml
+      .replace(/\s+xlink:type="[^"]*"/g, '')
+      .replace(/\s+xlink:show="[^"]*"/g, '')
+      .replace(/\s+xlink:actuate="[^"]*"/g, '')
+      .replace(/\s+xlink_type="[^"]*"/g, '')
+      .replace(/\s+xlink_show="[^"]*"/g, '')
+      .replace(/\s+xlink_actuate="[^"]*"/g, '')
   }
 
   if (!refData.modelIdentCode) {
@@ -482,8 +500,9 @@ function buildDmRefXml(refData) {
     dmRefAddressItems += '\n  </dmRefAddressItems>'
   }
 
-  // 构建完整的 dmRef XML
-  return `<dmRef xlink:type="simple" xlink:show="replace" xlink:actuate="onRequest">
+  // 🔑 v1.2修复：移除 xlink:type / xlink:show / xlink:actuate 属性
+  // 构建符合 S1000D Schema (cvc-complex-type-3.2.2) 的 dmRef XML
+  return `<dmRef>
   <dmRefIdent>
     <dmCode modelIdentCode="${refData.modelIdentCode}" systemDiffCode="${refData.systemDiffCode || 'A'}" systemCode="${refData.systemCode || '00'}" subSystemCode="${refData.subSystemCode || '0'}" subSubSystemCode="${refData.subSubSystemCode || '0'}" assyCode="${refData.assyCode || '00'}" disassyCode="${refData.disassyCode || '00'}" disassyCodeVariant="${refData.disassyCodeVariant || 'A'}" infoCode="${refData.infoCode || '000'}" infoCodeVariant="${refData.infoCodeVariant || 'A'}" itemLocationCode="${refData.itemLocationCode || 'A'}"/>
     <issueInfo issueNumber="${refData.issueNumber || '000'}" inWork="${refData.inWork || '01'}"/>
@@ -500,6 +519,18 @@ function buildDmRefXml(refData) {
  * @throws {Error} refData不完整时抛出异常
  */
 function buildPmRefXml(refData) {
+  // 优先使用原始 pmRef XML（由对话框回调直接保存）
+  // 🔑 v1.3修复：如果原始 XML 包含 xlink 属性，需要移除以符合 S1000D Schema
+  if (refData.xml) {
+    return refData.xml
+      .replace(/\s+xlink:type="[^"]*"/g, '')
+      .replace(/\s+xlink:show="[^"]*"/g, '')
+      .replace(/\s+xlink:actuate="[^"]*"/g, '')
+      .replace(/\s+xlink_type="[^"]*"/g, '')
+      .replace(/\s+xlink_show="[^"]*"/g, '')
+      .replace(/\s+xlink_actuate="[^"]*"/g, '')
+  }
+
   // 数据验证
   if (!refData || !refData.modelIdentCode) {
     console.error('PM引用数据不完整:', refData)

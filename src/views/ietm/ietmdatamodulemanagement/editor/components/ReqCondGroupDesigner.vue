@@ -120,6 +120,7 @@
 
 <script>
 import { loadUEditor, getUEditorConfig } from '../utils/ueditorConfig'
+import { buildDmRefXml, buildPmRefXml } from '../utils/closeRqmtsConverter'
 import IetmDmRefDialog   from './IetmDmRefDialog'
 import IetmPmRefDialog   from './IetmPmRefDialog'
 import IetmInterrefDialog from './IetmInterrefDialog'
@@ -138,8 +139,12 @@ import IetmInterrefDialog from './IetmInterrefDialog'
  *   - 保存时父组件调用 getSaveXml() 拿到 XML 字符串
  *
  * @author IETM Team
- * @date   2026-11-15
- * @version 2.0
+ * @date   2026-11-17
+ * @version 2.1
+ *
+ * 版本历史:
+ * - v2.1 (2026-11-17): 修复 dmRef/pmRef 引用生成时直接使用 refData.xml 导致 xlink 属性未清理问题
+ * - v2.0 (2026-11-15): 完整实现必要条件设计器
  */
 export default {
   name: 'ReqCondGroupDesigner',
@@ -302,11 +307,13 @@ export default {
             xml += `<reqCondNoRef><reqCond${idAttr}>${condContent}</reqCond></reqCondNoRef>`
           } else if (cond.condtype === 2) {
             xml += `<reqCondDm><reqCond${idAttr}>${condContent}</reqCond>`
-            if (cond.refData && cond.refData.xml) xml += cond.refData.xml
+            // v1.1修复：始终调用 buildDmRefXml 确保清理 xlink 属性
+            if (cond.refData) xml += buildDmRefXml(cond.refData)
             xml += `</reqCondDm>`
           } else if (cond.condtype === 3) {
             xml += `<reqCondPm><reqCond${idAttr}>${condContent}</reqCond>`
-            if (cond.refData && cond.refData.xml) xml += cond.refData.xml
+            // v1.1修复：始终调用 buildPmRefXml 确保清理 xlink 属性
+            if (cond.refData) xml += buildPmRefXml(cond.refData)
             xml += `</reqCondPm>`
           } else if (cond.condtype === 4) {
             xml += `<reqCondExternalPub><reqCond${idAttr}>${condContent}</reqCond></reqCondExternalPub>`
