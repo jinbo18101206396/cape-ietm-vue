@@ -140,6 +140,12 @@ export default {
     this.loadContent()
   },
 
+  watch: {
+    lineno(newVal) {
+      if (newVal != null && newVal >= 0) this.loadContent()
+    }
+  },
+
   beforeDestroy() {
     // 清理资源，防止内存泄漏
     this.graphics = []
@@ -184,7 +190,7 @@ export default {
     },
 
     async loadContent() {
-      if (!this.editor || this.lineno === null) return
+      if (!this.editor || this.lineno == null || this.lineno < 0) return
 
       try {
         let figureXml = this.editor.getLine(this.lineno)
@@ -710,7 +716,7 @@ export default {
 
       // 左侧：图形和图例tabs（西区，与旧系统一致）
       .left-tabs {
-        flex: 0 0 680px;
+        flex: 0 0 540px;
         border-right: 1px solid #d9d9d9;
         display: flex;
         flex-direction: column;

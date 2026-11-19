@@ -149,6 +149,19 @@
                   :node-list="nodeList"
                   @save="onMainProcedureSave"
                 />
+                <!-- IllustratedPartsCatalog设计器 -->
+                <IllustratedPartsCatalogDesigner
+                  v-else-if="ipcDesignerVisible"
+                  :key="ipcDesignerVisible ? String(ipcLineno) : 'hidden'"
+                  :lineno="ipcLineno"
+                  :editor="$refs.editor ? $refs.editor.getEditor() : null"
+                  :locale="locale"
+                  :cmnodeid="id"
+                  :ifedit="readonly ? '0' : '1'"
+                  save="1"
+                  :ietmstandard="ietmStandard"
+                  @save="onIpcSave"
+                />
                 <!-- 空状态提示 -->
                 <div v-else class="design-placeholder">
                   <a-icon type="file-text" class="dp-icon"/>
@@ -319,6 +332,7 @@ import LevelledParaDesigner from './components/LevelledParaDesigner'
 import CloseRqmtsDesigner from './components/CloseRqmtsDesigner'
 import PreliminaryRqmtsDesigner from './components/PreliminaryRqmtsDesigner'
 import MainProcedureDesigner from './components/MainProcedureDesigner'
+import IllustratedPartsCatalogDesigner from './components/IllustratedPartsCatalogDesigner'
 import { getTreeNodesfromXml, buildCnNodeList, extractRootContent, getnodeBylineno, formatXml } from './utils/xmlTree'
 import { toEnXml, toCnXml } from './utils/enCnConvert'
 import { getDmcByLineno } from './utils/refsBuilder'
@@ -347,7 +361,8 @@ export default {
     LevelledParaDesigner,
     CloseRqmtsDesigner,
     PreliminaryRqmtsDesigner,
-    MainProcedureDesigner
+    MainProcedureDesigner,
+    IllustratedPartsCatalogDesigner
   },
   data() {
     return {
@@ -412,7 +427,10 @@ export default {
       preliminaryRqmtsLineno: 0,
       // MainProcedure设计器相关
       mainProcedureDesignerVisible: false,
-      mainProcedureLineno: 0
+      mainProcedureLineno: 0,
+      // IllustratedPartsCatalog设计器相关
+      ipcDesignerVisible: false,
+      ipcLineno: 0
     }
   },
   computed: {
@@ -456,6 +474,8 @@ export default {
           this.tableDesignerVisible = false
           this.closeRqmtsDesignerVisible = false
           this.preliminaryRqmtsDesignerVisible = false
+          this.mainProcedureDesignerVisible = false
+          this.ipcDesignerVisible = false
           this.viewMode = 'source'
 
           // 更新组件数据
@@ -659,6 +679,10 @@ export default {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
         this._openMainProcedureDesigner(editorLine)
+      } else if (elemName === 'illustratedPartsCatalog') {
+        const linenoOffset = this.$refs.editor.getLinenoOffset()
+        const editorLine = node.attributes.lineno + linenoOffset - 2
+        this._openIpcDesigner(editorLine)
       } else if (elemName === 'figure') {
         const linenoOffset = this.$refs.editor.getLinenoOffset()
         const editorLine = node.attributes.lineno + linenoOffset - 2
@@ -701,6 +725,8 @@ export default {
         this._openPreliminaryRqmtsDesigner(line)
       } else if (enElemName === 'mainProcedure') {
         this._openMainProcedureDesigner(line)
+      } else if (enElemName === 'illustratedPartsCatalog') {
+        this._openIpcDesigner(line)
       } else if (enElemName === 'figure') {
         this._openFigureDesigner(line)
       } else if (enElemName === 'multimedia') {
@@ -952,11 +978,34 @@ export default {
       this.levelledParaDesignerVisible = false
       this.closeRqmtsDesignerVisible = false
       this.preliminaryRqmtsDesignerVisible = false
-      this.mainProcedureDesignerVisible = false
+      this.ipcDesignerVisible = false
 
       // 强制销毁旧组件，创建新实例
       this.$nextTick(() => {
         this.mainProcedureDesignerVisible = true
+      })
+
+      // 进入设计视图时自动隐藏左侧导航树和属性面板
+      this.treeVisible = false
+      this.attrVisible = false
+    },
+    _openIpcDesigner(lineno) {
+      this.viewMode = 'design'
+      this.ipcLineno = lineno
+
+      // 关闭所有其他设计器
+      this.paraDesignerVisible = false
+      this.figureDesignerVisible = false
+      this.multimediaDesignerVisible = false
+      this.tableDesignerVisible = false
+      this.levelledParaDesignerVisible = false
+      this.closeRqmtsDesignerVisible = false
+      this.preliminaryRqmtsDesignerVisible = false
+      this.mainProcedureDesignerVisible = false
+
+      // 强制销毁旧组件，创建新实例
+      this.$nextTick(() => {
+        this.ipcDesignerVisible = true
       })
 
       // 进入设计视图时自动隐藏左侧导航树和属性面板
@@ -1163,6 +1212,26 @@ export default {
 
       // 使用公共方法清理样式并刷新布局
       this._cleanupDesignViewAndRefreshLayout('MainProcedure')
+
+      // 刷新树（数据可能变化）
+      this.$nextTick(() => {
+        this.refreshTree()
+      })
+    },
+    async onIpcSave() {
+      this.dirty = true
+      await this.doSave()
+
+      // 保存成功后，自动切换回源码视图
+      this.viewMode = 'source'
+      this.ipcDesignerVisible = false
+      this.treeVisible = true
+      if (!this.readonly) {
+        this.attrVisible = true
+      }
+
+      // 使用公共方法清理样式并刷新布局
+      this._cleanupDesignViewAndRefreshLayout('IllustratedPartsCatalog')
 
       // 刷新树（数据可能变化）
       this.$nextTick(() => {
@@ -1464,6 +1533,7 @@ export default {
       if (key === 'source') {
         // 切换到源码视图：关闭Para设计器，恢复左侧导航树显示
         this.paraDesignerVisible = false
+        this.ipcDesignerVisible = false
         this.treeVisible = true
         // 属性面板在编辑模式下显示，浏览模式下保持隐藏
         if (!this.readonly) {

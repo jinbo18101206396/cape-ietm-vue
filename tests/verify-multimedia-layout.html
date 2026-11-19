@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多媒体布局验证</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    .test-container {
+      border: 2px solid #1890ff;
+      height: 600px;
+      display: flex;
+      flex-direction: column;
+    }
+    .tabs {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .tabs-content {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    .tabs-tabpane {
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      visibility: hidden;
+    }
+    .tabs-tabpane-active {
+      visibility: visible;
+      position: relative;
+    }
+
+    /* 修复前的样式 */
+    .multimedia-designer-old {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      background-color: #f5f5f5;
+    }
+
+    /* 修复后的样式 */
+    .multimedia-designer-new {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      background-color: #f5f5f5;
+      overflow: hidden;
+    }
+
+    .multimedia-toolbar {
+      background: white;
+      border: 1px solid #d9d9d9;
+      padding: 10px;
+      flex-shrink: 0;
+    }
+
+    .multimedia-main-old {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .multimedia-main-new {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .main-layout-old {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      gap: 10px;
+    }
+
+    .main-layout-new {
+      display: flex;
+      height: 100%;
+      min-height: 0;
+      gap: 10px;
+    }
+
+    .left-panel, .right-panel {
+      flex: 1;
+      background: white;
+      border: 1px solid #d9d9d9;
+      padding: 10px;
+    }
+
+    .comparison {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .version {
+      flex: 1;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #1890ff;
+    }
+
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+
+    .status.error {
+      background: #fff2f0;
+      border: 1px solid #ffccc7;
+      color: #cf1322;
+    }
+
+    .status.success {
+      background: #f6ffed;
+      border: 1px solid #b7eb8f;
+      color: #389e0d;
+    }
+  </style>
+</head>
+<body>
+  <h1>多媒体模块布局修复验证</h1>
+
+  <div class="comparison">
+    <div class="version">
+      <h2>❌ 修复前（错误布局）</h2>
+      <div class="status error">
+        问题：工具栏和主内容区域显示在底部，flex: 1 无法在 position: relative 父容器中正确工作
+      </div>
+      <div class="test-container">
+        <div class="tabs">
+          <div class="tabs-content">
+            <div class="tabs-tabpane tabs-tabpane-active">
+              <div class="multimedia-designer-old">
+                <div class="multimedia-toolbar">
+                  🛠️ 工具栏（标题、ID、保存按钮）
+                </div>
+                <div class="multimedia-main-old">
+                  <div class="main-layout-old">
+                    <div class="left-panel">📄 左侧：多媒体对象列表</div>
+                    <div class="right-panel">👁️ 右侧：预览区域</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="version">
+      <h2>✅ 修复后（正确布局）</h2>
+      <div class="status success">
+        修复：使用 height: 100% 替代 flex: 1，确保在 position: relative 父容器中正确填充
+      </div>
+      <div class="test-container">
+        <div class="tabs">
+          <div class="tabs-content">
+            <div class="tabs-tabpane tabs-tabpane-active">
+              <div class="multimedia-designer-new">
+                <div class="multimedia-toolbar">
+                  🛠️ 工具栏（标题、ID、保存按钮）
+                </div>
+                <div class="multimedia-main-new">
+                  <div class="main-layout-new">
+                    <div class="left-panel">📄 左侧：多媒体对象列表</div>
+                    <div class="right-panel">👁️ 右侧：预览区域</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>🔍 问题根因分析</h2>
+  <ol>
+    <li><strong>父容器约束：</strong>IllustratedPartsCatalogDesigner 的 .ant-tabs-tabpane 设置了 <code>position: absolute</code>，激活时切换为 <code>position: relative</code></li>
+    <li><strong>Flex 计算失败：</strong>MultimediaDesigner 使用 <code>flex: 1</code> 在 <code>position: relative</code> 父容器中无法正确计算高度</li>
+    <li><strong>内容溢出：</strong>没有明确高度约束，导致工具栏和主内容被推到可视区域之外</li>
+  </ol>
+
+  <h2>✨ 修复方案</h2>
+  <ul>
+    <li><code>.multimedia-designer</code>：将 <code>flex: 1</code> 改为 <code>height: 100%</code>，添加 <code>overflow: hidden</code></li>
+    <li><code>.multimedia-main</code>：添加 <code>display: flex; flex-direction: column;</code> 确保子元素垂直布局</li>
+    <li><code>.main-layout</code>：将 <code>flex: 1</code> 改为 <code>height: 100%</code> 确保填充可用空间</li>
+  </ul>
+</body>
+</html>

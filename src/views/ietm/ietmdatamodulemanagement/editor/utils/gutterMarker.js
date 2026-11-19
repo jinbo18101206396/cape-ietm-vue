@@ -121,8 +121,8 @@ export function canShowDesignMarker(elemName, node, nodeList = []) {
     return false
   }
 
-  // 2. 支持para、levelledPara、table、figure、multimedia、closeRqmts、preliminaryRqmts和mainProcedure元素
-  if (!['para', 'levelledPara', 'table', 'figure', 'multimedia', 'closeRqmts', 'preliminaryRqmts', 'mainProcedure'].includes(elemName)) {
+  // 2. 支持para、levelledPara、table、figure、multimedia、closeRqmts、preliminaryRqmts、mainProcedure和illustratedPartsCatalog元素
+  if (!['para', 'levelledPara', 'table', 'figure', 'multimedia', 'closeRqmts', 'preliminaryRqmts', 'mainProcedure', 'illustratedPartsCatalog'].includes(elemName)) {
     return false
   }
 

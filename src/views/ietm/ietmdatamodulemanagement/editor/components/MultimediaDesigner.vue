@@ -160,6 +160,12 @@ export default {
     this.loadContent()
   },
 
+  watch: {
+    lineno(newVal) {
+      if (newVal != null && newVal >= 0) this.loadContent()
+    }
+  },
+
   beforeDestroy() {
     // 清理资源，防止内存泄漏
     this.multimediaObjects = []
@@ -202,7 +208,7 @@ export default {
     },
 
     async loadContent() {
-      if (!this.editor || this.lineno === null) return
+      if (!this.editor || this.lineno == null || this.lineno < 0) return
 
       try {
         let multimediaXml = this.editor.getLine(this.lineno)
@@ -654,7 +660,8 @@ export default {
 .multimedia-designer {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   background-color: #f5f5f5;
 }
 
@@ -719,12 +726,15 @@ export default {
 
 .multimedia-main {
   flex: 1;
-  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .main-layout {
   display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   gap: 10px;
 }
 

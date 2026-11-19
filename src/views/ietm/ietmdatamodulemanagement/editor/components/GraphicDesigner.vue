@@ -20,7 +20,6 @@
         <a-button size="small" icon="delete" @click="handleDeleteHotspot" :disabled="readonly || selectedHotspotIndex === -1" title="删除">删除</a-button>
         <a-button size="small" icon="arrow-up" @click="handleMoveHotspotUp" :disabled="readonly || selectedHotspotIndex <= 0" title="上移">上移</a-button>
         <a-button size="small" icon="arrow-down" @click="handleMoveHotspotDown" :disabled="readonly || selectedHotspotIndex === -1 || selectedHotspotIndex >= currentHotspots.length - 1" title="下移">下移</a-button>
-        <a-button size="small" icon="download" @click="handleImportHotspots" :disabled="readonly || selectedGraphicIndex === -1" title="导入图形中包含的热点">导入</a-button>
         <a-button size="small" icon="save" @click="handleSaveHotspot" :disabled="readonly" title="保存">保存</a-button>
       </div>
       <a-table :columns="hotspotColumns" :data-source="currentHotspots" :pagination="false" :row-key="(record, index) => index" size="small" :customRow="customHotspotRow" :scroll="{ y: '200px' }" class="hotspot-table">
@@ -236,10 +235,10 @@ export default {
       border-bottom: 1px solid #e8e8e8;
 
       .ant-btn {
-        font-size: 14px;
-        height: 32px;
-        line-height: 32px;
-        padding: 0 12px;
+        font-size: 12px;
+        height: 24px;
+        line-height: 24px;
+        padding: 0 8px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -294,10 +293,10 @@ export default {
       }
 
       .ant-btn {
-        font-size: 14px;
-        height: 32px;
-        line-height: 32px;
-        padding: 0 12px;
+        font-size: 12px;
+        height: 24px;
+        line-height: 24px;
+        padding: 0 8px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
