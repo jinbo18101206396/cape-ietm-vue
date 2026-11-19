@@ -365,6 +365,18 @@ export default {
             margin: 20px auto !important;
           }
 
+          /* 🔧 2026-11-19修复P0：移除图片容器table的边框（问题1） */
+          /* XSLT生成 <table style="display:inline"><tr><td><img/></td></tr></table> 包裹图片 */
+          /* 移除边框，让图片直接显示，不被框住 */
+          table[style*="display: inline"] {
+            border: none !important;
+            border-collapse: collapse !important;
+          }
+          table[style*="display: inline"] td {
+            border: none !important;
+            padding: 0 !important;
+          }
+
           /* 警告、注意、注等模块之间的间距 */
           .wcBorderSpacing {
             margin-bottom: 16px !important;
@@ -411,6 +423,23 @@ export default {
             try {
               const iframeDoc = iframe.contentDocument || iframe.contentWindow.document
               const iframeWin = iframe.contentWindow
+
+              // 🔧 2026-11-19 修复：零部件表头与设计视图保持一致
+              // XSLT 表头已在后端更新，此处作为安全网：确保显示名称与设计视图对齐
+              // 列顺序：目录号/条目顺序码/数量/厂商码/部件码/层级/名称/单位（已删除"序号"列）
+              const ipcThMap = {
+                ipcTableTH1: '目录号',
+                ipcTableTH2: '条目顺序码',
+                ipcTableTH3: '数量',
+                ipcTableTH4: '厂商码',
+                ipcTableTH5: '部件码',
+                ipcTableTH6: '层级',
+                ipcTableTH7: '名称',
+                ipcTableTH8: '单位'
+              }
+              Object.entries(ipcThMap).forEach(([cls, label]) => {
+                iframeDoc.querySelectorAll('th.' + cls).forEach(th => { th.textContent = label })
+              })
 
               // 🔧 2026-11-15 问题1修复：处理"准备工作"标题居中对齐
               const allElems = iframeDoc.querySelectorAll('.prelreqTitle')
@@ -476,52 +505,42 @@ export default {
               // 渲染热点SVG叠加层
               this.renderHotspotOverlays(iframeDoc, iframeWin)
 
+              // 🔧 2026-11-19 修复P0：调整图注顺序（问题2）
+              // 问题：XSLT生成的HTML中，图注的<div>容器在图片的<div class="ipcFigure">之前
+              // 解决：找到所有<center>容器，将图注容器移到图片容器之后
+
+              // 🔍 DEBUG: 打印修改前的center结构
+              const centerBefore = iframeDoc.querySelector('center')
+              if (centerBefore) {
+                console.log('🔍 [修改前] center子元素数量:', centerBefore.children.length)
+                Array.from(centerBefore.children).forEach((child, idx) => {
+                  console.log(`  ${idx}: ${child.tagName}.${child.className} - ${child.textContent.substring(0, 50).replace(/\s+/g, ' ')}`)
+                })
+              }
+
+              this.fixLegendOrder(iframeDoc)
+
+              // 🔧 2026-11-19 修复P0：移除图注表格末尾空列（问题4）
+              // XSLT的T_LegendNote模板每行固定8列(4对)，条目不足4个时填充空td
+              // 解决：遍历每行，从末尾删除连续的空td对
+              this.fixLegendTableEmptyCells(iframeDoc)
+
               // 🔧 2026-11-09 修复：后端XSLT硬编码的序号格式不正确
               // 问题：后端使用 <span class="seqItem"> 硬编码序号，格式为 (1) → a. → (a)
               // 解决：用JavaScript替换为正确的格式 1. → 1) → (1)
               this.fixSequentialListNumbers(iframeDoc)
 
-              // 🔧 2026-11-03 修复P1：先替换多媒体占位图标（必须在ICN加载前执行）
-              // 修复旧服务器相对路径图标（avicit/ietm/viewer/images/）
-              // 这些路径来自 multimedia.xsl，在 blob: URL 下无法解析
-              // 用内联 SVG 占位图替换，同时保留 cursor:pointer 样式让图标可点击
-              const MEDIA_ICONS = {
-                'audio':  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" rx="8" fill="%23e6f4ff" stroke="%234096ff" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="24">🎵</text></svg>',
-                'video':  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" rx="8" fill="%23e6f4ff" stroke="%234096ff" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="24">🎬</text></svg>',
-                'flash':  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" rx="8" fill="%23fff7e6" stroke="%23fa8c16" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="24">⚡</text></svg>',
-                '3d':     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" rx="8" fill="%23f6ffed" stroke="%2352c41a" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="24">🧊</text></svg>'
-              }
-              // 查找所有图片，通过 src 属性判断是否为多媒体占位图标
+              // 🔧 2026-11-19 修复：XSLT直接输出内联SVG data URI + class="multimedia-placeholder"
+              // 旧方案：检测 avicit/ 路径再替换（已废弃，avicit/ 是旧系统路径）
+              // 新方案：XSLT层输出的占位图已经是正确的内联SVG，无需替换
+              //         只需确保 onclick 指向 showMultimediaInfo，图标直接可见
               const allImages = iframeDoc.querySelectorAll('img')
               console.log('🔍 iframe中共有', allImages.length, '个图片')
-              allImages.forEach((img, idx) => {
-                console.log(`  图片${idx}: src="${img.src.substring(0, 80)}", id="${img.id}", onclick="${img.getAttribute('onclick')}"`)
-              })
 
-              let replacedCount = 0
-              allImages.forEach(img => {
-                const src = img.getAttribute('src') || ''
-                // 匹配 avicit/ 开头或包含 .gif 的多媒体图标
-                if (src.includes('avicit/') || src.includes('audio.gif') || src.includes('video.gif') || src.includes('3d.gif') || src.includes('flash.gif')) {
-                  const type = Object.keys(MEDIA_ICONS).find(t => src.includes(t + '.gif'))
-                  if (type) {
-                    img.src = MEDIA_ICONS[type]
-                    replacedCount++
-                  }
-                }
-              })
-              console.log('🎨 替换了', replacedCount, '个多媒体占位图标')
-
-              // 🔧 2026-10-16 修复：区分公式和图符的处理方式
-              // - 公式：需要 fetch 获取 HTML，提取 base64 图片
-              // - 图符：直接设置 img.src，让浏览器自动加载
-              // 🔧 2026-11-02 修复P0：兼容旧XSLT（未生成data-icn-code属性的情况）
-              // 选择器：优先使用 data-icn-code，降级到 boardno 属性
               // 🔧 2026-11-04 修复P0：区分<graphic>图片和<multimediaObject>占位图标
-              // 问题：之前逻辑认为"所有带onclick的都是多媒体占位图标"，但<graphic>也有onclick
-              // 正确区分：
-              //   - <graphic>生成的图片：class="figureLinkGraphic"，src="ShowSmallImage"，需要加载真实图片
-              //   - <multimediaObject>占位图标：src包含".gif"或"avicit/"，已经是占位图标，不需要加载
+              // 新方案：multimedia.xsl 给占位符打了 class="multimedia-placeholder"
+              //   - 有该 class → 多媒体占位，不加载 ICN，保持 SVG 图标即可
+              //   - 无该 class → 真实图片，需要加载 ICN
               const allIcnImages = iframeDoc.querySelectorAll('img[data-icn-code], img.figureLinkGraphic[boardno]')
               console.log('🔍 选择器匹配到', allIcnImages.length, '个图片')
 
@@ -537,34 +556,14 @@ export default {
               })
 
               const icnImages = Array.from(allIcnImages).filter(img => {
-                // 🔧 2026-11-06 修复：XSLT为symbol设置的占位SVG也是data:image/svg+xml，
-                // 但同时打了data-need-load="true"标记，必须保留以触发真实ICN加载
+                // data-need-load="true" 强制加载（symbol 占位符）
                 if (img.getAttribute('data-need-load') === 'true') return true
 
-                const src = img.getAttribute('src') || ''
+                // multimedia-placeholder class 表示多媒体占位图标（XSLT直接输出的内联SVG）
+                // 这类图片不需要加载ICN，保持SVG图标即可
+                if (img.classList.contains('multimedia-placeholder')) return false
 
-                // 🔧 2026-11-04 修复：排除所有多媒体类型，只保留真实图片
-                // 🔧 2026-11-12 修复：精确识别占位图标SVG，不排除真实SVG内容
-                // 多媒体类型：
-                // 1. 占位图标：.gif、avicit/路径
-                // 2. 3D模型：data:model/gltf-binary、data:model/gltf+json
-                // 3. 视频/音频：data:video/、data:audio/
-                // 4. SVG占位图标：仅识别包含emoji的占位图标（🎵🎬⚡🧊），不排除真实SVG图片
-                const isPlaceholderSvg = src.includes('data:image/svg+xml') &&
-                  (src.includes('🎵') || src.includes('🎬') || src.includes('⚡') || src.includes('🧊'))
-
-                const isMultimedia =
-                  src.includes('.gif') ||
-                  src.includes('avicit/') ||
-                  src.includes('data:model/') ||
-                  src.includes('data:video/') ||
-                  src.includes('data:audio/') ||
-                  isPlaceholderSvg
-
-                const keep = !isMultimedia
-
-                console.log(`  过滤图片 src="${src.substring(0, 50)}...": isMultimedia=${isMultimedia}, keep=${keep}`)
-                return keep
+                return true
               })
               console.log('🔍 找到', icnImages.length, '个需要加载的ICN（已排除', allIcnImages.length - icnImages.length, '个多媒体占位图标）')
 
@@ -1274,6 +1273,103 @@ export default {
         svg.appendChild(shape)
       } catch (error) {
         console.error('❌ 渲染热点失败:', error)
+      }
+    },
+
+    /**
+     * 移除图注表格末尾的空列对
+     * 根因：XSLT T_LegendNote 每行固定 8 列（4 对 term+definition），
+     * 当条目数少于 4 个时，剩余位置填充空 <td>
+     * 修复：从行尾向前逐对检测，遇到连续空 td 对则删除
+     *
+     * @param {Document} doc - iframe 文档对象
+     */
+    fixLegendTableEmptyCells(doc) {
+      try {
+        const legendTables = doc.querySelectorAll('table.tableBorders')
+        legendTables.forEach(table => {
+          table.querySelectorAll('tr').forEach(row => {
+            const cells = Array.from(row.querySelectorAll('td'))
+            if (cells.length < 2) return
+            // 从末尾向前删除连续空对（每对 = term td + definition td）
+            let i = cells.length - 1
+            while (i >= 1) {
+              const defCell = cells[i]
+              const termCell = cells[i - 1]
+              const bothEmpty = !termCell.textContent.trim() && !defCell.textContent.trim()
+              if (bothEmpty) {
+                row.removeChild(defCell)
+                row.removeChild(termCell)
+                i -= 2
+              } else {
+                break
+              }
+            }
+          })
+        })
+      } catch (error) {
+        console.error('❌ 修复图注空列失败:', error)
+      }
+    },
+
+    /**
+     *
+     * 问题：IPD的XSLT生成顺序：图注 → 图片 → 图形标题
+     * 正确顺序应该是：图片 → 图形标题 → 图注
+     *
+     * @param {Document} doc - iframe文档对象
+     */
+    fixLegendOrder(doc) {
+      try {
+        // 找到所有<center>容器
+        const centers = doc.querySelectorAll('center')
+
+        centers.forEach(center => {
+          // 查找三个关键元素
+          const legendContainer = Array.from(center.children).find(child => {
+            return child.textContent.includes('图注：') &&
+                   child.querySelector('table.tableBorders')
+          })
+
+          const figureContainer = Array.from(center.children).find(child => {
+            return child.classList.contains('ipcFigure') ||
+                   child.querySelector('img.figureLinkGraphic')
+          })
+
+          const titleContainer = Array.from(center.children).find(child => {
+            return child.classList.contains('ipcFigureTitle')
+          })
+
+          // 如果三个元素都存在，调整为正确顺序：图片 → 标题 → 图注
+          if (legendContainer && figureContainer && titleContainer) {
+            // 先确保图片在最前
+            center.insertBefore(figureContainer, center.firstChild)
+
+            // 然后插入标题（在图片之后）
+            center.insertBefore(titleContainer, figureContainer.nextSibling)
+
+            // 最后插入图注（在标题之后）
+            center.insertBefore(legendContainer, titleContainer.nextSibling)
+
+            console.log('✅ 已调整顺序：图片 → 标题 → 图注')
+          } else if (legendContainer && figureContainer) {
+            // 只有图注和图片（没有标题），调整为：图片 → 图注
+            const legendIndex = Array.from(center.children).indexOf(legendContainer)
+            const figureIndex = Array.from(center.children).indexOf(figureContainer)
+
+            if (legendIndex < figureIndex) {
+              const figureNext = figureContainer.nextElementSibling
+              if (figureNext) {
+                center.insertBefore(legendContainer, figureNext)
+              } else {
+                center.appendChild(legendContainer)
+              }
+              console.log('✅ 已调整图注顺序：图片 → 图注')
+            }
+          }
+        })
+      } catch (error) {
+        console.error('❌ 修复图注顺序失败:', error)
       }
     }
   },
