@@ -399,6 +399,19 @@ export default {
             text-align: center !important;
             font-weight: bold !important;
           }
+
+          /* 🔧 2026-11-19 修复：步骤表格不应有边框
+             steps.xsl 用两列 table 排版步骤编号与内容，
+             但 main.css 给所有 table 加了 1px 黑框，步骤行显示为带边框的框格 */
+          .stepArea table {
+            border: none !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+          }
+          .stepArea table td {
+            border: none !important;
+            padding: 2px 4px !important;
+          }
         </style>
       `
 

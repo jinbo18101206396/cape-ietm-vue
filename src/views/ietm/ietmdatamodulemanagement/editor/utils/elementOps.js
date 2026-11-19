@@ -25,14 +25,26 @@ export function calculateIndent(parentNode, nodeList) {
 }
 
 /**
+ * 已知含「必须 choice 子元素」的元素：空模板会不通过 XSD 校验。
+ * 格式：{ 元素名: 默认子元素名 }
+ * 只列举 process.xsd 中确认的场景；未来可按需扩充。
+ */
+const REQUIRED_CHOICE_CHILD = {
+  dmNode: 'proceduralStep',
+  dmSeq: 'dmNode'
+}
+
+/**
  * 生成元素的XML片段
  * @param {String} elemName - 元素名（英文）
  * @param {Object} schema - schema定义
  * @param {String} indent - 缩进字符串
+ * @param {Number} [_depth=0] - 递归深度（内部参数，防止无限递归）
  * @returns {String} XML片段
  */
-export function generateXmlSnippet(elemName, schema, indent) {
-  const elemDef = schema[elemName]
+export function generateXmlSnippet(elemName, schema, indent, _depth = 0) {
+  const MAX_DEPTH = 4
+  const elemDef = schema ? schema[elemName] : null
 
   // 判断是否为文本类元素（mixed content model 或 xs:string）
   const isTextElem = elemDef && (elemDef.mixed === 'true' || elemDef.datatype === 'string')
@@ -49,10 +61,37 @@ export function generateXmlSnippet(elemName, schema, indent) {
   } else if (isTextElem) {
     // 文本元素：para必须分行显示
     return `${indent}<${elemName}>\n${indent}</${elemName}>`
-  } else {
-    // 容器元素：换行闭合
-    return `${indent}<${elemName}>\n${indent}</${elemName}>`
   }
+
+  // 容器元素：尝试自动填入必须子元素（防止生成的 XML 在 XSD 校验时报"content not complete"）
+  if (_depth < MAX_DEPTH && elemDef && elemDef.children && elemDef.setelem) {
+    const childIndent = indent + '  '
+    const setelem = elemDef.setelem
+
+    // 1. schema 驱动：非 choice 且 minOccurs >= 1 的必须子元素
+    const requiredSeqChildren = elemDef.children.filter(c => {
+      const occ = setelem[c]
+      return occ && Number(occ.minocc) >= 1 && occ.ifchoice !== 'true'
+    })
+
+    // 2. 已知含必须 choice 的元素：补充一个默认 choice 子元素
+    //    （XSD choice group 的 minOccurs 无法从现有 setelem 结构推断，用查找表兜底）
+    const requiredChoiceChild = (!requiredSeqChildren.length && REQUIRED_CHOICE_CHILD[elemName])
+      ? [REQUIRED_CHOICE_CHILD[elemName]]
+      : []
+
+    const allRequired = [...requiredSeqChildren, ...requiredChoiceChild]
+
+    if (allRequired.length > 0) {
+      const childSnippets = allRequired.map(c =>
+        generateXmlSnippet(c, schema, childIndent, _depth + 1)
+      )
+      return `${indent}<${elemName}>\n${childSnippets.join('\n')}\n${indent}</${elemName}>`
+    }
+  }
+
+  // 默认：空容器
+  return `${indent}<${elemName}>\n${indent}</${elemName}>`
 }
 
 /**
@@ -106,9 +145,11 @@ export function expandSelfClosingTag(node, editor, linenoOffset) {
  * @param {Number} linenoOffset - dmodule 起始行偏移
  * @param {Number} depth - 递归深度（内部参数）
  * @param {Object} editor - CodeMirror实例（用于自闭合标签展开）
+ * @param {String} [elemName] - 待插入元素名（sibling 模式下用于 XSD 顺序感知）
+ * @param {Object} [schema] - schema 定义（sibling 模式下用于 XSD 顺序感知）
  * @returns {Number} 插入位置行号（0-based）
  */
-export function calculateInsertLine(node, appendType, nodeList, linenoOffset, depth = 0, editor = null) {
+export function calculateInsertLine(node, appendType, nodeList, linenoOffset, depth = 0, editor = null, elemName = null, schema = null) {
   // 防止递归过深
   if (depth > 50) {
     console.warn('[calculateInsertLine] 递归深度过大，可能存在数据异常')
@@ -135,9 +176,42 @@ export function calculateInsertLine(node, appendType, nodeList, linenoOffset, de
     // 插入为子元素：在开始标签的下一行（0-based）
     return displayLine + 1
   } else {
-    // 插入为同级元素：在该元素【自身闭合标签】之后（0-based）
-    // 修复：旧逻辑递归找最后子元素，会把同级元素错误插入到当前元素内部。
-    // 正确做法：找到 node 自身结束行（自闭合行 or </node> 行），插入到其后。
+    // 插入为同级元素：
+    // 【XSD 顺序感知】若传入了 elemName 和 schema，按父元素的 schema.children 有序数组
+    // 找到正确的插入位置，避免违反 XSD sequence 约束（如 closeRqmts 必须在 dmSeq 之后）。
+    if (elemName && schema && nodeList) {
+      const parent = nodeList.find(n => n.id === node.pid)
+      if (parent) {
+        const parentDef = schema[parent.text]
+        if (parentDef && Array.isArray(parentDef.children) && parentDef.children.length > 0) {
+          const xsdChildren = parentDef.children  // XSD sequence 顺序
+          const newElemIdx = xsdChildren.indexOf(elemName)
+          if (newElemIdx >= 0) {
+            // 找出所有已存在的兄弟节点中，XSD 位置 <= newElemIdx 且最靠后的那个。
+            // 使用 <= 而不是 <：同类可重复元素（如 reqCondGroup+）需要插在最后一个同类之后，
+            // 而不是插到父元素开头（< 会找不到前驱，误用 parentStartLine+1 降级）。
+            const siblings = nodeList.filter(n => n.pid === parent.id)
+            let insertAfterNode = null
+            let insertAfterXsdIdx = -1
+            for (const sib of siblings) {
+              const sibXsdIdx = xsdChildren.indexOf(sib.text)
+              if (sibXsdIdx >= 0 && sibXsdIdx <= newElemIdx && sibXsdIdx > insertAfterXsdIdx) {
+                insertAfterXsdIdx = sibXsdIdx
+                insertAfterNode = sib
+              }
+            }
+            if (insertAfterNode) {
+              return findElementEndLine(insertAfterNode, editor, linenoOffset) + 1
+            }
+            // 没有任何兄弟应在新元素之前或同位：插到父元素开始标签的下一行
+            const parentStartLine = parent.attributes.lineno + linenoOffset - 2
+            return parentStartLine + 1
+          }
+        }
+      }
+    }
+
+    // 降级：在该元素【自身闭合标签】之后（0-based）
     const endLine = findElementEndLine(node, editor, linenoOffset)
     return endLine + 1
   }

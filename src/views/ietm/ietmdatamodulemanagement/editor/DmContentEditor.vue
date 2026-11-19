@@ -2352,7 +2352,7 @@ export default {
         // 避免停在"仅撤销了格式化、元素仍在"的缩进畸形中间态。（CM5 runInOp 重入性保证 setValue 复用外层 op）
         editor.operation(() => {
           // 计算插入位置（传入editor以支持自闭合标签展开）
-          const insertLine = calculateInsertLine(parentNode, appendType, this.nodeList, linenoOffset, 0, editor)
+          const insertLine = calculateInsertLine(parentNode, appendType, this.nodeList, linenoOffset, 0, editor, elemName, this.schema)
           // 插入XML
           editor.replaceRange(snippet + '\n', { line: insertLine, ch: 0 })
           // 标记未保存
